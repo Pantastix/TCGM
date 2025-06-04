@@ -10,6 +10,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.composeHotReload)
+    alias(libs.plugins.sqldelight)
 }
 
 kotlin {
@@ -119,6 +120,15 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "de.pantastix.project"
             packageVersion = "1.0.0"
+        }
+    }
+}
+
+
+sqldelight {
+    databases {
+        create("AppDatabase") { // Oder "Database", wie im Doku-Snippet, oder "CardDatabase", wie wir es vorher hatten
+            packageName.set("de.pantastix.SIMON.CardDatabase") // Passe dies an dein gewünschtes Paket an, z.B. "com.example" wie im Doku-Snippet
         }
     }
 }
