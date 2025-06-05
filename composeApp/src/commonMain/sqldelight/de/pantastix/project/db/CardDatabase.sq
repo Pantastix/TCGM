@@ -1,0 +1,12 @@
+CREATE TABLE PokemonCardEntity (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    setName TEXT NOT NULL,
+    cardNumber TEXT,
+    language TEXT,
+    cardMarketLink TEXT,
+    currentPrice REAL,
+    lastPriceUpdate TEXT,
+    imagePath TEXT,
+    ownedCopies INTEGER NOT NULL DEFAULT 0
+);

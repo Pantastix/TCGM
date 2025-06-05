@@ -56,10 +56,33 @@ kotlin {
     
     sourceSets {
         val desktopMain by getting
-        
+
+//        val iosMain by creating { // Erstellt einen neuen SourceSet namens iosMain
+//            dependsOn(commonMain.get()) // iosMain hängt von commonMain ab
+//            dependencies {
+//                implementation(libs.sqldelight.native.driver) // Native Treiber für iOS
+//            }
+//        }
+//
+//        // Lasse deine bestehenden iOS-Targets von diesem gemeinsamen iosMain abhängen
+//        listOf(
+//            iosX64(),
+//            iosArm64(),
+//            iosSimulatorArm64()
+//        ).forEach { iosTarget ->
+//            iosTarget.binaries.framework {
+//                baseName = "ComposeApp"
+//                isStatic = true
+//            }
+//            // Hier die Verbindung zum gemeinsamen iosMain herstellen:
+//            iosTarget.compilations.getByName("main").defaultSourceSet.dependsOn(iosMain)
+//        }
+
+
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.activity.compose)
+            implementation(libs.sqldelight.android.driver) // Android Treiber
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -70,6 +93,7 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.runtimeCompose)
+            implementation(libs.sqldelight.runtime)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -77,6 +101,7 @@ kotlin {
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
+            implementation(libs.sqldelight.sqlite.driver)
         }
     }
 }
@@ -124,11 +149,10 @@ compose.desktop {
     }
 }
 
-
 sqldelight {
     databases {
-        create("AppDatabase") { // Oder "Database", wie im Doku-Snippet, oder "CardDatabase", wie wir es vorher hatten
-            packageName.set("de.pantastix.SIMON.CardDatabase") // Passe dies an dein gewünschtes Paket an, z.B. "com.example" wie im Doku-Snippet
+        create("CardDatabase") { // Oder "Database", wie im Doku-Snippet, oder "CardDatabase", wie wir es vorher hatten
+            packageName.set("de.pantastix.project.db") // Passe dies an dein gewünschtes Paket an, z.B. "com.example" wie im Doku-Snippet
         }
     }
 }
