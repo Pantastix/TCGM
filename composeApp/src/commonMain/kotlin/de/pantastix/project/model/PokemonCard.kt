@@ -1,4 +1,4 @@
-package de.pantastix.project.domain.model
+package de.pantastix.project.model
 
 data class PokemonCard(
     val id: Long? = null, // Null, wenn noch nicht in DB

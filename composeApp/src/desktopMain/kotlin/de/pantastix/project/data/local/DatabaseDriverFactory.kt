@@ -1,4 +1,4 @@
-package de.pantastix.project.model
+package de.pantastix.project.data.local
 
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver

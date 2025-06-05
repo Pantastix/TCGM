@@ -1,12 +1,142 @@
+-- Dein Pfad, z.B. app/src/commonMain/sqldelight/de/pantastix/project/db/CardDatabase.sq
+
+-- Tabellendefinition (wie von dir bereitgestellt)
 CREATE TABLE PokemonCardEntity (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     setName TEXT NOT NULL,
     cardNumber TEXT,
     language TEXT,
-    cardMarketLink TEXT,
+    cardMarketLink TEXT,       -- Nicht UNIQUE laut deiner aktuellen Definition
     currentPrice REAL,
     lastPriceUpdate TEXT,
     imagePath TEXT,
     ownedCopies INTEGER NOT NULL DEFAULT 0
 );
+
+--------------------------------------------------
+-- Einfüge-Operationen (Inserts)
+--------------------------------------------------
+
+-- Fügt eine komplett neue Karte ein.
+-- Gibt die ID der neu eingefügten Zeile zurück (durch SQLDelight).
+insertCard:
+INSERT INTO PokemonCardEntity (
+    name, setName, cardNumber, language, cardMarketLink,
+    currentPrice, lastPriceUpdate, imagePath, ownedCopies
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+--------------------------------------------------
+-- Lese-Operationen (Selects)
+--------------------------------------------------
+
+-- Wählt alle Karten aus, sortiert nach Set-Name und dann nach Kartenname.
+selectAllCards:
+SELECT *
+FROM PokemonCardEntity
+ORDER BY setName, name;
+
+-- Wählt eine spezifische Karte anhand ihrer eindeutigen ID aus.
+selectCardById:
+SELECT *
+FROM PokemonCardEntity
+WHERE id = :id;
+
+-- Wählt Karten anhand des CardMarket-Links aus.
+-- Da cardMarketLink in deinem Schema nicht UNIQUE ist, kann dies mehrere Ergebnisse liefern.
+selectCardsByCardMarketLink:
+SELECT *
+FROM PokemonCardEntity
+WHERE cardMarketLink = :cardMarketLink;
+
+-- Sucht Karten, deren Name einen bestimmten Text enthält (Groß-/Kleinschreibung-unsensitiv).
+searchCardsByName:
+SELECT *
+FROM PokemonCardEntity
+WHERE name LIKE '%' || :searchText || '%'
+ORDER BY name;
+
+-- Filtert Karten nach einem exakten Set-Namen.
+filterCardsBySetName:
+SELECT *
+FROM PokemonCardEntity
+WHERE setName = :setName
+ORDER BY name;
+
+-- Filtert Karten nach einer exakten Sprache.
+filterCardsByLanguage:
+SELECT *
+FROM PokemonCardEntity
+WHERE language = :language
+ORDER BY setName, name;
+
+-- Zählt die Gesamtzahl aller Karten in der Datenbank.
+countAllCards:
+SELECT count(*) FROM PokemonCardEntity;
+
+-- Gibt die letzte von SQLite vergebene Row-ID zurück (nützlich nach einem INSERT).
+lastInsertedRowId:
+SELECT last_insert_rowid();
+
+--------------------------------------------------
+-- Aktualisierungs-Operationen (Updates)
+--------------------------------------------------
+
+-- Aktualisiert alle Felder einer bestehenden Karte anhand ihrer ID.
+updateCardDetails:
+UPDATE PokemonCardEntity
+SET name = :name,
+    setName = :setName,
+    cardNumber = :cardNumber,
+    language = :language,
+    cardMarketLink = :cardMarketLink,
+    currentPrice = :currentPrice,
+    lastPriceUpdate = :lastPriceUpdate,
+    imagePath = :imagePath,
+    ownedCopies = :ownedCopies
+WHERE id = :id;
+
+-- Aktualisiert nur den Preis und das letzte Preisupdate-Datum einer Karte anhand ihrer ID.
+updateCardPrice:
+UPDATE PokemonCardEntity
+SET currentPrice = :currentPrice,
+    lastPriceUpdate = :lastPriceUpdate
+WHERE id = :id;
+
+-- Aktualisiert nur den Bildpfad einer Karte anhand ihrer ID.
+updateCardImagePath:
+UPDATE PokemonCardEntity
+SET imagePath = :imagePath
+WHERE id = :id;
+
+-- Aktualisiert die Anzahl der besessenen Exemplare einer Karte anhand ihrer ID.
+updateOwnedCopiesForCard:
+UPDATE PokemonCardEntity
+SET ownedCopies = :ownedCopies
+WHERE id = :id;
+
+-- Inkrementiert die Anzahl der besessenen Exemplare einer Karte um 1.
+incrementOwnedCopies:
+UPDATE PokemonCardEntity
+SET ownedCopies = ownedCopies + 1
+WHERE id = :id;
+
+-- Dekrementiert die Anzahl der besessenen Exemplare einer Karte um 1 (stellt sicher, dass sie nicht negativ wird).
+decrementOwnedCopies:
+UPDATE PokemonCardEntity
+SET ownedCopies = CASE WHEN ownedCopies > 0 THEN ownedCopies - 1 ELSE 0 END
+WHERE id = :id;
+
+
+--------------------------------------------------
+-- Lösch-Operationen (Deletes)
+--------------------------------------------------
+
+-- Löscht eine spezifische Karte anhand ihrer ID.
+deleteCardById:
+DELETE FROM PokemonCardEntity
+WHERE id = :id;
+
+-- Löscht alle Karten aus der Datenbank.
+clearAllCards:
+DELETE FROM PokemonCardEntity;
