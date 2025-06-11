@@ -1,8 +1,9 @@
 package de.pantastix.project.di
 
-import CardRepositoryImpl
 import de.pantastix.project.data.local.DatabaseDriverFactory
+import de.pantastix.project.repository.CardRepositoryImpl
 import de.pantastix.project.db.CardDatabase
+import de.pantastix.project.db.CardDatabaseQueries
 import de.pantastix.project.repository.CardRepository
 import de.pantastix.project.ui.viewmodel.CardListViewModel
 import org.koin.dsl.module
@@ -20,7 +21,7 @@ val commonModule = module {
     single { get<CardDatabase>().cardDatabaseQueries }
 
     // Stellt die Implementierung des CardRepository bereit. Benötigt CardDatabaseQueries.
-    single<CardRepository> { CardRepositoryImpl(queries = get()) }
+    single<CardRepository> { CardRepositoryImpl(queries = get<CardDatabaseQueries>()) }
 
     factory { CardListViewModel(cardRepository = get()) }
 }
