@@ -1,14 +1,14 @@
-[] Move DB File to internal Folder
+- [ ] Move DB File to internal Folder
 
-[] Add Theme
+- [ ] Add Theme
 
-[] Allow Cards of multiple Languages
+- [ ] Allow Cards of multiple Languages
 
-[] Fix Card Market Link (Missing DRI bevor ID)
+- [ ] Fix Card Market Link (Missing DRI bevor ID)
 
-[] Edit Variables before save (including Card Value)
+- [ ] Edit Variables before save (including Card Value)
 
-[] Delete Button
+- [ ] Delete Button
 
-[] Rework show UI
+- [ ] Rework show UI
 
