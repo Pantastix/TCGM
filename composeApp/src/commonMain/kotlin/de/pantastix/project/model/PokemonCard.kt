@@ -13,8 +13,8 @@ data class Ability(
 data class Attack(
     val cost: List<String>? = emptyList(),
     val name: String,
-    val effect: String?,
-    val damage: String?
+    val effect: String? = null,
+    val damage: String? = null
 )
 
 // Das ist unser Haupt-Datenmodell für die Detailansicht einer Karte.
