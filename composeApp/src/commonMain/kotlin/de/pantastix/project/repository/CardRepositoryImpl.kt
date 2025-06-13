@@ -3,7 +3,7 @@ package de.pantastix.project.repository
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import de.pantastix.project.coroutines.ioDispatcher
-import de.pantastix.project.db.CardDatabaseQueries
+import de.pantastix.project.db.cards.CardDatabaseQueries
 import de.pantastix.project.model.Ability
 import de.pantastix.project.model.Attack
 import de.pantastix.project.model.PokemonCard

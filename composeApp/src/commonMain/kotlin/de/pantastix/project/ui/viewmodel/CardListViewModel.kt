@@ -6,6 +6,7 @@ import de.pantastix.project.model.PokemonCardInfo
 import de.pantastix.project.model.SetInfo
 import de.pantastix.project.model.api.*
 import de.pantastix.project.repository.CardRepository
+import de.pantastix.project.repository.SettingsRepository
 import de.pantastix.project.service.TcgDexApiService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -16,6 +17,7 @@ import kotlinx.serialization.json.Json
 
 class CardListViewModel(
     private val cardRepository: CardRepository,
+    private val settingsRepository: SettingsRepository,
     private val apiService: TcgDexApiService, // Koin injiziert unseren API Service
     private val viewModelScope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher)
 ) {
@@ -38,6 +40,9 @@ class CardListViewModel(
 
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
+
+    private val _language = MutableStateFlow("de") // Default auf Deutsch
+    val language: StateFlow<String> = _language.asStateFlow()
 
     init {
         // Beim Starten des ViewModels laden wir die Kartenliste und die Setliste
@@ -153,6 +158,26 @@ class CardListViewModel(
             attacksJson = germanCardDetails.attacks?.let { Json.encodeToString(ListSerializer(TcgDexAttack.serializer()), it) },
             legalJson = germanCardDetails.legal?.let { Json.encodeToString(TcgDexLegal.serializer(), it) }
         )
+    }
+
+    private fun loadSettings() {
+        viewModelScope.launch {
+            val savedLang = settingsRepository.getSetting("language") // <-- Verwendet settingsRepository
+            if (savedLang != null) {
+                _language.value = savedLang
+            } else {
+                settingsRepository.saveSetting("language", "de") // <-- Verwendet settingsRepository
+            }
+        }
+    }
+
+    fun setLanguage(lang: String) {
+        viewModelScope.launch {
+            if (lang == "de" || lang == "en") {
+                settingsRepository.saveSetting("language", lang) // <-- Verwendet settingsRepository
+                _language.value = lang
+            }
+        }
     }
 
     fun resetApiCardDetails() { _apiCardDetails.value = null }

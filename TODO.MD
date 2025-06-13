@@ -1,5 +1,7 @@
 - [ ] Move DB File to internal Folder
 
+- [ ] Convert app to de.pantastix.simon
+
 - [ ] Add Theme
 
 - [ ] Allow Cards of multiple Languages
@@ -11,4 +13,5 @@
 - [ ] Delete Button
 
 - [ ] Rework show UI
+
 

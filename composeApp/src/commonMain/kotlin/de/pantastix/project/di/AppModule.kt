@@ -2,9 +2,12 @@ package de.pantastix.project.di
 
 import de.pantastix.project.data.local.DatabaseDriverFactory
 import de.pantastix.project.repository.CardRepositoryImpl
-import de.pantastix.project.db.CardDatabase
-import de.pantastix.project.db.CardDatabaseQueries
+import de.pantastix.project.db.cards.CardDatabase
+import de.pantastix.project.db.cards.CardDatabaseQueries
+import de.pantastix.project.db.settings.SettingsDatabase
 import de.pantastix.project.repository.CardRepository
+import de.pantastix.project.repository.SettingsRepository
+import de.pantastix.project.repository.SettingsRepositoryImpl
 import de.pantastix.project.service.KtorTcgDexApiService
 import de.pantastix.project.service.TcgDexApiService
 import de.pantastix.project.ui.viewmodel.CardListViewModel
@@ -36,8 +39,16 @@ val commonModule = module {
     }
     single { get<CardDatabase>().cardDatabaseQueries }
 
+    single {
+        val driverFactory: DatabaseDriverFactory = get()
+        SettingsDatabase(driver = driverFactory.createDriver("settings.db"))
+    }
+    single { get<SettingsDatabase>().settingsDatabaseQueries }
+
+
     // Repository
     single<CardRepository> { CardRepositoryImpl(queries = get<CardDatabaseQueries>()) }
+    single<SettingsRepository> { SettingsRepositoryImpl(queries = get()) }
 
     // API Service
     single<TcgDexApiService> { KtorTcgDexApiService(client = get()) }
@@ -46,6 +57,7 @@ val commonModule = module {
     factory {
         CardListViewModel(
             cardRepository = get(),
+            settingsRepository = get(), // Das neue Repository wird hier injiziert
             apiService = get()
         )
     }

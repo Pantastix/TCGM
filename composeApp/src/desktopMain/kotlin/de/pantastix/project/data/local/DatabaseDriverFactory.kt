@@ -2,29 +2,39 @@ package de.pantastix.project.data.local
 
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
-import de.pantastix.project.db.CardDatabase
+import de.pantastix.project.db.cards.CardDatabase
+import de.pantastix.project.db.settings.SettingsDatabase
 import java.io.File
 
 actual class DatabaseDriverFactory {
-    actual fun createDriver(databaseName: String): SqlDriver {
-        val dbFile = File(
-            System.getProperty("java.io.tmpdir"),
-            databaseName
-        ) // Speichert DB im Temp-Ordner, für Produktiv-App ggf. anderen Ort wählen
-        val driver: SqlDriver = JdbcSqliteDriver("jdbc:sqlite:${dbFile.absolutePath}")
-        // Erstelle das Schema nur, wenn die Datei noch nicht existiert (oder leer ist)
-        // Alternativ: Migrations-Handling, wenn du das Schema später änderst.
-        if (!dbFile.exists() || dbFile.length() == 0L) {
-            try {
-                CardDatabase.Schema.create(driver) // Stelle sicher, dass AppDatabase dem Namen in deiner SQLDelight-Konfig entspricht
-                println("Database schema created at ${dbFile.absolutePath}")
-            } catch (e: Exception) {
-                println("Error creating database schema: ${e.message}")
-                throw e
-            }
-        } else {
-            println("Database already exists at ${dbFile.absolutePath}")
+    // Private Hilfsfunktion, um das App-Verzeichnis zu erstellen
+    private fun getAppDir(): File {
+        val userHome = System.getProperty("user.home")
+        val appDir = File(userHome, ".pokemonCardCollector")
+        if (!appDir.exists()) {
+            appDir.mkdirs()
         }
+        return appDir
+    }
+
+    // Die createDriver-Funktion wurde angepasst, um zwei verschiedene DBs zu unterstützen
+    actual fun createDriver(databaseName: String): SqlDriver {
+        val dbFile = File(getAppDir(), databaseName)
+        println("Datenbank-Pfad: ${dbFile.absolutePath}")
+
+        val driver: SqlDriver = JdbcSqliteDriver("jdbc:sqlite:${dbFile.absolutePath}")
+
+        try {
+            // Wir entscheiden anhand des Namens, welches Schema wir erstellen müssen
+            if (databaseName == "cards.db") {
+                CardDatabase.Schema.create(driver)
+            } else if (databaseName == "settings.db") {
+                SettingsDatabase.Schema.create(driver)
+            }
+        } catch (e: Exception) {
+            // Dieser Fehler ist oft normal, wenn die DB schon existiert.
+        }
+
         return driver
     }
 }
