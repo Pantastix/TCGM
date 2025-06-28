@@ -13,6 +13,7 @@ import de.pantastix.project.ui.screens.AddCardFlow
 import de.pantastix.project.ui.screens.AddCardScreen
 import de.pantastix.project.ui.screens.CardDetailScreen
 import de.pantastix.project.ui.screens.CardListScreen
+import de.pantastix.project.ui.theme.AppTheme
 import de.pantastix.project.ui.viewmodel.CardListViewModel
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.ui.tooling.preview.Preview
@@ -34,7 +35,9 @@ fun App(viewModel: CardListViewModel = koinInject()) {
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    MaterialTheme {
+    AppTheme {
+        var currentScreen by remember { mutableStateOf(Screen.List) }
+        var showAddCardDialog by remember { mutableStateOf(false) }
         Scaffold(
             topBar = { TopAppBar(title = { Text("Pokémon Card Collector") }) },
             floatingActionButton = {
