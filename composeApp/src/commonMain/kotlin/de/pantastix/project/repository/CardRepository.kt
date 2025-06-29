@@ -21,12 +21,14 @@ interface CardRepository {
     suspend fun getFullCardDetails(cardId: Long): PokemonCard?
     suspend fun findCardByTcgDexId(tcgDexId: String): PokemonCardInfo?
 
+    suspend fun updateSetAbbreviation(setId: String, abbreviation: String)
+
     /**
      * Fügt eine neue, vollständig definierte Karte hinzu.
      * Dies ist die einzige, korrekte Version der Methode.
      */
     suspend fun insertFullPokemonCard(
-        setId: String, tcgDexCardId: String, nameDe: String, nameEn: String,
+        setId: String, tcgDexCardId: String, nameLocal: String, nameEn: String, language: String,
         localId: String, imageUrl: String?, cardMarketLink: String?,
         ownedCopies: Int, notes: String?, rarity: String?, hp: Int?,
         types: String?, illustrator: String?, stage: String?, retreatCost: Int?,

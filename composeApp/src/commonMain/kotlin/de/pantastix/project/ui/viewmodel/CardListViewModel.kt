@@ -12,8 +12,35 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.datetime.Clock
+import kotlinx.serialization.encodeToString
+
+enum class AppLanguage(val code: String, val displayName: String) {
+    GERMAN("de", "Deutsch"),
+    ENGLISH("en", "English")
+}
+
+enum class CardLanguage(val code: String, val displayName: String) {
+    GERMAN("de", "Deutsch"),
+    ENGLISH("en", "English"),
+    FRENCH("fr", "Français"),
+    SPANISH("es", "Español"),
+    ITALIAN("it", "Italiano"),
+    PORTUGUESE("pt", "Português"),
+    JAPANESE("jp", "Japanisch")
+}
+
+data class UiState(
+    val cardInfos: List<PokemonCardInfo> = emptyList(),
+    val sets: List<SetInfo> = emptyList(),
+    val selectedCardDetails: PokemonCard? = null,
+    val apiCardDetails: TcgDexCardResponse? = null,
+    val searchedCardLanguage: CardLanguage? = null, // Speichert die Sprache der letzten Suche
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val appLanguage: AppLanguage = AppLanguage.GERMAN
+)
 
 class CardListViewModel(
     private val cardRepository: CardRepository,
@@ -21,166 +48,164 @@ class CardListViewModel(
     private val apiService: TcgDexApiService, // Koin injiziert unseren API Service
     private val viewModelScope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher)
 ) {
-    // --- States für die UI ---
-    private val _cardInfos = MutableStateFlow<List<PokemonCardInfo>>(emptyList())
-    val cardInfos: StateFlow<List<PokemonCardInfo>> = _cardInfos.asStateFlow()
-
-    private val _sets = MutableStateFlow<List<SetInfo>>(emptyList())
-    val sets: StateFlow<List<SetInfo>> = _sets.asStateFlow()
-
-    // <<< HIER HINZUGEFÜGT: State für die Detailansicht
-    private val _selectedCardDetails = MutableStateFlow<PokemonCard?>(null)
-    val selectedCardDetails: StateFlow<PokemonCard?> = _selectedCardDetails.asStateFlow()
-
-    private val _apiCardDetails = MutableStateFlow<TcgDexCardResponse?>(null)
-    val apiCardDetails: StateFlow<TcgDexCardResponse?> = _apiCardDetails.asStateFlow()
-
-    private val _isLoading = MutableStateFlow(false)
-    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-
-    private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error.asStateFlow()
-
-    private val _language = MutableStateFlow("de") // Default auf Deutsch
-    val language: StateFlow<String> = _language.asStateFlow()
+    private val _uiState = MutableStateFlow(UiState())
+    val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     init {
-        // Beim Starten des ViewModels laden wir die Kartenliste und die Setliste
+        loadSettings()
         loadCardInfos()
-        loadSets()
+    }
+
+    private fun loadSettings() {
+        viewModelScope.launch {
+            val savedLangCode = settingsRepository.getSetting("language") ?: AppLanguage.GERMAN.code
+            val language = AppLanguage.entries.find { it.code == savedLangCode } ?: AppLanguage.GERMAN
+            _uiState.update { it.copy(appLanguage = language) }
+            loadSets(language)
+        }
+    }
+
+    fun setLanguage(language: AppLanguage) {
+        viewModelScope.launch {
+            settingsRepository.saveSetting("language", language.code)
+            _uiState.update { it.copy(appLanguage = language) }
+            loadSets(language)
+        }
     }
 
     private fun loadCardInfos() {
         cardRepository.getCardInfos()
-            .onEach { cardList -> _cardInfos.value = cardList }
+            .onEach { cards -> _uiState.update { it.copy(cardInfos = cards) } }
             .launchIn(viewModelScope)
     }
 
-    fun loadSets() {
+    private fun loadSets(language: AppLanguage) {
         viewModelScope.launch {
-            _isLoading.value = true
-            val setsFromDb = cardRepository.getAllSets().first()
-            if (setsFromDb.isNotEmpty()) {
-                _sets.value = setsFromDb
-            } else {
-                // Wenn die DB leer ist, von der API holen und in der DB speichern
-                val setsFromApi = apiService.getAllSets()
-                if (setsFromApi.isNotEmpty()) {
-                    cardRepository.syncSets(setsFromApi) // Sets in DB speichern
-                    _sets.value = setsFromApi
-                }
+            setLoading(true)
+            // Lade die neuesten Sets von der API und speichere sie in der DB.
+            val setsFromApi = apiService.getAllSets(language.code)
+            if (setsFromApi.isNotEmpty()) {
+                cardRepository.syncSets(setsFromApi)
             }
-            _isLoading.value = false
+            // Abonniere den Flow aus der Datenbank. `onEach` wird immer dann ausgeführt,
+            // wenn sich die Daten in der DB ändern.
+            cardRepository.getAllSets()
+                .onEach { setsFromDb ->
+                    // Wir kehren die Liste hier um, damit die neuesten Sets oben stehen.
+                    _uiState.update { it.copy(sets = setsFromDb.reversed()) }
+                }.launchIn(viewModelScope)
+
+            setLoading(false)
         }
     }
 
-    fun fetchCardDetailsFromApi(setId: String, localId: String) {
+    fun fetchCardDetailsFromApi(setId: String, localId: String, language: CardLanguage) {
         viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            _apiCardDetails.value = null
+            setLoading(true)
+            _uiState.update { it.copy(error = null, apiCardDetails = null) }
 
-            val details = apiService.getGermanCardDetails(setId, localId)
+            // Die Sprache der Suche für den Speicherprozess merken
+            _uiState.update { it.copy(searchedCardLanguage = language) }
+
+            val details = apiService.getCardDetails(setId, localId, language.code)
+
             if (details == null) {
-                _error.value = "Karte nicht gefunden. Überprüfe Set und Kartennummer."
+                _uiState.update { it.copy(error = "Karte nicht gefunden.") }
             } else {
-                _apiCardDetails.value = details
+                _uiState.update { it.copy(apiCardDetails = details) }
             }
-            _isLoading.value = false
+            setLoading(false)
         }
     }
 
-    // <<< HIER HINZUGEFÜGT: Funktion zum Auswählen einer Karte
-    /**
-     * Holt die vollständigen Details einer Karte aus der DB und setzt sie als ausgewählte Karte.
-     */
     fun selectCard(cardId: Long) {
         viewModelScope.launch {
-            _isLoading.value = true
-            _selectedCardDetails.value = cardRepository.getFullCardDetails(cardId)
-            _isLoading.value = false
+            setLoading(true)
+            val details = cardRepository.getFullCardDetails(cardId)
+            _uiState.update { it.copy(selectedCardDetails = details) }
+            setLoading(false)
         }
     }
 
-    fun confirmAndSaveCard(germanCardDetails: TcgDexCardResponse) {
+    fun clearSelectedCard() {
+        _uiState.update { it.copy(selectedCardDetails = null) }
+    }
+
+    fun confirmAndSaveCard(
+        cardDetails: TcgDexCardResponse,
+        languageCode: String,
+        abbreviation: String?,
+        price: Double?,
+        cardMarketLink: String
+    ) {
         viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            val existingCard = cardRepository.findCardByTcgDexId(germanCardDetails.id)
+            setLoading(true)
+            if (!abbreviation.isNullOrBlank()) {
+                cardRepository.updateSetAbbreviation(cardDetails.set.id, abbreviation)
+            }
+
+            val englishCardDetails = apiService.getCardDetails(cardDetails.set.id, cardDetails.localId, CardLanguage.ENGLISH.code)
+            if (englishCardDetails == null) {
+                _uiState.update { it.copy(error = "Konnte englische Kartendetails nicht abrufen.") }
+                setLoading(false)
+                return@launch
+            }
+
+            val existingCard = cardRepository.findCardByTcgDexId(cardDetails.id)
             if (existingCard != null) {
                 cardRepository.updateCardUserData(
                     cardId = existingCard.id,
                     ownedCopies = existingCard.ownedCopies + 1,
                     notes = null,
-                    currentPrice = existingCard.currentPrice,
-                    lastPriceUpdate = null
+                    currentPrice = price ?: existingCard.currentPrice,
+                    lastPriceUpdate = if (price != null) Clock.System.now().toString() else null
                 )
             } else {
-                val englishCardDetails = apiService.getEnglishCardDetails(germanCardDetails.set.id, germanCardDetails.localId)
-                if (englishCardDetails == null) {
-                    _error.value = "Konnte englische Kartendetails nicht abrufen. Speichern fehlgeschlagen."
-                    _isLoading.value = false
-                    return@launch
-                }
-                saveNewCard(germanCardDetails, englishCardDetails)
+                saveNewCard(cardDetails, englishCardDetails, abbreviation, price, languageCode, cardMarketLink)
             }
-            _isLoading.value = false
+
+            setLoading(false)
             resetApiCardDetails()
         }
     }
 
-    private suspend fun saveNewCard(germanCardDetails: TcgDexCardResponse, englishCardDetails: TcgDexCardResponse) {
-        // Hilfsfunktion zum Erstellen des "Slugs" für die URL
-        fun slugify(input: String) = input.replace("'", "").replace(" ", "-").replace(":", "")
-
-        // KORRIGIERT: Der CardMarket-Link enthält jetzt das Set-Kürzel.
-        // Wir nehmen die Set-ID (z.B. "sv10") und machen sie groß ("SV10"), da ein offizielles Kürzel
-        // wie "DRI" nicht von der API bereitgestellt wird.
-        val setAbbreviation = germanCardDetails.set.id.uppercase()
-        val cardMarketLink = "https://www.cardmarket.com/de/Pokemon/Products/Singles/" +
-                "${slugify(englishCardDetails.set.name)}/" +
-                "${slugify(englishCardDetails.name)}-${setAbbreviation}${germanCardDetails.localId}"
-
-        // KORRIGIERT: Die Bild-URL wird jetzt mit Qualität und Endung vervollständigt.
-        val completeImageUrl = germanCardDetails.image?.let { "$it/high.jpg" }
+    private suspend fun saveNewCard(
+        localCardDetails: TcgDexCardResponse,
+        englishCardDetails: TcgDexCardResponse,
+        abbreviation: String?,
+        price: Double?,
+        languageCode: String,
+        marketLink: String // <<< NEUER PARAMETER
+    ) {
+        val completeImageUrl = localCardDetails.image?.let { "$it/high.jpg" }
 
         cardRepository.insertFullPokemonCard(
-            setId = germanCardDetails.set.id, tcgDexCardId = germanCardDetails.id, nameDe = germanCardDetails.name,
-            nameEn = englishCardDetails.name, localId = germanCardDetails.localId,
-            imageUrl = completeImageUrl, // <<< Verwendet die neue, vollständige URL
-            cardMarketLink = cardMarketLink, // <<< Verwendet den neuen, korrekten Link
-            ownedCopies = 1, notes = null, rarity = germanCardDetails.rarity,
-            hp = germanCardDetails.hp, types = germanCardDetails.types?.joinToString(","), illustrator = null,
-            stage = germanCardDetails.stage, retreatCost = germanCardDetails.retreat, regulationMark = germanCardDetails.regulationMark,
-            currentPrice = null, lastPriceUpdate = null,
-            variantsJson = germanCardDetails.variants?.let { Json.encodeToString(TcgDexVariants.serializer(), it) },
-            abilitiesJson = germanCardDetails.abilities?.let { Json.encodeToString(ListSerializer(TcgDexAbility.serializer()), it) },
-            attacksJson = germanCardDetails.attacks?.let { Json.encodeToString(ListSerializer(TcgDexAttack.serializer()), it) },
-            legalJson = germanCardDetails.legal?.let { Json.encodeToString(TcgDexLegal.serializer(), it) }
+            setId = localCardDetails.set.id, tcgDexCardId = localCardDetails.id,
+            nameLocal = localCardDetails.name, // Verwendet den (ggf. bearbeiteten) Namen
+            nameEn = englishCardDetails.name,
+            language = languageCode,
+            localId = localCardDetails.localId,
+            imageUrl = completeImageUrl,
+            cardMarketLink = marketLink, // <<< Verwendet den bearbeiteten Link
+            ownedCopies = 1,
+            notes = null,
+            rarity = localCardDetails.rarity,
+            hp = localCardDetails.hp,
+            types = localCardDetails.types?.joinToString(","),
+            illustrator = localCardDetails.illustrator,
+            stage = localCardDetails.stage,
+            retreatCost = localCardDetails.retreat,
+            regulationMark = localCardDetails.regulationMark,
+            currentPrice = price,
+            lastPriceUpdate = if (price != null) Clock.System.now().toString() else null,
+            variantsJson = Json.encodeToString(localCardDetails.variants),
+            abilitiesJson = Json.encodeToString(localCardDetails.abilities),
+            attacksJson = Json.encodeToString(localCardDetails.attacks),
+            legalJson = Json.encodeToString(localCardDetails.legal)
         )
     }
 
-    private fun loadSettings() {
-        viewModelScope.launch {
-            val savedLang = settingsRepository.getSetting("language") // <-- Verwendet settingsRepository
-            if (savedLang != null) {
-                _language.value = savedLang
-            } else {
-                settingsRepository.saveSetting("language", "de") // <-- Verwendet settingsRepository
-            }
-        }
-    }
-
-    fun setLanguage(lang: String) {
-        viewModelScope.launch {
-            if (lang == "de" || lang == "en") {
-                settingsRepository.saveSetting("language", lang) // <-- Verwendet settingsRepository
-                _language.value = lang
-            }
-        }
-    }
-
-    fun resetApiCardDetails() { _apiCardDetails.value = null }
-    fun clearSelectedCard() { _selectedCardDetails.value = null }
-    fun clearError() { _error.value = null }
+    private fun setLoading(isLoading: Boolean) = _uiState.update { it.copy(isLoading = isLoading) }
+    fun resetApiCardDetails() = _uiState.update { it.copy(apiCardDetails = null) }
+    fun clearError() = _uiState.update { it.copy(error = null) }
 }

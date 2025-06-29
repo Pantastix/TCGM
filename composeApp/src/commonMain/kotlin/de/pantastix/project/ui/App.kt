@@ -1,57 +1,63 @@
 package de.pantastix.project.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import de.pantastix.project.ui.screens.AddCardFlow
-import de.pantastix.project.ui.screens.AddCardScreen
 import de.pantastix.project.ui.screens.CardDetailScreen
 import de.pantastix.project.ui.screens.CardListScreen
 import de.pantastix.project.ui.theme.AppTheme
 import de.pantastix.project.ui.viewmodel.CardListViewModel
-import org.jetbrains.compose.resources.painterResource
-import org.jetbrains.compose.ui.tooling.preview.Preview
 import org.koin.compose.koinInject
 
-import simon.composeapp.generated.resources.Res
-import simon.composeapp.generated.resources.compose_multiplatform
-
+// Enum zur Steuerung der Haupt-Navigation
 enum class Screen { List, Detail }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun App(viewModel: CardListViewModel = koinInject()) {
+    // UI-Zustand wird aus dem ViewModel geholt.
+    // `collectAsState` sorgt dafür, dass die UI bei Änderungen automatisch neu gezeichnet wird.
+    val uiState by viewModel.uiState.collectAsState()
+
+    // Lokaler Zustand für die Navigation und die Sichtbarkeit des Dialogs.
     var currentScreen by remember { mutableStateOf(Screen.List) }
     var showAddCardDialog by remember { mutableStateOf(false) }
 
-    val cardInfos by viewModel.cardInfos.collectAsState()
-    val selectedCard by viewModel.selectedCardDetails.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val error by viewModel.error.collectAsState()
-
+    // Das AppTheme umschließt die gesamte Anwendung.
     AppTheme {
-        var currentScreen by remember { mutableStateOf(Screen.List) }
-        var showAddCardDialog by remember { mutableStateOf(false) }
         Scaffold(
-            topBar = { TopAppBar(title = { Text("Pokémon Card Collector") }) },
+            topBar = {
+                TopAppBar(
+                    title = { Text("S.I.M.O.N. Card Collector") },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                )
+            },
             floatingActionButton = {
-                FloatingActionButton(onClick = { showAddCardDialog = true }) {
+                FloatingActionButton(
+                    onClick = { showAddCardDialog = true },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ) {
                     Icon(Icons.Default.Add, contentDescription = "Neue Karte hinzufügen")
                 }
             }
         ) { innerPadding ->
             Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+                // Hauptinhalt basierend auf dem aktuellen Screen
                 when (currentScreen) {
                     Screen.List -> CardListScreen(
-                        cardInfos = cardInfos,
-                        isLoading = isLoading,
-                        error = error,
+                        cardInfos = uiState.cardInfos,
+                        isLoading = uiState.isLoading,
+                        error = uiState.error,
                         onCardClick = { cardId ->
                             viewModel.selectCard(cardId)
                             currentScreen = Screen.Detail
@@ -59,8 +65,8 @@ fun App(viewModel: CardListViewModel = koinInject()) {
                         onDismissError = { viewModel.clearError() }
                     )
                     Screen.Detail -> CardDetailScreen(
-                        card = selectedCard,
-                        isLoading = isLoading,
+                        card = uiState.selectedCardDetails,
+                        isLoading = uiState.isLoading,
                         onBack = {
                             viewModel.clearSelectedCard()
                             currentScreen = Screen.List
@@ -68,11 +74,12 @@ fun App(viewModel: CardListViewModel = koinInject()) {
                     )
                 }
 
+                // Zeigt den "Karte hinzufügen"-Dialog an, wenn showAddCardDialog true ist.
                 if (showAddCardDialog) {
                     AddCardFlow(
                         viewModel = viewModel,
                         onDismiss = {
-                            viewModel.resetApiCardDetails()
+                            viewModel.resetApiCardDetails() // Setzt den API-Zustand zurück
                             showAddCardDialog = false
                         }
                     )

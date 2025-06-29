@@ -59,6 +59,8 @@ kotlin {
             implementation(compose.components.uiToolingPreview)
             implementation(compose.materialIconsExtended) // Korrekter Weg für Icons
 
+            implementation(libs.kotlinx.datetime)
+
             // AndroidX Lifecycle
             implementation(libs.androidx.lifecycle.viewmodel)
             implementation(libs.androidx.lifecycle.runtimeCompose)

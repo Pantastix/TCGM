@@ -1,14 +1,19 @@
 package de.pantastix.project.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import de.pantastix.project.platform.Platform
 import de.pantastix.project.platform.getPlatform
 import de.pantastix.project.ui.viewmodel.CardListViewModel
@@ -18,19 +23,25 @@ fun AddCardFlow(
     viewModel: CardListViewModel,
     onDismiss: () -> Unit
 ) {
-    val platform = getPlatform() // Holt die aktuelle Plattform (Desktop, Android, etc.)
+    val platform = getPlatform()
 
-    // Adaptive UI: Dialog für Desktop, sonst eine Vollbild-Box (simuliert eine neue Seite)
     when (platform) {
         Platform.Desktop -> {
-            Dialog(onDismissRequest = onDismiss) {
-                // Der Dialog bekommt einen eigenen Hintergrund, damit er wie ein Popup aussieht
-                Box(modifier = Modifier.background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.medium)) {
+            Dialog(
+                onDismissRequest = onDismiss,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .widthIn(max = 450.dp)
+                        .heightIn(max = 800.dp)
+                        .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.large)
+                        .border(4.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.large)
+                ) {
                     AddCardContent(viewModel = viewModel, onCardAdded = onDismiss)
                 }
             }
         }
-        else -> { // Android, iOS, etc.
+        else -> {
             Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
                 AddCardContent(viewModel = viewModel, onCardAdded = onDismiss)
             }
@@ -38,27 +49,38 @@ fun AddCardFlow(
     }
 }
 
-
 @Composable
 fun AddCardContent(
     viewModel: CardListViewModel,
     onCardAdded: () -> Unit
 ) {
-    val apiCardDetails by viewModel.apiCardDetails.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
 
-    // Entscheidet, ob der Set-Auswahl-Screen oder der Detail-Eingabe-Screen gezeigt wird.
-    if (apiCardDetails == null) {
-        SetSelectionScreen(
-            viewModel = viewModel
-        )
+    if (uiState.apiCardDetails == null) {
+        SetSelectionScreen(viewModel = viewModel)
     } else {
-        // Die API hat eine Karte gefunden, jetzt zeigen wir den Bestätigungs-/Bearbeitungs-Screen an.
+        val setInfo = uiState.sets.find { it.setId == uiState.apiCardDetails!!.set.id }
         FinalAddCardScreen(
-            cardDetails = apiCardDetails!!,
-            isLoading = isLoading,
-            onConfirm = { germanDetails ->
-                viewModel.confirmAndSaveCard(germanDetails)
+            cardDetails = uiState.apiCardDetails!!,
+            setInfo = setInfo,
+            isLoading = uiState.isLoading,
+            // KORRIGIERT: Der onConfirm-Lambda-Aufruf passt jetzt zur ViewModel-Funktion.
+            // Der `languageCode` wird aus dem ViewModel-State geholt, den wir bei der Suche gesetzt haben.
+            onConfirm = { details, name, abbreviation, price, marketLink ->
+                println("AddCardContent: onConfirm wurde aufgerufen!")
+                val finalDetails = if (name.isNotBlank() && name != details.name) {
+                    details.copy(name = name)
+                } else {
+                    details
+                }
+
+                viewModel.confirmAndSaveCard(
+                    cardDetails = finalDetails,
+                    languageCode = uiState.searchedCardLanguage!!.code,
+                    abbreviation = abbreviation,
+                    price = price,
+                    cardMarketLink = marketLink
+                )
                 onCardAdded()
             },
             onCancel = { viewModel.resetApiCardDetails() }

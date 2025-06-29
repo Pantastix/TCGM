@@ -3,7 +3,7 @@ package de.pantastix.project.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // --- Primärfarben ---
-val PastelGreen = Color(0xFFA8D8B9) // Unser helles Pastellgrün
+val PastelGreen = Color(0xFFAAFF93) // Unser helles Pastellgrün
 val DarkText = Color(0xFF1E1E1E)   // Für Text auf hellen Hintergründen
 
 // --- Dark Mode Hintergrund- und Oberflächenfarben ---

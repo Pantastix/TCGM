@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 data class TcgDexCardResponse(
     val id: String,
     val localId: String,
-    val name: String,
+    var name: String,
     val image: String? = null,
     val category: String,
     val rarity: String?,

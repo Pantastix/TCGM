@@ -12,7 +12,7 @@ interface TcgDexApiService {
      * Ruft alle Sets von der TCGdex API ab und kombiniert die deutschen und englischen Namen.
      * @return Eine Liste von [SetInfo]-Objekten.
      */
-    suspend fun getAllSets(): List<SetInfo>
+    suspend fun getAllSets(language: String): List<SetInfo>
 
     /**
      * Ruft die deutschen Kartendetails für eine spezifische Karte ab.
@@ -20,13 +20,5 @@ interface TcgDexApiService {
      * @param localId Die Nummer der Karte im Set (z.B. "051").
      * @return Ein [TcgDexCardResponse]-Objekt oder null bei einem Fehler.
      */
-    suspend fun getGermanCardDetails(setId: String, localId: String): TcgDexCardResponse?
-
-    /**
-     * Ruft die englischen Kartendetails für eine spezifische Karte ab (wird für den CardMarket-Link benötigt).
-     * @param setId Die offizielle Set-ID (z.B. "sv10").
-     * @param localId Die Nummer der Karte im Set (z.B. "051").
-     * @return Ein [TcgDexCardResponse]-Objekt oder null bei einem Fehler.
-     */
-    suspend fun getEnglishCardDetails(setId: String, localId: String): TcgDexCardResponse?
+    suspend fun getCardDetails(setId: String, localId: String, languageCode: String): TcgDexCardResponse?
 }

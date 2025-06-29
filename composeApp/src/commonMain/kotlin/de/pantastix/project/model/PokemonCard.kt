@@ -21,8 +21,9 @@ data class Attack(
 data class PokemonCard(
     val id: Long, // Die ID aus unserer lokalen Sammlungs-DB
     val tcgDexCardId: String,
-    val nameDe: String,
+    val nameLocal: String,
     val nameEn: String,
+    val language: String,
     val imageUrl: String?,
     var cardMarketLink: String?,
     var ownedCopies: Int,

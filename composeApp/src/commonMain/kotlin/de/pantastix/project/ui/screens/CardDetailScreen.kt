@@ -12,6 +12,7 @@ import de.pantastix.project.model.PokemonCard
 
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import coil3.compose.AsyncImage
@@ -47,7 +48,7 @@ fun CardDetailScreen(
                 // In build.gradle.kts (commonMain): implementation(libs.coil.compose)
                 AsyncImage(
                     model = card.imageUrl,
-                    contentDescription = card.nameDe,
+                    contentDescription = card.nameLocal,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(300.dp) // Feste Höhe oder anpassen
@@ -56,12 +57,12 @@ fun CardDetailScreen(
                 Spacer(Modifier.height(16.dp))
 
                 // Basis-Informationen
-                Text(card.nameDe, style = MaterialTheme.typography.headlineMedium)
+                Text(card.nameLocal, style = MaterialTheme.typography.headlineMedium)
                 Text("${card.setName} - ${card.localId}", style = MaterialTheme.typography.titleMedium)
                 Text("Seltenheit: ${card.rarity ?: "N/A"}", style = MaterialTheme.typography.bodyLarge)
                 Text("HP: ${card.hp ?: "N/A"} - Typen: ${card.types.joinToString(", ")}", style = MaterialTheme.typography.bodyLarge)
 
-                Divider(modifier = Modifier.padding(vertical = 16.dp))
+                HorizontalDivider()
 
                 // Fähigkeiten
                 if (card.abilities.isNotEmpty()) {

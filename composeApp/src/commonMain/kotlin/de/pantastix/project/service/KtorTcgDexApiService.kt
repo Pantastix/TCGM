@@ -16,36 +16,31 @@ class KtorTcgDexApiService(
     private val client: HttpClient // KORRIGIERT: Der Client wird jetzt hier im Konstruktor erwartet
 ) : TcgDexApiService {
 
-//    private val client = HttpClient {
-//        install(ContentNegotiation) {
-//            json(Json {
-//                ignoreUnknownKeys = true
-//                isLenient = true
-//            })
-//        }
-//    }
-
     private val baseUrl = "https://api.tcgdex.net/v2"
 
-    override suspend fun getAllSets(): List<SetInfo> = coroutineScope {
+    override suspend fun getAllSets(language: String): List<SetInfo> = coroutineScope {
         try {
-            // Explizite Typangabe im body<...>() Aufruf behebt den Typinferenz-Fehler.
-            val germanSetsDeferred = async { client.get("$baseUrl/de/sets").body<List<TcgDexSet>>() }
+            val localSetsDeferred = async { client.get("$baseUrl/$language/sets").body<List<TcgDexSet>>() }
             val englishSetsDeferred = async { client.get("$baseUrl/en/sets").body<List<TcgDexSet>>() }
 
-            val germanSets = germanSetsDeferred.await()
+            // KORRIGIERT: Hier stand fälschlicherweise `germanSetsDeferred`.
+            val localSets = localSetsDeferred.await()
             val englishSets = englishSetsDeferred.await()
 
             val englishSetMap = englishSets.associateBy { it.id }
 
-            // Der map-Zugriff funktioniert jetzt, da die Typen klar sind.
-            germanSets.mapNotNull { germanSet ->
-                englishSetMap[germanSet.id]?.let { englishSet ->
+            localSets.mapNotNull { localSet ->
+                englishSetMap[localSet.id]?.let { englishSet ->
+                    // KORRIGIERT: Das `SetInfo`-Objekt wird jetzt mit allen verfügbaren Daten erstellt.
                     SetInfo(
-                        setId = germanSet.id,
-                        nameDe = germanSet.name,
+                        setId = localSet.id,
+                        abbreviation = null, // Die API liefert kein Kürzel, wird manuell gesetzt
+                        nameLocal = localSet.name,
                         nameEn = englishSet.name,
-                        logoUrl = germanSet.logo ?: englishSet.logo
+                        logoUrl = localSet.logo ?: localSet.symbol,
+                        cardCountOfficial = localSet.cardCount?.official ?: 0,
+                        cardCountTotal = localSet.cardCount?.total ?: 0,
+                        releaseDate = null // Die API liefert kein Datum in dieser Ansicht
                     )
                 }
             }
@@ -55,22 +50,11 @@ class KtorTcgDexApiService(
         }
     }
 
-    override suspend fun getGermanCardDetails(setId: String, localId: String): TcgDexCardResponse? {
+    override suspend fun getCardDetails(setId: String, localId: String, languageCode: String): TcgDexCardResponse? {
         return try {
-            // Explizite Typangabe im body<...>() Aufruf behebt den Typinferenz-Fehler.
-            client.get("$baseUrl/de/sets/$setId/$localId").body<TcgDexCardResponse>()
+            client.get("$baseUrl/$languageCode/sets/$setId/$localId").body<TcgDexCardResponse>()
         } catch (e: Exception) {
-            println("Fehler beim Abrufen der deutschen Kartendetails für $setId/$localId: ${e.message}")
-            null
-        }
-    }
-
-    override suspend fun getEnglishCardDetails(setId: String, localId: String): TcgDexCardResponse? {
-        return try {
-            // Explizite Typangabe im body<...>() Aufruf behebt den Typinferenz-Fehler.
-            client.get("$baseUrl/en/sets/$setId/$localId").body<TcgDexCardResponse>()
-        } catch (e: Exception) {
-            println("Fehler beim Abrufen der englischen Kartendetails für $setId/$localId: ${e.message}")
+            println("Fehler bei getCardDetails für $languageCode/$setId/$localId: ${e.message}")
             null
         }
     }
