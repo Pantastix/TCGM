@@ -1,16 +1,7 @@
-- [ ] Move DB File to internal Folder
-
-- [ ] Convert app to de.pantastix.simon
-
-- [ ] Add Theme
-
-- [ ] Allow Cards of multiple Languages
-
-- [ ] Fix Card Market Link (Missing DRI bevor ID)
-
-- [ ] Edit Variables before save (including Card Value)
+- [ ] Fix Card Market Link (add v1 or v2 if multiple versions in pack)
 
 - [ ] Delete Button
+- [ ] Edit Button
 
 - [ ] Rework show UI
 

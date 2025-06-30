@@ -41,8 +41,13 @@ fun AddCardFlow(
                 }
             }
         }
+
         else -> {
-            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface)
+            ) {
                 AddCardContent(viewModel = viewModel, onCardAdded = onDismiss)
             }
         }
@@ -64,22 +69,15 @@ fun AddCardContent(
             cardDetails = uiState.apiCardDetails!!,
             setInfo = setInfo,
             isLoading = uiState.isLoading,
-            // KORRIGIERT: Der onConfirm-Lambda-Aufruf passt jetzt zur ViewModel-Funktion.
-            // Der `languageCode` wird aus dem ViewModel-State geholt, den wir bei der Suche gesetzt haben.
-            onConfirm = { details, name, abbreviation, price, marketLink ->
-                println("AddCardContent: onConfirm wurde aufgerufen!")
-                val finalDetails = if (name.isNotBlank() && name != details.name) {
-                    details.copy(name = name)
-                } else {
-                    details
-                }
-
+            onConfirm = { details, name, abbreviation, price, marketLink, quantity, notes ->
                 viewModel.confirmAndSaveCard(
-                    cardDetails = finalDetails,
+                    cardDetails = details.copy(name = name),
                     languageCode = uiState.searchedCardLanguage!!.code,
                     abbreviation = abbreviation,
                     price = price,
-                    cardMarketLink = marketLink
+                    cardMarketLink = marketLink,
+                    ownedCopies = quantity,
+                    notes = notes
                 )
                 onCardAdded()
             },

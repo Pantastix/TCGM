@@ -11,12 +11,13 @@ import androidx.compose.ui.Modifier
 import de.pantastix.project.ui.screens.AddCardFlow
 import de.pantastix.project.ui.screens.CardDetailScreen
 import de.pantastix.project.ui.screens.CardListScreen
+import de.pantastix.project.ui.screens.EditCardFlow
 import de.pantastix.project.ui.theme.AppTheme
 import de.pantastix.project.ui.viewmodel.CardListViewModel
 import org.koin.compose.koinInject
 
 // Enum zur Steuerung der Haupt-Navigation
-enum class Screen { List, Detail }
+enum class Screen { List, Detail, Edit }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,7 +35,7 @@ fun App(viewModel: CardListViewModel = koinInject()) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text("S.I.M.O.N. Card Collector") },
+                    title = { Text("Trading Card Game Manager") },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         titleContentColor = MaterialTheme.colorScheme.onPrimary
@@ -70,7 +71,12 @@ fun App(viewModel: CardListViewModel = koinInject()) {
                         onBack = {
                             viewModel.clearSelectedCard()
                             currentScreen = Screen.List
-                        }
+                        },
+                        onEdit = { currentScreen = Screen.Edit }
+                    )
+                    Screen.Edit -> EditCardFlow( // NEU: Der Bearbeitungsdialog/screen
+                        viewModel = viewModel,
+                        onDismiss = { currentScreen = Screen.Detail } // Zurück zum Detail-Screen
                     )
                 }
 

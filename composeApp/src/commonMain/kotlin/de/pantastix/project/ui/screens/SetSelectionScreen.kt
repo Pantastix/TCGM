@@ -1,5 +1,6 @@
 package de.pantastix.project.ui.screens
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,12 +42,9 @@ fun SetSelectionScreen(
         AlertDialog(
             onDismissRequest = { viewModel.clearError() },
             title = { Text("Fehler") }, text = { Text(uiState.error!!) },
-            confirmButton = { Button(onClick = { viewModel.clearError() }) { Text("OK") } }
+            confirmButton = { Button(onClick = { viewModel.clearError() }) { Text("OK") } },
+            modifier = Modifier.border(4.dp, MaterialTheme.colorScheme.error, MaterialTheme.shapes.large)
         )
-    }
-
-    LaunchedEffect(uiState) {
-        println("DEBUG: uiState hat sich geändert! isLoading: ${uiState.isLoading}, error: ${uiState.error}, anzahl sets: ${uiState.sets.size}")
     }
 
     Column(
@@ -54,7 +52,7 @@ fun SetSelectionScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text("Karte via API hinzufügen", style = MaterialTheme.typography.headlineSmall)
+        Text("Karte hinzufügen", style = MaterialTheme.typography.headlineSmall)
 
         // Sprachauswahl
         ExposedDropdownMenuBox(expanded = isLangDropdownExpanded, onExpandedChange = { isLangDropdownExpanded = it }) {

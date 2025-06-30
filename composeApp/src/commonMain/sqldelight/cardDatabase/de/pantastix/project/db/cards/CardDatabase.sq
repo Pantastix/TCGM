@@ -19,7 +19,7 @@ CREATE TABLE SetEntity (
 CREATE TABLE PokemonCardEntity (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, -- Interne ID für die Sammlung
     setId TEXT NOT NULL,                           -- Verweis auf die Set-ID in SetEntity
-    tcgDexCardId TEXT NOT NULL UNIQUE,             -- z.B. "sv10-051", stellt sicher, dass jede Karte nur einmal existiert
+    tcgDexCardId TEXT NOT NULL,             -- z.B. "sv10-051", stellt sicher, dass jede Karte nur einmal existiert
     nameLocal TEXT NOT NULL,
     nameEn TEXT NOT NULL,
     language TEXT NOT NULL,
@@ -45,7 +45,8 @@ CREATE TABLE PokemonCardEntity (
     abilitiesJson TEXT,
     attacksJson TEXT,
     legalJson TEXT,
-    FOREIGN KEY(setId) REFERENCES SetEntity(setId)
+    FOREIGN KEY(setId) REFERENCES SetEntity(setId),
+    UNIQUE(tcgDexCardId, language)
 );
 
 --------------------------------------------------
@@ -111,9 +112,13 @@ JOIN SetEntity ON PokemonCardEntity.setId = SetEntity.setId
 WHERE PokemonCardEntity.id = ?;
 
 
-selectCardByTcgDexId:
-SELECT * FROM PokemonCardEntity WHERE tcgDexCardId = ?;
+findCardByTcgDexIdAndLanguage:
+SELECT * FROM PokemonCardEntity
+WHERE tcgDexCardId = :tcgDexCardId AND language = :language;
 
+findCardBySetAndLocalIdAndLanguage:
+SELECT * FROM PokemonCardEntity
+WHERE setId = :setId AND localId = :localId AND language = :language;
 
 updateCardUserData:
 UPDATE PokemonCardEntity

@@ -12,6 +12,7 @@ import de.pantastix.project.model.PokemonCard
 
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -22,7 +23,8 @@ import de.pantastix.project.model.Attack
 fun CardDetailScreen(
     card: PokemonCard?,
     isLoading: Boolean,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onEdit: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         if (isLoading) {
@@ -37,9 +39,17 @@ fun CardDetailScreen(
                     .padding(16.dp)
             ) {
                 // Zurück-Button
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+                Row(modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ){
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+                    }
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Default.Edit, contentDescription = "Karte bearbeiten")
+                    }
                 }
+
                 Spacer(Modifier.height(16.dp))
 
                 // Kartenbild

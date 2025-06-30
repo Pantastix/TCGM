@@ -104,6 +104,16 @@ class CardListViewModel(
             setLoading(true)
             _uiState.update { it.copy(error = null, apiCardDetails = null) }
 
+            val existingCard = cardRepository.findExistingCard(setId, localId, language.code)
+            if (existingCard != null) {
+                // Karte existiert bereits! Zeige eine Meldung und brich den Vorgang ab.
+                _uiState.update {
+                    it.copy(error = "Diese Karte befindet sich bereits in deiner Sammlung (Anzahl: ${existingCard.ownedCopies}).")
+                }
+                setLoading(false)
+                return@launch
+            }
+
             // Die Sprache der Suche für den Speicherprozess merken
             _uiState.update { it.copy(searchedCardLanguage = language) }
 
@@ -127,16 +137,14 @@ class CardListViewModel(
         }
     }
 
-    fun clearSelectedCard() {
-        _uiState.update { it.copy(selectedCardDetails = null) }
-    }
-
     fun confirmAndSaveCard(
         cardDetails: TcgDexCardResponse,
         languageCode: String,
         abbreviation: String?,
         price: Double?,
-        cardMarketLink: String
+        cardMarketLink: String,
+        ownedCopies: Int,
+        notes: String?
     ) {
         viewModelScope.launch {
             setLoading(true)
@@ -144,24 +152,24 @@ class CardListViewModel(
                 cardRepository.updateSetAbbreviation(cardDetails.set.id, abbreviation)
             }
 
-            val englishCardDetails = apiService.getCardDetails(cardDetails.set.id, cardDetails.localId, CardLanguage.ENGLISH.code)
+            val englishCardDetails = apiService.getCardDetails(cardDetails.set.id, cardDetails.localId, AppLanguage.ENGLISH.code)
             if (englishCardDetails == null) {
                 _uiState.update { it.copy(error = "Konnte englische Kartendetails nicht abrufen.") }
                 setLoading(false)
                 return@launch
             }
 
-            val existingCard = cardRepository.findCardByTcgDexId(cardDetails.id)
+            val existingCard = cardRepository.findCardByTcgDexId(cardDetails.id, languageCode)
             if (existingCard != null) {
                 cardRepository.updateCardUserData(
                     cardId = existingCard.id,
-                    ownedCopies = existingCard.ownedCopies + 1,
-                    notes = null,
+                    ownedCopies = existingCard.ownedCopies + ownedCopies, // Add new quantity to existing
+                    notes = notes,
                     currentPrice = price ?: existingCard.currentPrice,
                     lastPriceUpdate = if (price != null) Clock.System.now().toString() else null
                 )
             } else {
-                saveNewCard(cardDetails, englishCardDetails, abbreviation, price, languageCode, cardMarketLink)
+                saveNewCard(cardDetails, englishCardDetails, abbreviation, price, languageCode, cardMarketLink, ownedCopies, notes)
             }
 
             setLoading(false)
@@ -175,20 +183,23 @@ class CardListViewModel(
         abbreviation: String?,
         price: Double?,
         languageCode: String,
-        marketLink: String // <<< NEUER PARAMETER
+        marketLink: String,
+        ownedCopies: Int,
+        notes: String?
     ) {
         val completeImageUrl = localCardDetails.image?.let { "$it/high.jpg" }
 
         cardRepository.insertFullPokemonCard(
-            setId = localCardDetails.set.id, tcgDexCardId = localCardDetails.id,
-            nameLocal = localCardDetails.name, // Verwendet den (ggf. bearbeiteten) Namen
+            setId = localCardDetails.set.id,
+            tcgDexCardId = localCardDetails.id,
+            nameLocal = localCardDetails.name,
             nameEn = englishCardDetails.name,
             language = languageCode,
             localId = localCardDetails.localId,
             imageUrl = completeImageUrl,
-            cardMarketLink = marketLink, // <<< Verwendet den bearbeiteten Link
-            ownedCopies = 1,
-            notes = null,
+            cardMarketLink = marketLink,
+            ownedCopies = ownedCopies, // <<< Verwendet die übergebene Menge
+            notes = notes,
             rarity = localCardDetails.rarity,
             hp = localCardDetails.hp,
             types = localCardDetails.types?.joinToString(","),
@@ -205,7 +216,29 @@ class CardListViewModel(
         )
     }
 
+    fun updateCard(
+        cardId: Long,
+        ownedCopies: Int,
+        notes: String?,
+        currentPrice: Double?
+    ) {
+        viewModelScope.launch {
+            setLoading(true)
+            cardRepository.updateCardUserData(
+                cardId = cardId,
+                ownedCopies = ownedCopies,
+                notes = notes,
+                currentPrice = currentPrice,
+                lastPriceUpdate = if (currentPrice != null) Clock.System.now().toString() else null
+            )
+            // Lade die Kartendetails neu, um die Änderungen in der UI anzuzeigen
+            selectCard(cardId)
+            setLoading(false)
+        }
+    }
+
     private fun setLoading(isLoading: Boolean) = _uiState.update { it.copy(isLoading = isLoading) }
     fun resetApiCardDetails() = _uiState.update { it.copy(apiCardDetails = null) }
+    fun clearSelectedCard() { _uiState.update { it.copy(selectedCardDetails = null) } }
     fun clearError() = _uiState.update { it.copy(error = null) }
 }

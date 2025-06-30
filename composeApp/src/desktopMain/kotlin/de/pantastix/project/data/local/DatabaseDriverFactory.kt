@@ -10,7 +10,7 @@ actual class DatabaseDriverFactory {
     // Private Hilfsfunktion, um das App-Verzeichnis zu erstellen
     private fun getAppDir(): File {
         val userHome = System.getProperty("user.home")
-        val appDir = File(userHome, ".pokemonCardCollector")
+        val appDir = File(userHome, ".tcgm")
         if (!appDir.exists()) {
             appDir.mkdirs()
         }

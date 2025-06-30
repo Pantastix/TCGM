@@ -121,10 +121,18 @@ class CardRepositoryImpl(
         }
     }
 
-    override suspend fun findCardByTcgDexId(tcgDexId: String): PokemonCardInfo? {
+    override suspend fun findCardByTcgDexId(tcgDexId: String, language: String): PokemonCardInfo? {
         return withContext(ioDispatcher) {
-            queries.selectCardByTcgDexId(tcgDexId).executeAsOneOrNull()?.let {
-                PokemonCardInfo(it.id, it.nameLocal, "", it.imageUrl, it.ownedCopies.toInt(), it.currentPrice)
+            queries.findCardByTcgDexIdAndLanguage(tcgDexId, language).executeAsOneOrNull()?.let { entity ->
+                // Mappen auf das Info-Objekt für den Check im ViewModel.
+                PokemonCardInfo(
+                    id = entity.id,
+                    nameDe = entity.nameLocal,
+                    setName = "", // Nicht relevant für diesen Check
+                    imageUrl = entity.imageUrl,
+                    ownedCopies = entity.ownedCopies.toInt(),
+                    currentPrice = entity.currentPrice
+                )
             }
         }
     }
@@ -147,6 +155,22 @@ class CardRepositoryImpl(
                 variantsJson = variantsJson, abilitiesJson = abilitiesJson, attacksJson = attacksJson,
                 legalJson = legalJson
             )
+        }
+    }
+
+    override suspend fun findExistingCard(setId: String, localId: String, language: String): PokemonCardInfo? {
+        return withContext(ioDispatcher) {
+            queries.findCardBySetAndLocalIdAndLanguage(setId, localId, language).executeAsOneOrNull()?.let { entity ->
+                // Wir mappen das Ergebnis auf PokemonCardInfo. Alle Felder sind für den Check verfügbar.
+                PokemonCardInfo(
+                    id = entity.id,
+                    nameDe = entity.nameLocal,
+                    setName = "", // Nicht nötig für diesen Check
+                    imageUrl = entity.imageUrl,
+                    ownedCopies = entity.ownedCopies.toInt(),
+                    currentPrice = entity.currentPrice
+                )
+            }
         }
     }
 

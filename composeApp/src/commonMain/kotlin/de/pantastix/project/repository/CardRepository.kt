@@ -19,7 +19,7 @@ interface CardRepository {
     // --- Pokémon-Karten-Operationen ---
     fun getCardInfos(): Flow<List<PokemonCardInfo>>
     suspend fun getFullCardDetails(cardId: Long): PokemonCard?
-    suspend fun findCardByTcgDexId(tcgDexId: String): PokemonCardInfo?
+    suspend fun findCardByTcgDexId(tcgDexId: String, language: String): PokemonCardInfo?
 
     suspend fun updateSetAbbreviation(setId: String, abbreviation: String)
 
@@ -49,6 +49,8 @@ interface CardRepository {
         currentPrice: Double?,
         lastPriceUpdate: String?
     )
+
+    suspend fun findExistingCard(setId: String, localId: String, language: String): PokemonCardInfo?
 
     /** Löscht eine Karte anhand ihrer Sammlungs-ID. */
     suspend fun deleteCardById(cardId: Long)
