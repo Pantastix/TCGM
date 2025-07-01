@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -20,17 +22,33 @@ import de.pantastix.project.ui.util.formatPrice
 import de.pantastix.project.ui.viewmodel.CardListViewModel
 
 @Composable
-fun CardCollectionScreen(viewModel: CardListViewModel) {
+fun CardCollectionScreen(
+    viewModel: CardListViewModel,
+    onAddCardClick: () -> Unit,
+    onCardClick: (Long) -> Unit
+    ) {
     val uiState by viewModel.uiState.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // TODO: Hier später die Filterleiste einfügen
-        Box(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("Filter (Platzhalter)", style = MaterialTheme.typography.bodySmall)
+            Button(onClick = onAddCardClick) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Add, contentDescription = "Add")
+                }
+                Text("Karte hinzufügen")
+            }
+            // TODO: Hier später weitere Filter-Elemente hinzufügen
         }
+
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            thickness = 4.dp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+        )
 
         if (uiState.isLoading && uiState.cardInfos.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -39,14 +57,14 @@ fun CardCollectionScreen(viewModel: CardListViewModel) {
         } else {
             // Die Kachelansicht für die Karten
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 140.dp), // Passt die Anzahl der Spalten an die Bildschirmgröße an
+                columns = GridCells.Adaptive(minSize = 140.dp),
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(uiState.cardInfos, key = { it.id }) { cardInfo ->
-                    CardGridItem(cardInfo = cardInfo, onClick = { /* TODO: Detailansicht öffnen */ })
+                    CardGridItem(cardInfo = cardInfo, onClick = { onCardClick(cardInfo.id) })
                 }
             }
         }

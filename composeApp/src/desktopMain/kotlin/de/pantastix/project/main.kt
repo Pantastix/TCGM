@@ -2,24 +2,14 @@
 package de.pantastix.project
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.window.WindowDraggableArea
 import androidx.compose.material.icons.Icons
-import androidx.compose.material3.Icon
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Minimize
 import androidx.compose.material.icons.filled.Window
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,15 +42,22 @@ fun main() = application {
         onCloseRequest = ::exitApplication,
         state = windowState,
         undecorated = true, // <<< ENTFERNT die Standard-Windows/macOS-Titelzeile
-        title = "Trading Card Game Manager"
+        title = "Trading Card Game Manager",
+        transparent = true
     ) {
-        AppTheme { // Das Theme umschließt jetzt alles, inklusive unserer eigenen Titelzeile
-            AppWindowTitleBar(
-                title = "S.I.M.O.N.",
-                window = this.window, // Übergibt das Fenster-Objekt für Minimieren/Maximieren
-                onClose = { exitApplication() }
+        AppTheme {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                shape = RoundedCornerShape(12.dp),
+                shadowElevation = 8.dp
             ) {
-                App() // Hier wird deine Multiplattform-App geladen
+                AppWindowTitleBar(
+                    title = "Trading Card Game Manager",
+                    window = this.window, // Übergibt das Fenster-Objekt für Minimieren/Maximieren
+                    onClose = { exitApplication() }
+                ) {
+                    App() // Hier wird deine Multiplattform-App geladen
+                }
             }
         }
     }

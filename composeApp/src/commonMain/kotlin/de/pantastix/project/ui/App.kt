@@ -7,7 +7,6 @@ import org.koin.compose.koinInject
 import de.pantastix.project.platform.Platform
 import de.pantastix.project.platform.getPlatform
 
-// Enum zur Steuerung der Haupt-Navigation
 enum class MainScreen {
     COLLECTION,
     VALUE,
@@ -32,9 +31,7 @@ fun App(viewModel: CardListViewModel = koinInject()) {
             }
             else -> { // Android, iOS, etc.
                 MobileApp(
-                    viewModel = viewModel,
-                    currentScreen = currentScreen,
-                    onScreenSelect = { screen -> currentScreen = screen }
+                    viewModel = viewModel
                 )
             }
         }
