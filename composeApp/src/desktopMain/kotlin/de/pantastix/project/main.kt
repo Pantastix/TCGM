@@ -41,7 +41,7 @@ fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
         state = windowState,
-        undecorated = true, // <<< ENTFERNT die Standard-Windows/macOS-Titelzeile
+        undecorated = true,
         title = "Trading Card Game Manager",
         transparent = true
     ) {

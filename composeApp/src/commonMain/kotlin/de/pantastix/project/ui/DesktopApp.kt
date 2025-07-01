@@ -34,10 +34,11 @@ fun DesktopApp(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showAddCardDialog by remember { mutableStateOf(false) }
+    var isEditing by remember { mutableStateOf(false) }
 
     val detailPaneWeight by animateFloatAsState(
-        targetValue = if (uiState.selectedCardDetails != null && currentScreen == MainScreen.COLLECTION) 0.4f else 0f,
-        animationSpec = tween(durationMillis = 500)
+        targetValue = if (uiState.selectedCardDetails != null && currentScreen == MainScreen.COLLECTION) 0.6f else 0f,
+        animationSpec = tween(durationMillis = 400)
     )
 
     Surface(
@@ -95,12 +96,24 @@ fun DesktopApp(
                 Row(modifier = Modifier.weight(detailPaneWeight)) {
                     HorizontalDivider(modifier = Modifier.fillMaxHeight().width(1.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                     key(uiState.selectedCardDetails?.id) {
-                        CardDetailScreen(
-                            card = uiState.selectedCardDetails,
-                            isLoading = uiState.isLoading,
-                            onBack = { viewModel.clearSelectedCard() },
-                            onEdit = { /* TODO: Edit-Logik hier einfügen */ }
-                        )
+                        if (isEditing) {
+                            EditCardScreen(
+                                card = uiState.selectedCardDetails!!,
+                                onSave = { id, copies, notes, price ->
+                                    viewModel.updateCard(id, copies, notes, price)
+                                    isEditing = false // Nach dem Speichern zurück in den Ansichtsmodus
+                                },
+                                onCancel = { isEditing = false } // Zurück in den Ansichtsmodus
+                            )
+                        } else {
+                            CardDetailScreen(
+                                card = uiState.selectedCardDetails,
+                                isLoading = uiState.isLoading,
+                                onBack = { viewModel.clearSelectedCard() },
+                                onEdit = { isEditing = true }, // Wechselt in den Bearbeitungsmodus
+                                onDelete = { viewModel.deleteSelectedCard() } // Ruft die neue Löschfunktion auf
+                            )
+                        }
                     }
                 }
             }

@@ -99,6 +99,18 @@ class CardListViewModel(
         }
     }
 
+    fun deleteSelectedCard() {
+        viewModelScope.launch {
+            uiState.value.selectedCardDetails?.id?.let { cardId ->
+                setLoading(true)
+                cardRepository.deleteCardById(cardId)
+                // Nach dem Löschen die Auswahl aufheben, damit die Detailansicht verschwindet
+                clearSelectedCard()
+                setLoading(false)
+            }
+        }
+    }
+
     fun fetchCardDetailsFromApi(setId: String, localId: String, language: CardLanguage) {
         viewModelScope.launch {
             setLoading(true)

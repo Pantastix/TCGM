@@ -1,5 +1,6 @@
 package de.pantastix.project.ui.screens
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,7 +28,8 @@ fun CardListScreen(
                 onDismissRequest = onDismissError,
                 title = { Text("Fehler") },
                 text = { Text(error) },
-                confirmButton = { Button(onClick = onDismissError) { Text("OK") } }
+                confirmButton = { Button(onClick = onDismissError) { Text("OK") } },
+                modifier = Modifier.border(4.dp, MaterialTheme.colorScheme.error, MaterialTheme.shapes.large)
             )
         } else if (cardInfos.isEmpty()) {
             Text(
