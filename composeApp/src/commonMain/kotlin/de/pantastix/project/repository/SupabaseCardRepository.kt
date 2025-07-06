@@ -46,6 +46,35 @@ class SupabaseCardRepository(
     private val setsTable = "SetEntity"
     private val pokemonCardInfoView = "PokemonCardInfoView"
 
+    private fun PokemonCard.toSupabasePokemonCard(): SupabasePokemonCard {
+        return SupabasePokemonCard(
+            id = this.id,
+            setId = this.setId,
+            tcgDexCardId = this.tcgDexCardId,
+            nameLocal = this.nameLocal,
+            nameEn = this.nameEn,
+            language = this.language,
+            localId = this.localId, // Speichert den kombinierten String "051 / 244"
+            imageUrl = this.imageUrl,
+            cardMarketLink = this.cardMarketLink,
+            ownedCopies = this.ownedCopies,
+            notes = this.notes,
+            rarity = this.rarity,
+            hp = this.hp,
+            types = this.types.joinToString(","), // Konvertiert Liste zu kommasepariertem String
+            illustrator = this.illustrator,
+            stage = this.stage,
+            retreatCost = this.retreatCost,
+            regulationMark = this.regulationMark,
+            currentPrice = this.currentPrice,
+            lastPriceUpdate = this.lastPriceUpdate,
+            variantsJson = null, // Nicht im PokemonCard Modell enthalten
+            abilitiesJson = jsonParser.encodeToString(ListSerializer(Ability.serializer()), this.abilities),
+            attacksJson = jsonParser.encodeToString(ListSerializer(Attack.serializer()), this.attacks),
+            legalJson = null // Nicht im PokemonCard Modell enthalten
+        )
+    }
+
     private fun SupabasePokemonCard.toPokemonCard(setName: String): PokemonCard {
         return PokemonCard(
             id = this.id,
@@ -88,8 +117,8 @@ class SupabaseCardRepository(
         val result2 = postgrest.from(cardsTable)
             .select(
                 columns = Columns.list(
-                    "*", // All columns from PokemonCardEntity
-                    "SetEntity(nameLocal)" // Join to get the set name - Hier wird der gequotete Name verwendet
+                    "*",
+                    "SetEntity(nameLocal)"
                 )
             ){
                 filter {
@@ -151,29 +180,7 @@ class SupabaseCardRepository(
     }
 
     override suspend fun insertFullPokemonCard(card: PokemonCard) {
-        val supabaseCard = SupabasePokemonCard(
-            setId = card.setName, // Annahme: setName enthält die ID
-            tcgDexCardId = card.tcgDexCardId,
-            nameLocal = card.nameLocal,
-            nameEn = card.nameEn,
-            language = card.language,
-            localId = card.localId.split(" / ").firstOrNull() ?: "",
-            imageUrl = card.imageUrl,
-            cardMarketLink = card.cardMarketLink,
-            ownedCopies = card.ownedCopies,
-            notes = card.notes,
-            rarity = card.rarity,
-            hp = card.hp,
-            types = card.types.joinToString(","),
-            illustrator = card.illustrator,
-            stage = card.stage,
-            retreatCost = card.retreatCost,
-            regulationMark = card.regulationMark,
-            currentPrice = card.currentPrice,
-            lastPriceUpdate = card.lastPriceUpdate,
-            abilitiesJson = Json.encodeToString(ListSerializer(Ability.serializer()), card.abilities),
-            attacksJson = Json.encodeToString(ListSerializer(Attack.serializer()), card.attacks)
-        )
+        val supabaseCard = card.toSupabasePokemonCard()
         postgrest.from(cardsTable).insert(supabaseCard)
     }
 

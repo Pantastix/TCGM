@@ -102,15 +102,17 @@ class CardListViewModel(
             .launchIn(viewModelScope)
     }
 
-    private fun loadSets(language: AppLanguage) {
+    private fun loadSets(language: AppLanguage? = null) {
         viewModelScope.launch {
             setLoading(true)
-            val setsFromApi = apiService.getAllSets(language.code)
-            if (setsFromApi.isNotEmpty()) {
-                // Synchronisiert immer die lokale DB, die als Cache dient
-                localCardRepository.syncSets(setsFromApi)
+            if( language != null) {
+                val setsFromApi = apiService.getAllSets(language.code)
+                if (setsFromApi.isNotEmpty()) {
+                    // Synchronisiert immer die lokale DB, die als Cache dient
+                    activeCardRepository.syncSets(setsFromApi)
+                }
             }
-            localCardRepository.getAllSets().onEach { setsFromDb ->
+            activeCardRepository.getAllSets().onEach { setsFromDb ->
                 _uiState.update { it.copy(sets = setsFromDb.sortedByDescending { it.releaseDate }) }
             }.launchIn(viewModelScope)
             setLoading(false)
@@ -286,8 +288,8 @@ class CardListViewModel(
 
                     remoteCardRepository = SupabaseCardRepository(supabase.postgrest) // Activate the Cloud DB here
                     _uiState.update { it.copy(isSupabaseConnected = true) }
+                    syncSetsToSupabase()
                     checkForSync()
-
                 } catch (e: Exception) {
                     val errorMessage = e.message ?: "Unbekannter Fehler."
                     println("Fehler bei der Supabase-Verbindungstest: $errorMessage")
@@ -340,6 +342,29 @@ class CardListViewModel(
             if (remoteCards.isEmpty()) {
                 _uiState.update { it.copy(syncPromptMessage = "${localCards.size} lokale Karten gefunden. Sollen diese in die Cloud hochgeladen werden? Die lokale Datenbank bleibt unverändert.") }
             }
+        }
+    }
+
+    fun syncSetsToSupabase(){
+        viewModelScope.launch {
+            val localSets = localCardRepository.getAllSets().first()
+            val remoteSets = remoteCardRepository?.getAllSets()?.first() ?: emptyList()
+            val remoteSetIds = remoteSets.map { it.setId }.toSet()
+
+            localSets.forEach { localSet ->
+                if (localSet.setId !in remoteSetIds) {
+                    // Set does not exist remotely, insert it
+                    remoteCardRepository?.syncSets(listOf(localSet)) // syncSets handles upsert
+                } else {
+                    // Set exists remotely, check for abbreviation
+                    val remoteSet = remoteSets.find { it.setId == localSet.setId }
+                    if (remoteSet != null && remoteSet.abbreviation.isNullOrBlank() && !localSet.abbreviation.isNullOrBlank()) {
+                        // Remote set has no abbreviation, but local does. Update remote.
+                        remoteCardRepository?.updateSetAbbreviation(localSet.setId, localSet.abbreviation!!)
+                    }
+                }
+            }
+            loadSets()
         }
     }
 
