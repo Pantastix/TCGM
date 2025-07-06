@@ -9,6 +9,8 @@
   - [ ] fix app not loading data from remot at startup
   - [ ] test all set functions
 
+- [ ] Sync backwards functionality (on delete of supabase keys)
+
 - [ ] Rework show UI
 
 - Implement Multilingual support
