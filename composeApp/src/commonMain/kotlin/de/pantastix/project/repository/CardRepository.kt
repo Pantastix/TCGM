@@ -27,16 +27,7 @@ interface CardRepository {
      * Fügt eine neue, vollständig definierte Karte hinzu.
      * Dies ist die einzige, korrekte Version der Methode.
      */
-    suspend fun insertFullPokemonCard(
-        setId: String, tcgDexCardId: String, nameLocal: String, nameEn: String, language: String,
-        localId: String, imageUrl: String?, cardMarketLink: String?,
-        ownedCopies: Int, notes: String?, rarity: String?, hp: Int?,
-        types: String?, illustrator: String?, stage: String?, retreatCost: Int?,
-        regulationMark: String?,
-        currentPrice: Double?, lastPriceUpdate: String?,
-        variantsJson: String?, abilitiesJson: String?,
-        attacksJson: String?, legalJson: String?
-    )
+    suspend fun insertFullPokemonCard(card: PokemonCard)
 
     /**
      * Aktualisiert die vom Nutzer änderbaren Daten einer Karte.

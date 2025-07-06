@@ -59,7 +59,7 @@ fun CardRowItem(cardInfo: PokemonCardInfo, onClick: () -> Unit) {
             // AsyncImage(model = cardInfo.imageUrl, ...)
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = cardInfo.nameDe, style = MaterialTheme.typography.titleMedium)
+                Text(text = cardInfo.nameLocal, style = MaterialTheme.typography.titleMedium)
                 Text(text = cardInfo.setName, style = MaterialTheme.typography.bodySmall)
                 Text(text = "Anzahl: ${cardInfo.ownedCopies}", style = MaterialTheme.typography.bodySmall)
             }

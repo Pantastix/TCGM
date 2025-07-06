@@ -81,7 +81,7 @@ fun CardGridItem(cardInfo: PokemonCardInfo, onClick: () -> Unit) {
         Column {
             AsyncImage(
                 model = cardInfo.imageUrl,
-                contentDescription = cardInfo.nameDe,
+                contentDescription = cardInfo.nameLocal,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -93,7 +93,7 @@ fun CardGridItem(cardInfo: PokemonCardInfo, onClick: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text = cardInfo.nameDe,
+                    text = cardInfo.nameLocal,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,

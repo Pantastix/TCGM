@@ -68,12 +68,14 @@ fun EditCardScreen(
                 }
                 Button(
                     onClick = {
-                        onSave(
-                            card.id,
-                            ownedCopiesInput.toIntOrNull() ?: 1,
-                            notesInput.ifBlank { null },
-                            priceInput.replace(",", ".").toDoubleOrNull()
-                        )
+                        card.id?.let { nonNullId ->
+                            onSave(
+                                nonNullId,
+                                ownedCopiesInput.toIntOrNull() ?: 1,
+                                notesInput.ifBlank { null },
+                                priceInput.replace(",", ".").toDoubleOrNull()
+                            )
+                        }
                     },
                     modifier = Modifier.weight(1f)
                 ) {

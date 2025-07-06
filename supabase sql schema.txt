@@ -1,0 +1,41 @@
+-- Tabelle für Set-Informationen (SetEntity)
+CREATE TABLE public.SetEntity (
+    setId TEXT NOT NULL PRIMARY KEY,
+    abbreviation TEXT,
+    nameLocal TEXT NOT NULL,
+    nameEn TEXT NOT NULL,
+    logoUrl TEXT,
+    cardCountOfficial INTEGER NOT NULL,
+    cardCountTotal INTEGER NOT NULL,
+    releaseDate TEXT
+);
+
+-- Tabelle für Pokémon-Karten-Sammlung (PokemonCardEntity)
+CREATE TABLE public.PokemonCardEntity (
+    id BIGSERIAL PRIMARY KEY,
+    setId TEXT NOT NULL,
+    tcgDexCardId TEXT NOT NULL,
+    nameLocal TEXT NOT NULL,
+    nameEn TEXT NOT NULL,
+    language TEXT NOT NULL,
+    localId TEXT NOT NULL,
+    imageUrl TEXT,
+    cardMarketLink TEXT,
+    ownedCopies INTEGER NOT NULL DEFAULT 1,
+    notes TEXT,
+    rarity TEXT,
+    hp INTEGER,
+    types TEXT,
+    illustrator TEXT,
+    stage TEXT,
+    retreatCost INTEGER,
+    regulationMark TEXT,
+    currentPrice DOUBLE PRECISION,
+    lastPriceUpdate TEXT,
+    variantsJson TEXT,
+    abilitiesJson TEXT,
+    attacksJson TEXT,
+    legalJson TEXT,
+    FOREIGN KEY(setId) REFERENCES public.SetEntity(setId),
+    UNIQUE(tcgDexCardId, language)
+);

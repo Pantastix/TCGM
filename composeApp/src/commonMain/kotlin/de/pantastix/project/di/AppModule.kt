@@ -1,7 +1,7 @@
 package de.pantastix.project.di
 
 import de.pantastix.project.data.local.DatabaseDriverFactory
-import de.pantastix.project.repository.CardRepositoryImpl
+import de.pantastix.project.repository.LocalCardRepositoryImpl
 import de.pantastix.project.db.cards.CardDatabase
 import de.pantastix.project.db.cards.CardDatabaseQueries
 import de.pantastix.project.db.settings.SettingsDatabase
@@ -15,7 +15,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
-import org.koin.core.scope.get
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 val commonModule = module {
@@ -47,7 +47,7 @@ val commonModule = module {
 
 
     // Repository
-    single<CardRepository> { CardRepositoryImpl(queries = get<CardDatabaseQueries>()) }
+    single<CardRepository>{ LocalCardRepositoryImpl(queries = get<CardDatabaseQueries>()) }
     single<SettingsRepository> { SettingsRepositoryImpl(queries = get()) }
 
     // API Service
@@ -56,7 +56,7 @@ val commonModule = module {
     // ViewModel - KORRIGIERT: Beide Abhängigkeiten werden jetzt übergeben
     factory {
         CardListViewModel(
-            cardRepository = get(),
+            localCardRepository = get(),
             settingsRepository = get(), // Das neue Repository wird hier injiziert
             apiService = get()
         )

@@ -12,9 +12,10 @@ import de.pantastix.project.model.SetInfo
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
-class CardRepositoryImpl(
+class LocalCardRepositoryImpl(
     private val queries: CardDatabaseQueries // Wird von Koin injiziert
 ) : CardRepository {
 
@@ -77,7 +78,9 @@ class CardRepositoryImpl(
                 results.map { result ->
                     PokemonCardInfo(
                         id = result.id,
-                        nameDe = result.nameLocal, // KORRIGIERT
+                        tcgDexCardId = result.tcgDexCardId,
+                        language = result.language,
+                        nameLocal = result.nameLocal,
                         setName = result.setName,
                         imageUrl = result.imageUrl,
                         ownedCopies = result.ownedCopies.toInt(),
@@ -105,6 +108,7 @@ class CardRepositoryImpl(
                     notes = it.notes,
                     currentPrice = it.currentPrice,
                     lastPriceUpdate = it.lastPriceUpdate,
+                    setId = it.setId,
                     setName = it.setName,
                     localId = "${it.localId} / ${it.cardCountTotal}",
                     rarity = it.rarity,
@@ -127,7 +131,9 @@ class CardRepositoryImpl(
                 // Mappen auf das Info-Objekt für den Check im ViewModel.
                 PokemonCardInfo(
                     id = entity.id,
-                    nameDe = entity.nameLocal,
+                    tcgDexCardId = entity.tcgDexCardId,
+                    language = entity.language,
+                    nameLocal = entity.nameLocal,
                     setName = "", // Nicht relevant für diesen Check
                     imageUrl = entity.imageUrl,
                     ownedCopies = entity.ownedCopies.toInt(),
@@ -137,23 +143,32 @@ class CardRepositoryImpl(
         }
     }
 
-    override suspend fun insertFullPokemonCard(
-        setId: String, tcgDexCardId: String, nameLocal: String, nameEn: String, language: String,
-        localId: String, imageUrl: String?, cardMarketLink: String?, ownedCopies: Int,
-        notes: String?, rarity: String?, hp: Int?, types: String?, illustrator: String?,
-        stage: String?, retreatCost: Int?, regulationMark: String?, currentPrice: Double?,
-        lastPriceUpdate: String?, variantsJson: String?, abilitiesJson: String?,
-        attacksJson: String?, legalJson: String?
-    ) {
+    override suspend fun insertFullPokemonCard(card: PokemonCard) {
         withContext(ioDispatcher) {
             queries.insertCard(
-                setId = setId, tcgDexCardId = tcgDexCardId, nameLocal = nameLocal, nameEn = nameEn,
-                language = language, localId = localId, imageUrl = imageUrl, cardMarketLink = cardMarketLink,
-                ownedCopies = ownedCopies.toLong(), notes = notes, rarity = rarity, hp = hp?.toLong(),
-                types = types, illustrator = illustrator, stage = stage, retreatCost = retreatCost?.toLong(),
-                regulationMark = regulationMark, currentPrice = currentPrice, lastPriceUpdate = lastPriceUpdate,
-                variantsJson = variantsJson, abilitiesJson = abilitiesJson, attacksJson = attacksJson,
-                legalJson = legalJson
+                setId = card.setId,
+                tcgDexCardId = card.tcgDexCardId,
+                nameLocal = card.nameLocal,
+                nameEn = card.nameEn,
+                language = card.language,
+                localId = card.localId.split(" / ").firstOrNull() ?: "",
+                imageUrl = card.imageUrl,
+                cardMarketLink = card.cardMarketLink,
+                ownedCopies = card.ownedCopies.toLong(),
+                notes = card.notes,
+                rarity = card.rarity,
+                hp = card.hp?.toLong(),
+                types = card.types.joinToString(","),
+                illustrator = card.illustrator,
+                stage = card.stage,
+                retreatCost = card.retreatCost?.toLong(),
+                regulationMark = card.regulationMark,
+                currentPrice = card.currentPrice,
+                lastPriceUpdate = card.lastPriceUpdate,
+                variantsJson = card.variantsJson, // Muss aus einem passenden Feld im Modell kommen
+                abilitiesJson = Json.encodeToString(ListSerializer(Ability.serializer()), card.abilities),
+                attacksJson = Json.encodeToString(ListSerializer(Attack.serializer()), card.attacks),
+                legalJson = card.legalJson // Muss aus einem passenden Feld im Modell kommen
             )
         }
     }
@@ -164,7 +179,9 @@ class CardRepositoryImpl(
                 // Wir mappen das Ergebnis auf PokemonCardInfo. Alle Felder sind für den Check verfügbar.
                 PokemonCardInfo(
                     id = entity.id,
-                    nameDe = entity.nameLocal,
+                    tcgDexCardId = entity.tcgDexCardId,
+                    language = entity.language,
+                    nameLocal = entity.nameLocal,
                     setName = "", // Nicht nötig für diesen Check
                     imageUrl = entity.imageUrl,
                     ownedCopies = entity.ownedCopies.toInt(),

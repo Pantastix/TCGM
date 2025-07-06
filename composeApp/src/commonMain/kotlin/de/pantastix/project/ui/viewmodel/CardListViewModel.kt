@@ -1,13 +1,17 @@
 package de.pantastix.project.ui.viewmodel
 
 import de.pantastix.project.coroutines.ioDispatcher
+import de.pantastix.project.model.Ability
+import de.pantastix.project.model.Attack
 import de.pantastix.project.model.PokemonCard
 import de.pantastix.project.model.PokemonCardInfo
 import de.pantastix.project.model.SetInfo
 import de.pantastix.project.model.api.*
 import de.pantastix.project.repository.CardRepository
 import de.pantastix.project.repository.SettingsRepository
+import de.pantastix.project.repository.SupabaseCardRepository
 import de.pantastix.project.service.TcgDexApiService
+import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.*
@@ -15,6 +19,9 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.datetime.Clock
 import kotlinx.serialization.encodeToString
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.query.Count
 
 enum class AppLanguage(val code: String, val displayName: String) {
     GERMAN("de", "Deutsch"),
@@ -39,22 +46,35 @@ data class UiState(
     val searchedCardLanguage: CardLanguage? = null, // Speichert die Sprache der letzten Suche
     val isLoading: Boolean = false,
     val error: String? = null,
-    val appLanguage: AppLanguage = AppLanguage.GERMAN
+    val appLanguage: AppLanguage = AppLanguage.GERMAN,
+    val supabaseUrl: String = "",
+    val supabaseKey: String = "",
+    val isSupabaseConnected: Boolean = false,
+    val syncPromptMessage: String? = null
 )
 
 class CardListViewModel(
-    private val cardRepository: CardRepository,
+    private val localCardRepository: CardRepository, // Immer das SQLite-Repository
     private val settingsRepository: SettingsRepository,
-    private val apiService: TcgDexApiService, // Koin injiziert unseren API Service
+    private val apiService: TcgDexApiService,
     private val viewModelScope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher)
 ) {
     private val _uiState = MutableStateFlow(UiState())
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
+    private var remoteCardRepository: CardRepository? = null // Für die Supabase-Implementierung
+
+    // Wählt dynamisch das richtige Repository (Cloud oder Lokal)
+    private val activeCardRepository: CardRepository
+        get() = remoteCardRepository ?: localCardRepository
+
     init {
         loadSettings()
         loadCardInfos()
+        loadSupabaseSettings()
     }
+
+    // --- Einstellungs- und Sprachlogik ---
 
     private fun loadSettings() {
         viewModelScope.launch {
@@ -65,7 +85,7 @@ class CardListViewModel(
         }
     }
 
-    fun setLanguage(language: AppLanguage) {
+    fun setAppLanguage(language: AppLanguage) {
         viewModelScope.launch {
             settingsRepository.saveSetting("language", language.code)
             _uiState.update { it.copy(appLanguage = language) }
@@ -73,8 +93,11 @@ class CardListViewModel(
         }
     }
 
+    // --- Datenlade-Logik ---
+
     private fun loadCardInfos() {
-        cardRepository.getCardInfos()
+        // Hört immer auf das aktive Repository
+        activeCardRepository.getCardInfos()
             .onEach { cards -> _uiState.update { it.copy(cardInfos = cards) } }
             .launchIn(viewModelScope)
     }
@@ -82,19 +105,14 @@ class CardListViewModel(
     private fun loadSets(language: AppLanguage) {
         viewModelScope.launch {
             setLoading(true)
-            // Lade die neuesten Sets von der API und speichere sie in der DB.
             val setsFromApi = apiService.getAllSets(language.code)
             if (setsFromApi.isNotEmpty()) {
-                cardRepository.syncSets(setsFromApi)
+                // Synchronisiert immer die lokale DB, die als Cache dient
+                localCardRepository.syncSets(setsFromApi)
             }
-            // Abonniere den Flow aus der Datenbank. `onEach` wird immer dann ausgeführt,
-            // wenn sich die Daten in der DB ändern.
-            cardRepository.getAllSets()
-                .onEach { setsFromDb ->
-                    // Wir kehren die Liste hier um, damit die neuesten Sets oben stehen.
-                    _uiState.update { it.copy(sets = setsFromDb.reversed()) }
-                }.launchIn(viewModelScope)
-
+            localCardRepository.getAllSets().onEach { setsFromDb ->
+                _uiState.update { it.copy(sets = setsFromDb.sortedByDescending { it.releaseDate }) }
+            }.launchIn(viewModelScope)
             setLoading(false)
         }
     }
@@ -103,7 +121,7 @@ class CardListViewModel(
         viewModelScope.launch {
             uiState.value.selectedCardDetails?.id?.let { cardId ->
                 setLoading(true)
-                cardRepository.deleteCardById(cardId)
+                activeCardRepository.deleteCardById(cardId)
                 // Nach dem Löschen die Auswahl aufheben, damit die Detailansicht verschwindet
                 clearSelectedCard()
                 setLoading(false)
@@ -111,26 +129,15 @@ class CardListViewModel(
         }
     }
 
+    // --- Karte Hinzufügen Workflow ---
+
     fun fetchCardDetailsFromApi(setId: String, localId: String, language: CardLanguage) {
         viewModelScope.launch {
             setLoading(true)
             _uiState.update { it.copy(error = null, apiCardDetails = null) }
-
-            val existingCard = cardRepository.findExistingCard(setId, localId, language.code)
-            if (existingCard != null) {
-                // Karte existiert bereits! Zeige eine Meldung und brich den Vorgang ab.
-                _uiState.update {
-                    it.copy(error = "Diese Karte befindet sich bereits in deiner Sammlung (Anzahl: ${existingCard.ownedCopies}).")
-                }
-                setLoading(false)
-                return@launch
-            }
-
-            // Die Sprache der Suche für den Speicherprozess merken
             _uiState.update { it.copy(searchedCardLanguage = language) }
 
             val details = apiService.getCardDetails(setId, localId, language.code)
-
             if (details == null) {
                 _uiState.update { it.copy(error = "Karte nicht gefunden.") }
             } else {
@@ -143,7 +150,7 @@ class CardListViewModel(
     fun selectCard(cardId: Long) {
         viewModelScope.launch {
             setLoading(true)
-            val details = cardRepository.getFullCardDetails(cardId)
+            val details = activeCardRepository.getFullCardDetails(cardId)
             _uiState.update { it.copy(selectedCardDetails = details) }
             setLoading(false)
         }
@@ -160,32 +167,47 @@ class CardListViewModel(
     ) {
         viewModelScope.launch {
             setLoading(true)
-            if (!abbreviation.isNullOrBlank()) {
-                cardRepository.updateSetAbbreviation(cardDetails.set.id, abbreviation)
-            }
-
-            val englishCardDetails = apiService.getCardDetails(cardDetails.set.id, cardDetails.localId, AppLanguage.ENGLISH.code)
-            if (englishCardDetails == null) {
-                _uiState.update { it.copy(error = "Konnte englische Kartendetails nicht abrufen.") }
-                setLoading(false)
-                return@launch
-            }
-
-            val existingCard = cardRepository.findCardByTcgDexId(cardDetails.id, languageCode)
+            val existingCard = activeCardRepository.findCardByTcgDexId(cardDetails.id, languageCode)
             if (existingCard != null) {
-                cardRepository.updateCardUserData(
+                activeCardRepository.updateCardUserData(
                     cardId = existingCard.id,
-                    ownedCopies = existingCard.ownedCopies + ownedCopies, // Add new quantity to existing
-                    notes = notes,
+                    ownedCopies = existingCard.ownedCopies + ownedCopies,
+                    notes = null,
                     currentPrice = price ?: existingCard.currentPrice,
                     lastPriceUpdate = if (price != null) Clock.System.now().toString() else null
                 )
             } else {
+                val englishCardDetails = apiService.getCardDetails(cardDetails.set.id, cardDetails.localId, CardLanguage.ENGLISH.code)
+                if (englishCardDetails == null) {
+                    _uiState.update { it.copy(error = "Konnte englische Kartendetails nicht abrufen.") }
+                    setLoading(false)
+                    return@launch
+                }
                 saveNewCard(cardDetails, englishCardDetails, abbreviation, price, languageCode, cardMarketLink, ownedCopies, notes)
             }
-
             setLoading(false)
             resetApiCardDetails()
+        }
+    }
+
+    fun updateCard(
+        cardId: Long,
+        ownedCopies: Int,
+        notes: String?,
+        currentPrice: Double?
+    ) {
+        viewModelScope.launch {
+            setLoading(true)
+            activeCardRepository.updateCardUserData(
+                cardId = cardId,
+                ownedCopies = ownedCopies,
+                notes = notes,
+                currentPrice = currentPrice,
+                lastPriceUpdate = if (currentPrice != null) Clock.System.now().toString() else null
+            )
+            // Lade die Kartendetails neu, um die Änderungen in der UI anzuzeigen
+            selectCard(cardId)
+            setLoading(false)
         }
     }
 
@@ -201,56 +223,153 @@ class CardListViewModel(
     ) {
         val completeImageUrl = localCardDetails.image?.let { "$it/high.jpg" }
 
-        cardRepository.insertFullPokemonCard(
-            setId = localCardDetails.set.id,
+        val newCard = PokemonCard(
+            id = null, // ID ist null, da sie von der DB generiert wird
             tcgDexCardId = localCardDetails.id,
             nameLocal = localCardDetails.name,
             nameEn = englishCardDetails.name,
             language = languageCode,
-            localId = localCardDetails.localId,
             imageUrl = completeImageUrl,
             cardMarketLink = marketLink,
-            ownedCopies = ownedCopies, // <<< Verwendet die übergebene Menge
+            ownedCopies = ownedCopies,
             notes = notes,
+            setName = localCardDetails.set.name,
+            localId = "${localCardDetails.localId} / ${localCardDetails.set.cardCount?.total ?: '?'}",
+            currentPrice = price,
+            lastPriceUpdate = if (price != null) Clock.System.now().toString() else null,
             rarity = localCardDetails.rarity,
             hp = localCardDetails.hp,
-            types = localCardDetails.types?.joinToString(","),
+            types = localCardDetails.types ?: emptyList(),
             illustrator = localCardDetails.illustrator,
             stage = localCardDetails.stage,
             retreatCost = localCardDetails.retreat,
             regulationMark = localCardDetails.regulationMark,
-            currentPrice = price,
-            lastPriceUpdate = if (price != null) Clock.System.now().toString() else null,
-            variantsJson = Json.encodeToString(localCardDetails.variants),
-            abilitiesJson = Json.encodeToString(localCardDetails.abilities),
-            attacksJson = Json.encodeToString(localCardDetails.attacks),
-            legalJson = Json.encodeToString(localCardDetails.legal)
+            abilities = localCardDetails.abilities?.map { Ability(it.name, it.type, it.effect) } ?: emptyList(),
+            attacks = localCardDetails.attacks?.map { Attack(it.cost, it.name, it.effect, it.damage) } ?: emptyList(),
+            setId = localCardDetails.set.id,
+            variantsJson = localCardDetails.variants?.let { Json.encodeToString(it) },
+            legalJson = localCardDetails.legal?.let { Json.encodeToString(it)}
         )
+
+        // Übergebe das einzelne Objekt an das Repository
+        activeCardRepository.insertFullPokemonCard(newCard)
     }
 
-    fun updateCard(
-        cardId: Long,
-        ownedCopies: Int,
-        notes: String?,
-        currentPrice: Double?
-    ) {
+    // --- Supabase Logik ---
+
+    private fun loadSupabaseSettings() {
+        viewModelScope.launch {
+            val url = settingsRepository.getSetting("supabase_url") ?: ""
+            val key = settingsRepository.getSetting("supabase_key") ?: ""
+            _uiState.update { it.copy(supabaseUrl = url, supabaseKey = key) }
+            if (url.isNotBlank() && key.isNotBlank()) {
+                connectToSupabase(url, key)
+            }
+        }
+    }
+
+    fun connectToSupabase(url: String, key: String) {
         viewModelScope.launch {
             setLoading(true)
-            cardRepository.updateCardUserData(
-                cardId = cardId,
-                ownedCopies = ownedCopies,
-                notes = notes,
-                currentPrice = currentPrice,
-                lastPriceUpdate = if (currentPrice != null) Clock.System.now().toString() else null
-            )
-            // Lade die Kartendetails neu, um die Änderungen in der UI anzuzeigen
-            selectCard(cardId)
+            try {
+                val supabase = createSupabaseClient(url, key) { install(Postgrest) }
+                println("Supabase-Client erfolgreich erstellt: $url")
+                // Test-Anfrage, um die Verbindung zu validieren
+//                supabase.postgrest.from("pokemon_cards").select { count(Count.EXACT) } //TODO: Test anpassen, so das dieser unabhängig von existierenden tabellen funktioniert
+//                println("Supabase-Verbindung erfolgreich getestet.")
+
+                try {
+                    supabase.postgrest.from("PokemonCardEntity").select { limit(1) }
+
+                    settingsRepository.saveSetting("supabase_url", url)
+                    settingsRepository.saveSetting("supabase_key", key)
+
+                    remoteCardRepository = SupabaseCardRepository(supabase.postgrest) // Activate the Cloud DB here
+                    _uiState.update { it.copy(isSupabaseConnected = true) }
+                    checkForSync()
+
+                } catch (e: Exception) {
+                    val errorMessage = e.message ?: "Unbekannter Fehler."
+                    println("Fehler bei der Supabase-Verbindungstest: $errorMessage")
+
+                    when {
+                        errorMessage.contains("Invalid API key", ignoreCase = true) -> {
+                            println("Ungültiger API-Schlüssel bei der Supabase-Verbindung: $errorMessage")
+                            _uiState.update { it.copy(error = "Verbindung zu Supabase fehlgeschlagen: Ungültiger API-Schlüssel. Bitte überprüfen Sie Ihren Supabase 'anon' oder 'service_role' API-Schlüssel.") }
+                        }
+                        errorMessage.contains("UnresolvedAddressException", ignoreCase = true) ||
+                                errorMessage.contains("Failed to connect", ignoreCase = true) ||
+                                (errorMessage.contains("HTTP request to ", ignoreCase = true) && errorMessage.contains("(GET) failed with message", ignoreCase = true)) -> {
+                            println("Fehler bei der Supabase-Verbindung: $errorMessage")
+                            _uiState.update { it.copy(error = "Verbindung zu Supabase fehlgeschlagen: Ungültige URL oder Netzwerkproblem. Bitte überprüfen Sie die URL und Ihre Internetverbindung.") }
+                        }
+                        // This specific error indicates that the connection and authentication were successful,
+                        // but the requested table does not exist.
+                        errorMessage.contains("relation \"public.pokemoncardentity\" does not exist", ignoreCase = true) || errorMessage.contains("relation \"pokemoncardentity\" does not exist", ignoreCase = true) -> {
+                            println("Tabelle 'PokemonCardEntity' fehlt in Supabase: $errorMessage")
+                            _uiState.update { it.copy(error = "Verbindung erfolgreich, aber die Tabelle 'PokemonCardEntity' fehlt in Supabase. Bitte erstellen Sie die Tabellen manuell mit den bereitgestellten SQL-Skripten.") }
+                        }
+                        else -> {
+                            println("Allgemeiner Fehler bei der Supabase-Verbindung: $errorMessage")
+                            _uiState.update { it.copy(error = "Verbindung zu Supabase fehlgeschlagen: $errorMessage") }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                println("Fehler beim Erstellen des Supabase-Clients: ${e.message}")
+                _uiState.update { it.copy(error = "Verbindung zu Supabase fehlgeschlagen: ${e.message}") }
+            }
             setLoading(false)
         }
     }
 
+    fun disconnectFromSupabase() {
+        viewModelScope.launch {
+            settingsRepository.saveSetting("supabase_url", "")
+            settingsRepository.saveSetting("supabase_key", "")
+            remoteCardRepository = null
+            _uiState.update { it.copy(isSupabaseConnected = false, supabaseUrl = "", supabaseKey = "") }
+            loadCardInfos() // Lade die lokalen Karten neu
+        }
+    }
+
+    private suspend fun checkForSync() {
+        val localCards = localCardRepository.getCardInfos().first()
+        if (localCards.isNotEmpty() && remoteCardRepository != null) {
+            val remoteCards = remoteCardRepository!!.getCardInfos().first()
+            if (remoteCards.isEmpty()) {
+                _uiState.update { it.copy(syncPromptMessage = "${localCards.size} lokale Karten gefunden. Sollen diese in die Cloud hochgeladen werden? Die lokale Datenbank bleibt unverändert.") }
+            }
+        }
+    }
+
+    fun syncLocalToSupabase() {
+        viewModelScope.launch {
+            setLoading(true)
+            dismissSyncPrompt()
+
+            val localCards = localCardRepository.getCardInfos().first()
+            val remoteCards = remoteCardRepository?.getCardInfos()?.first() ?: emptyList()
+            val remoteCardKeys = remoteCards.map { "${it.tcgDexCardId}-${it.language}" }.toSet()
+
+            localCards.forEach { localCardInfo ->
+                val fullLocalCard = localCardRepository.getFullCardDetails(localCardInfo.id)
+                if (fullLocalCard != null) {
+                    val localCardKey = "${fullLocalCard.tcgDexCardId}-${fullLocalCard.language}"
+                    if (localCardKey !in remoteCardKeys) {
+                        remoteCardRepository?.insertFullPokemonCard(fullLocalCard)
+                    }
+                }
+            }
+
+            loadCardInfos() // Lade die Remote-Daten neu
+            setLoading(false)
+        }
+    }
+
+    fun dismissSyncPrompt() = _uiState.update { it.copy(syncPromptMessage = null) }
     private fun setLoading(isLoading: Boolean) = _uiState.update { it.copy(isLoading = isLoading) }
-    fun resetApiCardDetails() = _uiState.update { it.copy(apiCardDetails = null) }
-    fun clearSelectedCard() { _uiState.update { it.copy(selectedCardDetails = null) } }
+    fun resetApiCardDetails() = _uiState.update { it.copy(apiCardDetails = null, searchedCardLanguage = null) }
+    fun clearSelectedCard() = _uiState.update { it.copy(selectedCardDetails = null) }
     fun clearError() = _uiState.update { it.copy(error = null) }
 }

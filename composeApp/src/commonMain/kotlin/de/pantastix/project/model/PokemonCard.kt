@@ -19,7 +19,7 @@ data class Attack(
 
 // Das ist unser Haupt-Datenmodell für die Detailansicht einer Karte.
 data class PokemonCard(
-    val id: Long, // Die ID aus unserer lokalen Sammlungs-DB
+    val id: Long?, // Die ID aus unserer lokalen Sammlungs-DB
     val tcgDexCardId: String,
     val nameLocal: String,
     val nameEn: String,
@@ -30,8 +30,9 @@ data class PokemonCard(
     var notes: String?,
 
     // Zugehörige Set-Informationen
+    val setId: String, //TODO
     val setName: String,
-    val localId: String, // z.B. "051 / 244"
+    val localId: String,
 
     // Preisinformationen
     var currentPrice: Double?,
@@ -48,5 +49,9 @@ data class PokemonCard(
 
     // Komplexe Daten als Objekte
     val abilities: List<Ability>,
-    val attacks: List<Attack>
+    val attacks: List<Attack>,
+
+    // optionale Daten für die Datenbank
+    val variantsJson: String? = null,
+    val legalJson: String? = null
 )

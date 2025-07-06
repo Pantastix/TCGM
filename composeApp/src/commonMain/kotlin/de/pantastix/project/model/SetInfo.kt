@@ -1,5 +1,8 @@
 package de.pantastix.project.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class SetInfo(
     val setId: String,
     val abbreviation: String?,

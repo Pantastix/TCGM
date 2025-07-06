@@ -45,6 +45,7 @@ CREATE TABLE PokemonCardEntity (
     abilitiesJson TEXT,
     attacksJson TEXT,
     legalJson TEXT,
+
     FOREIGN KEY(setId) REFERENCES SetEntity(setId),
     UNIQUE(tcgDexCardId, language)
 );
@@ -84,13 +85,11 @@ INSERT INTO PokemonCardEntity (
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 
-lastInsertedRowId:
-SELECT last_insert_rowid();
-
-
 selectAllCardInfos:
 SELECT
     PokemonCardEntity.id,
+    PokemonCardEntity.tcgDexCardId,
+    PokemonCardEntity.language,
     PokemonCardEntity.nameLocal,
     PokemonCardEntity.imageUrl,
     PokemonCardEntity.ownedCopies,
