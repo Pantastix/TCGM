@@ -1,6 +1,8 @@
 package de.pantastix.project.repository
 
 import de.pantastix.project.model.*
+import de.pantastix.project.model.supabase.FullPokemonCardResponse
+import de.pantastix.project.model.supabase.SupabasePokemonCard
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.coroutines.flow.Flow
@@ -8,34 +10,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
-
-@Serializable
-data class SupabasePokemonCard(
-    val id: Long? = null,
-    val setId: String,
-    val tcgDexCardId: String,
-    val nameLocal: String,
-    val nameEn: String,
-    val language: String,
-    val localId: String,
-    val imageUrl: String? = null,
-    val cardMarketLink: String? = null,
-    val ownedCopies: Int,
-    val notes: String? = null,
-    val rarity: String? = null,
-    val hp: Int? = null,
-    val types: String? = null,
-    val illustrator: String? = null,
-    val stage: String? = null,
-    val retreatCost: Int? = null,
-    val regulationMark: String? = null,
-    val currentPrice: Double? = null,
-    val lastPriceUpdate: String? = null,
-    val variantsJson: String? = null,
-    val abilitiesJson: String? = null,
-    val attacksJson: String? = null,
-    val legalJson: String? = null
-)
 
 class SupabaseCardRepository(
     private val postgrest: Postgrest
@@ -127,45 +101,37 @@ class SupabaseCardRepository(
             }
 
         println(result2.data)
-        val result = result2.decodeSingleOrNull<Map<String, Any?>>()
-        println("Fetched card details: $result")
+        val fullCardData = result2.decodeSingleOrNull<FullPokemonCardResponse>()
+        println("Fetched card details: $fullCardData")
 
-        return result?.let { map ->
-            // Hier wird auf den gequoteten Namen "SetEntity" zugegriffen
-            val setInfoMap = map["SetEntity"] as? Map<String, Any?>
-            // Hier wird auf den gequoteten Namen "nameLocal" zugegriffen
-            val setName = setInfoMap?.get("nameLocal") as? String ?: "Unknown Set"
-
-            // Manually create SupabasePokemonCard from the map
-            val dbCard = SupabasePokemonCard(
-                id = (map["id"] as? Number)?.toLong(),
-                setId = map["setId"] as String,
-                tcgDexCardId = map["tcgDexCardId"] as String,
-                nameLocal = map["nameLocal"] as String,
-                nameEn = map["nameEn"] as String,
-                language = map["language"] as String,
-                localId = map["localId"] as String,
-                imageUrl = map["imageUrl"] as? String,
-                cardMarketLink = map["cardMarketLink"] as? String,
-                ownedCopies = (map["ownedCopies"] as? Number)?.toInt() ?: 0,
-                notes = map["notes"] as? String,
-                rarity = map["rarity"] as? String,
-                hp = (map["hp"] as? Number)?.toInt(),
-                types = map["types"] as? String,
-                illustrator = map["illustrator"] as? String,
-                stage = map["stage"] as? String,
-                retreatCost = (map["retreatCost"] as? Number)?.toInt(),
-                regulationMark = map["regulationMark"] as? String,
-                currentPrice = (map["currentPrice"] as? Number)?.toDouble(),
-                lastPriceUpdate = map["lastPriceUpdate"] as? String,
-                variantsJson = map["variantsJson"] as? String,
-                abilitiesJson = map["abilitiesJson"] as? String,
-                attacksJson = map["attacksJson"] as? String,
-                legalJson = map["legalJson"] as? String
+        return fullCardData?.let { data ->
+            val setName = data.setEntity?.nameLocal ?: "Unknown Set"
+            // Convert FullPokemonCardResponse to PokemonCard
+            PokemonCard(
+                id = data.id,
+                tcgDexCardId = data.tcgDexCardId,
+                nameLocal = data.nameLocal,
+                nameEn = data.nameEn,
+                language = data.language,
+                imageUrl = data.imageUrl,
+                cardMarketLink = data.cardMarketLink,
+                ownedCopies = data.ownedCopies,
+                notes = data.notes,
+                setId = data.setId, // Use setId from FullPokemonCardResponse for apiSetId
+                setName = setName,
+                localId = data.localId,
+                currentPrice = data.currentPrice,
+                lastPriceUpdate = data.lastPriceUpdate,
+                rarity = data.rarity,
+                hp = data.hp,
+                types = data.types?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList(),
+                illustrator = data.illustrator,
+                stage = data.stage,
+                retreatCost = data.retreatCost,
+                regulationMark = data.regulationMark,
+                abilities = data.abilitiesJson?.let { jsonParser.decodeFromString(ListSerializer(Ability.serializer()), it) } ?: emptyList(),
+                attacks = data.attacksJson?.let { jsonParser.decodeFromString(ListSerializer(Attack.serializer()), it) } ?: emptyList()
             )
-
-            // Convert SupabasePokemonCard to PokemonCard and set the set name
-            dbCard.toPokemonCard(setName = setName)
         }
     }
 

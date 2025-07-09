@@ -21,7 +21,9 @@ import kotlinx.datetime.Clock
 import kotlinx.serialization.encodeToString
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
-import io.github.jan.supabase.postgrest.query.Count
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 
 enum class AppLanguage(val code: String, val displayName: String) {
     GERMAN("de", "Deutsch"),
@@ -64,9 +66,16 @@ class CardListViewModel(
 
     private var remoteCardRepository: CardRepository? = null // Für die Supabase-Implementierung
 
+    private var cardInfosCollectionJob: Job? = null
+    private var setsCollectionJob: Job? = null
+
     // Wählt dynamisch das richtige Repository (Cloud oder Lokal)
     private val activeCardRepository: CardRepository
-        get() = remoteCardRepository ?: localCardRepository
+        get() {
+            val repo = remoteCardRepository ?: localCardRepository
+            println("DEBUG: activeCardRepository getter called. Current active: ${repo::class.simpleName}")
+            return repo
+        }
 
     init {
         loadSettings()
@@ -96,24 +105,34 @@ class CardListViewModel(
     // --- Datenlade-Logik ---
 
     private fun loadCardInfos() {
-        // Hört immer auf das aktive Repository
-        activeCardRepository.getCardInfos()
-            .onEach { cards -> _uiState.update { it.copy(cardInfos = cards) } }
+        // Bricht den vorherigen Job ab, um sicherzustellen, dass nur ein Repository beobachtet wird
+        cardInfosCollectionJob?.cancel()
+
+        // Startet einen neuen Job, der das aktuell aktive Repository beobachtet
+        cardInfosCollectionJob = activeCardRepository.getCardInfos()
+            .onEach { cards ->
+                _uiState.update { it.copy(cardInfos = cards) }
+                println("Card Infos geladen: ${cards.size} Karten (Quelle: ${if (remoteCardRepository != null) "Supabase" else "Lokal"})")
+            }
             .launchIn(viewModelScope)
     }
 
     private fun loadSets(language: AppLanguage? = null) {
-        viewModelScope.launch {
+        // Bricht den vorherigen Job ab, um sicherzustellen, dass nur ein Repository beobachtet wird
+        setsCollectionJob?.cancel()
+        println("DEBUG: loadSets() called. Cancelling previous setsCollectionJob.")
+
+        setsCollectionJob = viewModelScope.launch {
             setLoading(true)
-            if( language != null) {
-                val setsFromApi = apiService.getAllSets(language.code)
-                if (setsFromApi.isNotEmpty()) {
-                    // Synchronisiert immer die lokale DB, die als Cache dient
-                    activeCardRepository.syncSets(setsFromApi)
-                }
+            val currentLanguage = language ?: uiState.value.appLanguage // Verwende die aktuelle App-Sprache, wenn nicht angegeben
+            val setsFromApi = apiService.getAllSets(currentLanguage.code)
+            if (setsFromApi.isNotEmpty()) {
+                // Synchronisiert immer die lokale DB, die als Cache dient
+                activeCardRepository.syncSets(setsFromApi)
             }
             activeCardRepository.getAllSets().onEach { setsFromDb ->
                 _uiState.update { it.copy(sets = setsFromDb.sortedByDescending { it.releaseDate }) }
+                println("DEBUG: Sets geladen: ${setsFromDb.size} Sets (Quelle: ${if (remoteCardRepository != null) "Supabase" else "Lokal"})")
             }.launchIn(viewModelScope)
             setLoading(false)
         }
@@ -125,6 +144,7 @@ class CardListViewModel(
                 setLoading(true)
                 activeCardRepository.deleteCardById(cardId)
                 // Nach dem Löschen die Auswahl aufheben, damit die Detailansicht verschwindet
+                loadCardInfos()
                 clearSelectedCard()
                 setLoading(false)
             }
@@ -208,6 +228,7 @@ class CardListViewModel(
                 lastPriceUpdate = if (currentPrice != null) Clock.System.now().toString() else null
             )
             // Lade die Kartendetails neu, um die Änderungen in der UI anzuzeigen
+            loadCardInfos()
             selectCard(cardId)
             setLoading(false)
         }
@@ -255,6 +276,7 @@ class CardListViewModel(
 
         // Übergebe das einzelne Objekt an das Repository
         activeCardRepository.insertFullPokemonCard(newCard)
+        loadCardInfos()
     }
 
     // --- Supabase Logik ---
@@ -276,9 +298,6 @@ class CardListViewModel(
             try {
                 val supabase = createSupabaseClient(url, key) { install(Postgrest) }
                 println("Supabase-Client erfolgreich erstellt: $url")
-                // Test-Anfrage, um die Verbindung zu validieren
-//                supabase.postgrest.from("pokemon_cards").select { count(Count.EXACT) } //TODO: Test anpassen, so das dieser unabhängig von existierenden tabellen funktioniert
-//                println("Supabase-Verbindung erfolgreich getestet.")
 
                 try {
                     supabase.postgrest.from("PokemonCardEntity").select { limit(1) }
@@ -286,9 +305,13 @@ class CardListViewModel(
                     settingsRepository.saveSetting("supabase_url", url)
                     settingsRepository.saveSetting("supabase_key", key)
 
+                    println("DEBUG: Before remoteCardRepository assignment in connectToSupabase. remoteCardRepository is: $remoteCardRepository")
                     remoteCardRepository = SupabaseCardRepository(supabase.postgrest) // Activate the Cloud DB here
+                    println("DEBUG: After remoteCardRepository assignment in connectToSupabase. remoteCardRepository is: $remoteCardRepository")
+
                     _uiState.update { it.copy(isSupabaseConnected = true) }
                     syncSetsToSupabase()
+                    loadCardInfos()
                     checkForSync()
                 } catch (e: Exception) {
                     val errorMessage = e.message ?: "Unbekannter Fehler."
@@ -329,7 +352,9 @@ class CardListViewModel(
         viewModelScope.launch {
             settingsRepository.saveSetting("supabase_url", "")
             settingsRepository.saveSetting("supabase_key", "")
+            println("DEBUG: Before remoteCardRepository nullification in disconnectFromSupabase. remoteCardRepository is: $remoteCardRepository")
             remoteCardRepository = null
+            println("DEBUG: After remoteCardRepository nullification in disconnectFromSupabase. remoteCardRepository is: $remoteCardRepository")
             _uiState.update { it.copy(isSupabaseConnected = false, supabaseUrl = "", supabaseKey = "") }
             loadCardInfos() // Lade die lokalen Karten neu
         }
@@ -345,8 +370,8 @@ class CardListViewModel(
         }
     }
 
-    fun syncSetsToSupabase(){
-        viewModelScope.launch {
+    suspend fun syncSetsToSupabase(){
+        withContext(Dispatchers.IO) {
             val localSets = localCardRepository.getAllSets().first()
             val remoteSets = remoteCardRepository?.getAllSets()?.first() ?: emptyList()
             val remoteSetIds = remoteSets.map { it.setId }.toSet()
@@ -360,7 +385,7 @@ class CardListViewModel(
                     val remoteSet = remoteSets.find { it.setId == localSet.setId }
                     if (remoteSet != null && remoteSet.abbreviation.isNullOrBlank() && !localSet.abbreviation.isNullOrBlank()) {
                         // Remote set has no abbreviation, but local does. Update remote.
-                        remoteCardRepository?.updateSetAbbreviation(localSet.setId, localSet.abbreviation!!)
+                        remoteCardRepository?.updateSetAbbreviation(localSet.setId, localSet.abbreviation)
                     }
                 }
             }

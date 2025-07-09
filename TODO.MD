@@ -1,3 +1,5 @@
+- [ ] Wenn Gewechselt wird, zwischen remote und lokal, dann werden die daten immer falsch geladen.
+
 - [ ] Fix Card Market Link (add v1 or v2 if multiple versions in pack)
 
 - [ ] Implement Supabase connection
@@ -8,6 +10,8 @@
   - [ ] fix sync (missing to push sets first)
   - [ ] fix app not loading data from remot at startup
   - [ ] test all set functions
+
+- [ ] wenn settings geöffnet werden wird immer etwas geladen, herausfinden was und warum
 
 - [ ] Sync backwards functionality (on delete of supabase keys)
 
