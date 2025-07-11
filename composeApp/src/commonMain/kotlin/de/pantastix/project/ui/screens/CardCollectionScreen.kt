@@ -27,7 +27,10 @@ fun CardCollectionScreen(
     onAddCardClick: () -> Unit,
     onCardClick: (Long) -> Unit
     ) {
+
     val uiState by viewModel.uiState.collectAsState()
+
+    println("UI: Card Infos size: ${uiState.cardInfos.size}, isSupabaseConnected: ${uiState.isSupabaseConnected}")
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(

@@ -113,6 +113,7 @@ class CardListViewModel(
             .onEach { cards ->
                 _uiState.update { it.copy(cardInfos = cards) }
                 println("Card Infos geladen: ${cards.size} Karten (Quelle: ${if (remoteCardRepository != null) "Supabase" else "Lokal"})")
+                println("DEBUG: Cards in UI State: ${_uiState.value.cardInfos.size}")
             }
             .launchIn(viewModelScope)
     }
@@ -312,6 +313,7 @@ class CardListViewModel(
                     _uiState.update { it.copy(isSupabaseConnected = true) }
                     syncSetsToSupabase()
                     loadCardInfos()
+                    loadSets()
                     checkForSync()
                 } catch (e: Exception) {
                     val errorMessage = e.message ?: "Unbekannter Fehler."

@@ -93,7 +93,9 @@ fun DesktopApp(
 
             // Animierte Detailansicht auf der rechten Seite (rechte Spalte)
             if (detailPaneWeight > 0f) {
-                Row(modifier = Modifier.weight(detailPaneWeight)) {
+                Row(
+                    modifier = Modifier.weight(detailPaneWeight).widthIn(max = 100.dp)
+                ) {
                     HorizontalDivider(modifier = Modifier.fillMaxHeight().width(1.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                     key(uiState.selectedCardDetails?.id) {
                         if (isEditing) {

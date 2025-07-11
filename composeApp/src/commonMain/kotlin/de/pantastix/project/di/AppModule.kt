@@ -53,8 +53,8 @@ val commonModule = module {
     // API Service
     single<TcgDexApiService> { KtorTcgDexApiService(client = get()) }
 
-    // ViewModel - KORRIGIERT: Beide Abhängigkeiten werden jetzt übergeben
-    factory {
+    // ViewModel
+    single {
         CardListViewModel(
             localCardRepository = get(),
             settingsRepository = get(), // Das neue Repository wird hier injiziert
