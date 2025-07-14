@@ -2,6 +2,7 @@ package de.pantastix.project.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -23,6 +24,7 @@ import de.pantastix.project.ui.viewmodel.CardListViewModel
 import androidx.compose.material3.Surface
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.dp
 import de.pantastix.project.ui.screens.*
 
@@ -36,9 +38,12 @@ fun DesktopApp(
     var showAddCardDialog by remember { mutableStateOf(false) }
     var isEditing by remember { mutableStateOf(false) }
 
-    val detailPaneWeight by animateFloatAsState(
-        targetValue = if (uiState.selectedCardDetails != null && currentScreen == MainScreen.COLLECTION) 0.6f else 0f,
-        animationSpec = tween(durationMillis = 400)
+    val isDetailPaneVisible = uiState.selectedCardDetails != null && currentScreen == MainScreen.COLLECTION
+
+    val detailPaneWidth by animateDpAsState(
+        targetValue = if (isDetailPaneVisible) 500.dp else 0.dp,
+        animationSpec = tween(durationMillis = 400),
+        label = "detailPaneWidthAnimation"
     )
 
     Surface(
@@ -79,7 +84,7 @@ fun DesktopApp(
             )
 
 
-            Box(modifier = Modifier.weight(1f - detailPaneWeight)) {
+            Box(modifier = Modifier.weight(1f)) {
                 when (currentScreen) {
                     MainScreen.COLLECTION -> CardCollectionScreen(
                         viewModel = viewModel,
@@ -92,9 +97,9 @@ fun DesktopApp(
             }
 
             // Animierte Detailansicht auf der rechten Seite (rechte Spalte)
-            if (detailPaneWeight > 0f) {
+            if (detailPaneWidth > 0.dp) {
                 Row(
-                    modifier = Modifier.weight(detailPaneWeight).widthIn(max = 100.dp)
+                    modifier = Modifier.width(detailPaneWidth) // Feste, animierte Breite
                 ) {
                     HorizontalDivider(modifier = Modifier.fillMaxHeight().width(1.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
                     key(uiState.selectedCardDetails?.id) {

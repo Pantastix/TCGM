@@ -1,11 +1,9 @@
-- [ ] Wenn Gewechselt wird, zwischen remote und lokal, dann werden die daten immer falsch geladen.
-
+- [ ] Über diese URL die Kürzel finden udn herausfinden welche Sets zulässig sind nd anhand des datums sortieren. evtl englsiche abfrage ersetzen udn adnere api für lokale übersetzung und id verwenden
+  -> GET https://api.pokemontcg.io/v2/sets
 - [ ] Fix Card Market Link (add v1 or v2 if multiple versions in pack)
 
 - [ ] Implement Supabase connection
   - [ ] Set Up Guide in UI
-  - [ ] fix sync window (reopens after restart)
-  - [ ] fix app not loading data from remote at startup
   - [ ] test all set functions
 
 - [ ] wenn settings geöffnet werden wird immer etwas geladen, herausfinden was und warum
