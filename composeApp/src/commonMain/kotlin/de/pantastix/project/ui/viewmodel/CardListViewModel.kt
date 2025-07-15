@@ -10,7 +10,7 @@ import de.pantastix.project.model.api.*
 import de.pantastix.project.repository.CardRepository
 import de.pantastix.project.repository.SettingsRepository
 import de.pantastix.project.repository.SupabaseCardRepository
-import de.pantastix.project.service.TcgDexApiService
+import de.pantastix.project.service.TcgApiService
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -58,7 +58,7 @@ data class UiState(
 class CardListViewModel(
     private val localCardRepository: CardRepository, // Immer das SQLite-Repository
     private val settingsRepository: SettingsRepository,
-    private val apiService: TcgDexApiService,
+    private val apiService: TcgApiService,
     private val viewModelScope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher)
 ) {
     private val _uiState = MutableStateFlow(UiState())

@@ -2,23 +2,50 @@ package de.pantastix.project.service
 
 import de.pantastix.project.model.SetInfo
 import de.pantastix.project.model.api.TcgDexCardResponse
+import de.pantastix.project.model.api.TcgDexSet
+import io.ktor.client.*
+import io.ktor.client.call.*
+import io.ktor.client.request.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 
 /**
- * Das Interface (der "Vertrag") für unseren API-Service.
- * Es legt fest, welche Operationen möglich sind, ohne die Implementierungsdetails preiszugeben.
+ * Die konkrete Implementierung des TcgDexApiService mit dem Ktor HTTP-Client.
  */
-interface TcgDexApiService {
-    /**
-     * Ruft alle Sets von der TCGdex API ab und kombiniert die deutschen und englischen Namen.
-     * @return Eine Liste von [SetInfo]-Objekten.
-     */
-    suspend fun getAllSets(language: String): List<SetInfo>
+class TcgDexApiService(
+    private val client: HttpClient // KORRIGIERT: Der Client wird jetzt hier im Konstruktor erwartet
+) : TcgApiService {
 
-    /**
-     * Ruft die deutschen Kartendetails für eine spezifische Karte ab.
-     * @param setId Die offizielle Set-ID (z.B. "sv10").
-     * @param localId Die Nummer der Karte im Set (z.B. "051").
-     * @return Ein [TcgDexCardResponse]-Objekt oder null bei einem Fehler.
-     */
-    suspend fun getCardDetails(setId: String, localId: String, languageCode: String): TcgDexCardResponse?
+    private val baseUrl = "https://api.tcgdex.net/v2"
+
+    override suspend fun getAllSets(language: String): List<SetInfo> = coroutineScope {
+        try {
+            val tcgDexSets = client.get("$baseUrl/$language/sets").body<List<TcgDexSet>>()
+
+            tcgDexSets.map { tcgDexSet ->
+                SetInfo(
+                    setId = tcgDexSet.id,
+                    abbreviation = null,
+                    nameLocal = tcgDexSet.name,
+                    nameEn = tcgDexSet.name,
+                    logoUrl = tcgDexSet.logo ?: tcgDexSet.symbol,
+                    cardCountOfficial = tcgDexSet.cardCount?.official ?: 0,
+                    cardCountTotal = tcgDexSet.cardCount?.total ?: 0,
+                    releaseDate = null
+                )
+            }
+        } catch (e: Exception) {
+            println("Fehler beim Abrufen der Sets von TCGdex.net für Sprache '$language': ${e.message}")
+            emptyList()
+        }
+    }
+
+    override suspend fun getCardDetails(setId: String, localId: String, languageCode: String): TcgDexCardResponse? {
+        return try {
+            client.get("$baseUrl/$languageCode/sets/$setId/$localId").body<TcgDexCardResponse>()
+        } catch (e: Exception) {
+            println("Fehler bei getCardDetails für $languageCode/$setId/$localId: ${e.message}")
+            null
+        }
+    }
 }
