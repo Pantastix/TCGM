@@ -8,9 +8,38 @@ import kotlinx.coroutines.coroutineScope
 
 class CombinedTcgApiService(
     private val localApiService: TcgApiService,
-    private val EnApiService: TcgApiService
+    private val enApiService: TcgApiService,
+//    private val abbreviationApiService: TcgApiService,
 ): TcgApiService {
+    override fun getName(): String {
+        return "Combined TCG API Service"
+    }
 
+    private fun normalizeSetId(id: String): String {
+        // Regel 1: McDonald's Kollektionen (zuerst, da sehr spezifisch)
+        // Beispiel: "mcdonalds2021" -> "mcd21"
+        if (id.startsWith("mcdonalds20")) {
+            return "mcd" + id.substring(11)
+        }
+
+        // Regel 2: Suffix ".5" ersetzen
+        // Beispiel: "swsh12.5" -> "swsh12pt5"
+        var normalized = id.replace(".5", "pt5")
+
+        // Regel 3: Führende Nullen bei Nummern entfernen
+        // Beispiel: "sv04" -> "sv4"
+        // Regex: Findet eine Gruppe von Buchstaben ([a-zA-Z]+), gefolgt von '0', gefolgt vom Rest (\\d+.*).
+        val leadingZeroRegex = Regex("([a-zA-Z]+)0(\\d+.*)")
+        if (leadingZeroRegex.matches(normalized)) {
+            normalized = leadingZeroRegex.replace(normalized, "$1$2")
+        }
+
+        return normalized
+    }
+
+    private fun denormalizeSetId(id: String): String {
+        return id.replace("pt5", ".5")
+    }
 
     /**
      * Ruft alle Sets ab, kombiniert und priorisiert Daten von TCGdex.net und PokemonTCG.io.
@@ -20,18 +49,22 @@ class CombinedTcgApiService(
     override suspend fun getAllSets(language: String): List<SetInfo> = coroutineScope {
         try {
             // Parallel die Daten von beiden APIs abrufen
-            val enSetsDeferred = async { EnApiService.getAllSets(CardLanguage.ENGLISH.code) } // Immer englische Sets von PokemonTCG.io
+            val enSetsDeferred = async { enApiService.getAllSets(CardLanguage.ENGLISH.code) } // Immer englische Sets von PokemonTCG.io
             val localSetsDeferred = async { localApiService.getAllSets(language) } // Lokale Sets von TCGdex.net
 
             val enSets = enSetsDeferred.await()
             val localSets = localSetsDeferred.await()
 
             // Maps für schnellen Zugriff erstellen
-            val localSetMap = localSets.associateBy { it.setId }
+            val localSetMap = localSets.associateBy { normalizeSetId(it.setId) }
+
+            println("Fetched ${enSets.size} sets from ${enApiService.getName()} and ${localSets.size} sets from ${localApiService.getName()}.")
+            println("Local sets map size: ${localSetMap.size}")
 
             // Über die PokemonTCG.io Sets iterieren (diese haben Vorrang)
             enSets.mapNotNull { enSet ->
-                val localSet = localSetMap[enSet.setId]
+                val normalizedId = normalizeSetId(enSet.setId)
+                val localSet = localSetMap[normalizedId]
 
                 // Nur Sets berücksichtigen, die in beiden Quellen existieren
                 if (localSet != null) {
@@ -46,10 +79,17 @@ class CombinedTcgApiService(
                         releaseDate = enSet.releaseDate // Von PokemonTCG.io (geparst)
                     )
                 } else {
-                    // Set von PokemonTCG.io hat keine Entsprechung in den lokalen TCGdex Sets
-                    // und wird daher übersprungen.
-                    println("Set '${enSet.nameEn}' (${enSet.setId}) from English API has no local equivalent in TCGdex.")
-                    null
+                    println("Set '${enSet.nameEn}' (${enSet.setId}) has no local equivalent. Using English data as fallback.")
+                    SetInfo(
+                        setId = enSet.setId,
+                        abbreviation = enSet.abbreviation,
+                        nameLocal = enSet.nameEn,
+                        nameEn = enSet.nameEn,
+                        logoUrl = enSet.logoUrl,
+                        cardCountOfficial = enSet.cardCountOfficial,
+                        cardCountTotal = enSet.cardCountTotal,
+                        releaseDate = enSet.releaseDate
+                    )
                 }
             }
         } catch (e: Exception) {

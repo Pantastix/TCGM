@@ -172,7 +172,6 @@ class SupabaseCardRepository(
     }
 
     override suspend fun syncSets(sets: List<SetInfo>) {
-        println("Synchronizing sets with Supabase...")
         sets.forEach { setInfo ->
             postgrest.from(setsTable).upsert(
                 value = setInfo,

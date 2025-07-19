@@ -13,6 +13,9 @@ class TcgIoApiService (val client: HttpClient // KORRIGIERT: Der Client wird jet
 ) : TcgApiService {
 
     private val baseUrl = "https://api.pokemontcg.io/v2"
+    override fun getName(): String {
+        return "PokemonTCG.io API Service"
+    }
 
     /**
      * Ruft alle englischen Sets von PokemonTCG.io ab.

@@ -127,6 +127,7 @@ class CardListViewModel(
             setLoading(true)
             val currentLanguage = language ?: uiState.value.appLanguage // Verwende die aktuelle App-Sprache, wenn nicht angegeben
             val setsFromApi = apiService.getAllSets(currentLanguage.code)
+            println("DEBUG: Sets von API geladen: ${setsFromApi.size} Sets (Sprache: ${currentLanguage.displayName})")
             if (setsFromApi.isNotEmpty()) {
                 // Synchronisiert immer die lokale DB, die als Cache dient
                 activeCardRepository.syncSets(setsFromApi)
@@ -293,6 +294,9 @@ class CardListViewModel(
         }
     }
 
+    //TODO: Create ConnectToSupabase function that connects to Supabase with the given URL and key and just leads the Data
+
+    //TODO: rename connectNewToSupabase
     fun connectToSupabase(url: String, key: String) {
         viewModelScope.launch {
             setLoading(true)
@@ -311,6 +315,7 @@ class CardListViewModel(
                     println("DEBUG: After remoteCardRepository assignment in connectToSupabase. remoteCardRepository is: $remoteCardRepository")
 
                     _uiState.update { it.copy(isSupabaseConnected = true) }
+                    print("DEBUG: Syncing local sets to Supabase")
                     syncSetsToSupabase()
                     loadCardInfos()
                     loadSets()

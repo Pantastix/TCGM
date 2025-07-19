@@ -25,7 +25,7 @@ data class PokemonTcgIoSet(
     val printedTotal: Int,
     val total: Int,
     val legalities: Map<String, String>? = null, // Kann null sein
-    val ptcgoCode: String?, // Kann null sein
+    val ptcgoCode: String? = null, // Kann null sein
     val releaseDate: String,
     val updatedAt: String,
     val images: PokemonTcgIoSetImages? = null // Kann null sein

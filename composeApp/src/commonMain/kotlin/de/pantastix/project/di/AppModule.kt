@@ -61,7 +61,7 @@ val commonModule = module {
     single<TcgApiService> {
         CombinedTcgApiService(
             localApiService = get<TcgDexApiService>(),
-            EnApiService = get<TcgIoApiService>()
+            enApiService = get<TcgIoApiService>()
         )
     }
 
