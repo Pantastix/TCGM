@@ -4,6 +4,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -14,7 +16,7 @@ import de.pantastix.project.ui.viewmodel.CardListViewModel
 import org.koin.compose.koinInject
 
 @Composable
-fun SettingsScreen(viewModel: CardListViewModel = koinInject()) {
+fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuide: () -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
 
     // Lokale Zustände für die Eingabefelder, initialisiert aus dem ViewModel
@@ -80,6 +82,11 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject()) {
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
             ) {
                 Text("Verbindung trennen")
+            }
+            TextButton(onClick = onNavigateToGuide) {
+                Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = "Hilfe", modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Anleitung")
             }
         }
 

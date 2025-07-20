@@ -10,7 +10,8 @@ import de.pantastix.project.platform.getPlatform
 enum class MainScreen {
     COLLECTION,
     VALUE,
-    SETTINGS
+    SETTINGS,
+    SUPABASE_GUIDE
 }
 
 @Composable

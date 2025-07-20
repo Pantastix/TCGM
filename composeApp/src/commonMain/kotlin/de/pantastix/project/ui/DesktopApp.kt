@@ -1,18 +1,12 @@
 package de.pantastix.project.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Divider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -92,7 +86,13 @@ fun DesktopApp(
                         onCardClick = { cardId -> viewModel.selectCard(cardId) }
                     )
                     MainScreen.VALUE -> ValueScreen()
-                    MainScreen.SETTINGS -> SettingsScreen()
+                    MainScreen.SETTINGS -> SettingsScreen(
+                        viewModel = viewModel,
+                        onNavigateToGuide = { onScreenSelect(MainScreen.SUPABASE_GUIDE) }
+                    )
+                    MainScreen.SUPABASE_GUIDE -> SupabaseGuideScreen(
+                        onBack = { onScreenSelect(MainScreen.SETTINGS) }
+                    )
                 }
             }
 

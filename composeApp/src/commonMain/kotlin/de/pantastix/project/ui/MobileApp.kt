@@ -52,7 +52,13 @@ fun MobileApp(viewModel: CardListViewModel) {
                     onCardClick = { /* TODO: Navigation zur Detailseite auf Mobile */ }
                 )
                 MainScreen.VALUE -> ValueScreen()
-                MainScreen.SETTINGS -> SettingsScreen()
+                MainScreen.SETTINGS -> SettingsScreen(
+                    viewModel = viewModel,
+                    onNavigateToGuide = { currentScreen = MainScreen.SUPABASE_GUIDE }
+                )
+                MainScreen.SUPABASE_GUIDE -> SupabaseGuideScreen(
+                    onBack = { currentScreen = MainScreen.SETTINGS }
+                )
             }
         }
         if (showAddCardDialog) {
