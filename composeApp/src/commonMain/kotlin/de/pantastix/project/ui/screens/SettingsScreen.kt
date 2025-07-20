@@ -12,7 +12,6 @@ import androidx.compose.ui.unit.dp
 import de.pantastix.project.ui.viewmodel.AppLanguage
 import de.pantastix.project.ui.viewmodel.CardListViewModel
 import org.koin.compose.koinInject
-import java.awt.BorderLayout
 
 @Composable
 fun SettingsScreen(viewModel: CardListViewModel = koinInject()) {
@@ -67,7 +66,7 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject()) {
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
-                onClick = { viewModel.connectToSupabase(supabaseUrl, supabaseKey) },
+                onClick = { viewModel.connectNewToSupabase(supabaseUrl, supabaseKey) },
                 enabled = !uiState.isLoading
             ) {
                 Text("Verbinden & Prüfen")

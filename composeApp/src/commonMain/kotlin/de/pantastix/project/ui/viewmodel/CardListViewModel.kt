@@ -295,9 +295,58 @@ class CardListViewModel(
     }
 
     //TODO: Create ConnectToSupabase function that connects to Supabase with the given URL and key and just leads the Data
+    fun connectToSupabase(url: String, key: String) {
+        viewModelScope.launch {
+            setLoading(true)
+            try {
+                val supabase = createSupabaseClient(url, key) { install(Postgrest) }
+
+                try {
+                    supabase.postgrest.from("PokemonCardEntity").select { limit(1) }
+
+                    remoteCardRepository = SupabaseCardRepository(supabase.postgrest)
+
+                    _uiState.update { it.copy(isSupabaseConnected = true) }
+
+                    loadCardInfos()
+                    loadSets()
+                } catch (e: Exception) {
+                    val errorMessage = e.message ?: "Unbekannter Fehler."
+                    println("Fehler bei der Supabase-Verbindungstest: $errorMessage")
+
+                    when {
+                        errorMessage.contains("Invalid API key", ignoreCase = true) -> {
+                            println("Ungültiger API-Schlüssel bei der Supabase-Verbindung: $errorMessage")
+                            _uiState.update { it.copy(error = "Verbindung zu Supabase fehlgeschlagen: Ungültiger API-Schlüssel. Bitte überprüfen Sie Ihren Supabase 'anon' oder 'service_role' API-Schlüssel.") }
+                        }
+                        errorMessage.contains("UnresolvedAddressException", ignoreCase = true) ||
+                                errorMessage.contains("Failed to connect", ignoreCase = true) ||
+                                (errorMessage.contains("HTTP request to ", ignoreCase = true) && errorMessage.contains("(GET) failed with message", ignoreCase = true)) -> {
+                            println("Fehler bei der Supabase-Verbindung: $errorMessage")
+                            _uiState.update { it.copy(error = "Verbindung zu Supabase fehlgeschlagen: Ungültige URL oder Netzwerkproblem. Bitte überprüfen Sie die URL und Ihre Internetverbindung.") }
+                        }
+                        // This specific error indicates that the connection and authentication were successful,
+                        // but the requested table does not exist.
+                        errorMessage.contains("relation \"public.pokemoncardentity\" does not exist", ignoreCase = true) || errorMessage.contains("relation \"pokemoncardentity\" does not exist", ignoreCase = true) -> {
+                            println("Tabelle 'PokemonCardEntity' fehlt in Supabase: $errorMessage")
+                            _uiState.update { it.copy(error = "Verbindung erfolgreich, aber die Tabelle 'PokemonCardEntity' fehlt in Supabase. Bitte erstellen Sie die Tabellen manuell mit den bereitgestellten SQL-Skripten.") }
+                        }
+                        else -> {
+                            println("Allgemeiner Fehler bei der Supabase-Verbindung: $errorMessage")
+                            _uiState.update { it.copy(error = "Verbindung zu Supabase fehlgeschlagen: $errorMessage") }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                println("Fehler beim Erstellen des Supabase-Clients: ${e.message}")
+                _uiState.update { it.copy(error = "Verbindung zu Supabase fehlgeschlagen: ${e.message}") }
+            }
+            setLoading(false)
+        }
+    }
 
     //TODO: rename connectNewToSupabase
-    fun connectToSupabase(url: String, key: String) {
+    fun connectNewToSupabase(url: String, key: String) {
         viewModelScope.launch {
             setLoading(true)
             try {
