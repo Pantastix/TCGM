@@ -45,4 +45,6 @@ interface CardRepository {
 
     /** Löscht eine Karte anhand ihrer Sammlungs-ID. */
     suspend fun deleteCardById(cardId: Long)
+
+    suspend fun clearAllData()
 }

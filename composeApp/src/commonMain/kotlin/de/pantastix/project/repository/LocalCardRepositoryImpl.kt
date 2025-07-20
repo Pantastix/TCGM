@@ -210,4 +210,14 @@ class LocalCardRepositoryImpl(
             queries.deleteCardById(cardId)
         }
     }
+
+    override suspend fun clearAllData() {
+        withContext(ioDispatcher) {
+            queries.transaction {
+                queries.clearAllPokemonCards()
+                queries.clearAllSets()
+                println("Lokale Datenbank (Karten und Sets) wurde geleert.")
+            }
+        }
+    }
 }

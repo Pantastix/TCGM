@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -109,6 +110,15 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
             )
         }
 
+        uiState.disconnectPromptMessage?.let { message ->
+            DisconnectPromptDialog(
+                message = message,
+                onConfirmAndMigrate = { viewModel.confirmDisconnect(migrateData = true) },
+                onConfirmWithoutMigrate = { viewModel.confirmDisconnect(migrateData = false) },
+                onDismiss = { viewModel.dismissDisconnectPrompt() }
+            )
+        }
+
         uiState.error?.let { message ->
             ErrorDialog(
                 message = message,
@@ -127,6 +137,39 @@ private fun ErrorDialog(message: String, onDismiss: () -> Unit) {
         text = { Text(message) },
         confirmButton = {
             Button(onClick = onDismiss) { Text("OK") }
+        }
+    )
+}
+
+@Composable
+private fun DisconnectPromptDialog(
+    message: String,
+    onConfirmAndMigrate: () -> Unit,
+    onConfirmWithoutMigrate: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Verbindung trennen?") },
+        text = { Text(message) },
+        confirmButton = {
+            Button(onClick = onConfirmAndMigrate) {
+                Text("Herunterladen & Trennen")
+            }
+        },
+        dismissButton = {
+            Column(horizontalAlignment = Alignment.End) {
+                Button(
+                    onClick = onConfirmWithoutMigrate,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Nur Trennen")
+                }
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = onDismiss) {
+                    Text("Abbrechen")
+                }
+            }
         }
     )
 }

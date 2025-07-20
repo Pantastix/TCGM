@@ -52,7 +52,8 @@ data class UiState(
     val supabaseUrl: String = "",
     val supabaseKey: String = "",
     val isSupabaseConnected: Boolean = false,
-    val syncPromptMessage: String? = null
+    val syncPromptMessage: String? = null,
+    val disconnectPromptMessage: String? = null
 )
 
 @OptIn(kotlin.time.ExperimentalTime::class)
@@ -408,15 +409,62 @@ class CardListViewModel(
         }
     }
 
+    /**
+     * Leitet den Disconnect-Prozess ein, indem ein Bestätigungsdialog angezeigt wird.
+     */
     fun disconnectFromSupabase() {
+        if (remoteCardRepository != null) {
+            _uiState.update { it.copy(disconnectPromptMessage = "Möchten Sie Ihre Cloud-Sammlung auf dieses Gerät herunterladen, bevor die Verbindung getrennt wird? Nicht heruntergeladene Daten bleiben in Ihrer Supabase-Cloud, sind aber in der App nicht mehr sichtbar.") }
+        }
+    }
+
+    /**
+     * Schließt den Disconnect-Dialog ohne Aktion.
+     */
+    fun dismissDisconnectPrompt() {
+        _uiState.update { it.copy(disconnectPromptMessage = null) }
+    }
+
+    /**
+     * Führt die eigentliche Trennung von Supabase durch, nachdem der Nutzer eine Wahl getroffen hat.
+     * @param migrateData Wenn true, werden die Daten von der Cloud zur lokalen DB migriert.
+     */
+    fun confirmDisconnect(migrateData: Boolean) {
         viewModelScope.launch {
+            // Schließe den Dialog sofort
+            _uiState.update { it.copy(disconnectPromptMessage = null) }
+
+            if (migrateData && remoteCardRepository != null) {
+                setLoading(true, "Migriere Daten von Cloud zu Lokal...")
+
+                // Hole alle Daten von der Cloud
+                val setsToMigrate = remoteCardRepository!!.getAllSets().first()
+                val cardsToMigrate = remoteCardRepository!!.getCardInfos().first().mapNotNull {
+                    remoteCardRepository!!.getFullCardDetails(it.id)
+                }
+
+                // Bereinige die lokale DB und füge die Cloud-Daten ein
+                // ANNAHME: `clearAllData()` existiert im Repository und löscht alle Karten & Sets
+                localCardRepository.clearAllData()
+                localCardRepository.syncSets(setsToMigrate)
+                cardsToMigrate.forEach { card ->
+                    localCardRepository.insertFullPokemonCard(card)
+                }
+            }
+
+            setLoading(true, "Trenne Verbindung...")
+
+            // Setze die Verbindung zurück
             settingsRepository.saveSetting("supabase_url", "")
             settingsRepository.saveSetting("supabase_key", "")
-            println("DEBUG: Before remoteCardRepository nullification in disconnectFromSupabase. remoteCardRepository is: $remoteCardRepository")
             remoteCardRepository = null
-            println("DEBUG: After remoteCardRepository nullification in disconnectFromSupabase. remoteCardRepository is: $remoteCardRepository")
             _uiState.update { it.copy(isSupabaseConnected = false, supabaseUrl = "", supabaseKey = "") }
-            loadCardInfos() // Lade die lokalen Karten neu
+
+            // Lade die Daten neu (jetzt aus der lokalen DB)
+            loadCardInfos()
+            loadSets()
+
+            setLoading(false)
         }
     }
 
@@ -478,8 +526,8 @@ class CardListViewModel(
     }
 
     fun dismissSyncPrompt() = _uiState.update { it.copy(syncPromptMessage = null) }
-    private fun setLoading(isLoading: Boolean) = _uiState.update { it.copy(isLoading = isLoading) }
     fun resetApiCardDetails() = _uiState.update { it.copy(apiCardDetails = null, searchedCardLanguage = null) }
+    private fun setLoading(isLoading: Boolean, message: String? = null) = _uiState.update { it.copy(isLoading = isLoading, loadingMessage = message) }
     fun clearSelectedCard() = _uiState.update { it.copy(selectedCardDetails = null) }
     fun clearError() = _uiState.update { it.copy(error = null) }
 }

@@ -165,6 +165,10 @@ class SupabaseCardRepository(
         postgrest.from(cardsTable).delete { filter { eq("id", cardId) } }
     }
 
+    override suspend fun clearAllData() {
+        println("WARNING: clearAllData called for SupabaseCardRepository.")
+    }
+
     // --- SET-OPERATIONEN---
     override fun getAllSets(): Flow<List<SetInfo>> = flow {
         val data = postgrest.from(setsTable).select().decodeList<SetInfo>()
