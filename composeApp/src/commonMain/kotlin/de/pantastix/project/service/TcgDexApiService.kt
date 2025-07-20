@@ -77,6 +77,7 @@ class TcgDexApiService(
                 // Erstelle das SetInfo-Objekt.
                 SetInfo(
                     setId = enSet.id,
+                    tcgIoSetId = null,
                     abbreviation = null,
                     nameLocal = normalizedLocalName,
                     nameEn = normalizedEnName,
@@ -119,6 +120,7 @@ class TcgDexApiService(
         return fetchSetData(language).map { set ->
             SetInfo(
                 setId = set.id,
+                tcgIoSetId = null,
                 abbreviation = null,
                 nameLocal = set.name,
                 nameEn = set.name,

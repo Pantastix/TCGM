@@ -6,6 +6,7 @@
 -- Der Primärschlüssel ist die offizielle Set-ID (z.B. "sv10").
 CREATE TABLE SetEntity (
     setId TEXT NOT NULL PRIMARY KEY,
+    tcgIoSetId TEXT,
     abbreviation TEXT,
     nameLocal TEXT NOT NULL,
     nameEn TEXT NOT NULL,
@@ -56,8 +57,8 @@ CREATE TABLE PokemonCardEntity (
 
 insertOrReplaceSet:
 INSERT OR REPLACE INTO SetEntity (
-    setId, abbreviation, nameLocal, nameEn, logoUrl, cardCountOfficial, cardCountTotal, releaseDate
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+    setId, tcgIoSetId, abbreviation, nameLocal, nameEn, logoUrl, cardCountOfficial, cardCountTotal, releaseDate
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateSetAbbreviation:
 UPDATE SetEntity SET abbreviation = :abbreviation WHERE setId = :setId;

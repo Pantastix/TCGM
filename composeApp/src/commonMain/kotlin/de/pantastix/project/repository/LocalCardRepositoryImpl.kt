@@ -27,8 +27,10 @@ class LocalCardRepositoryImpl(
             .mapToList(ioDispatcher)
             .map { entities ->
                 entities.map { entity ->
+                    // Mappt die Datenbank-Entität auf das SetInfo-Datenmodell
                     SetInfo(
                         setId = entity.setId,
+                        tcgIoSetId = entity.tcgIoSetId, // NEU: Liest das neue Feld aus
                         abbreviation = entity.abbreviation,
                         nameLocal = entity.nameLocal,
                         nameEn = entity.nameEn,
@@ -49,6 +51,7 @@ class LocalCardRepositoryImpl(
                     val existingAbbr = queries.selectSetById(setInfo.setId).executeAsOneOrNull()?.abbreviation
                     queries.insertOrReplaceSet(
                         setId = setInfo.setId,
+                        tcgIoSetId = setInfo.tcgIoSetId, // NEU: Schreibt das neue Feld in die DB
                         abbreviation = existingAbbr ?: setInfo.abbreviation,
                         nameLocal = setInfo.nameLocal,
                         nameEn = setInfo.nameEn,

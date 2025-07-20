@@ -58,6 +58,7 @@ class TcgIoApiService (val client: HttpClient // KORRIGIERT: Der Client wird jet
 
                 SetInfo(
                     setId = pokemonTcgIoSet.id,
+                    tcgIoSetId = pokemonTcgIoSet.id,
                     abbreviation = pokemonTcgIoSet.ptcgoCode,
                     nameLocal = normalizedName, // Hier wird der englische Name als lokaler Name verwendet
                     nameEn = normalizedName,
