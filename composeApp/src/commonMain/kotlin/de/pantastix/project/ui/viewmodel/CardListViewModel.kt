@@ -46,6 +46,7 @@ data class UiState(
     val apiCardDetails: TcgDexCardResponse? = null,
     val searchedCardLanguage: CardLanguage? = null, // Speichert die Sprache der letzten Suche
     val isLoading: Boolean = false,
+    val loadingMessage: String? = null,
     val error: String? = null,
     val appLanguage: AppLanguage = AppLanguage.GERMAN,
     val supabaseUrl: String = "",
@@ -125,6 +126,9 @@ class CardListViewModel(
 
         setsCollectionJob = viewModelScope.launch {
             setLoading(true)
+            val loading_message = "Lade Sets..."
+            _uiState.update { it.copy(loadingMessage = loading_message) }
+
             val currentLanguage = language ?: uiState.value.appLanguage // Verwende die aktuelle App-Sprache, wenn nicht angegeben
             val setsFromApi = apiService.getAllSets(currentLanguage.code)
             println("DEBUG: Sets von API geladen: ${setsFromApi.size} Sets (Sprache: ${currentLanguage.displayName})")
@@ -136,7 +140,9 @@ class CardListViewModel(
                 _uiState.update { it.copy(sets = setsFromDb.sortedByDescending { it.releaseDate }) }
                 println("DEBUG: Sets geladen: ${setsFromDb.size} Sets (Quelle: ${if (remoteCardRepository != null) "Supabase" else "Lokal"})")
             }.launchIn(viewModelScope)
+
             setLoading(false)
+            _uiState.update { it.copy(loadingMessage = null) }
         }
     }
 

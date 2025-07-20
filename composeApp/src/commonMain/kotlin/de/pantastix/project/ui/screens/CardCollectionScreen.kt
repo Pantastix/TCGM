@@ -55,7 +55,16 @@ fun CardCollectionScreen(
 
         if (uiState.isLoading && uiState.cardInfos.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator()
+                    if (uiState.loadingMessage != null) {
+                        Text(
+                            text = uiState.loadingMessage!!,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                }
             }
         } else {
             // Die Kachelansicht für die Karten
