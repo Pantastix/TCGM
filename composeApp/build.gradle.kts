@@ -90,9 +90,6 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.ktor.client.mock)
             implementation(libs.kotlinx.coroutines.test)
-            implementation(kotlin("test-junit5")) // Besserer Weg, kotlin-test für JUnit5 einzubinden
-            implementation(libs.junit.jupiter.api) // Annahme: Du hast diese in libs.versions.toml definiert
-            runtimeOnly(libs.junit.jupiter.engine) // Annahme: Du hast diese in libs.versions.toml definiert
         }
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)

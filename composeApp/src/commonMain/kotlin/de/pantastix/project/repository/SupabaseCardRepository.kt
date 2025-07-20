@@ -171,12 +171,19 @@ class SupabaseCardRepository(
         emit(data)
     }
 
+//    override suspend fun syncSets(sets: List<SetInfo>) {
+//        sets.forEach { setInfo ->
+//            postgrest.from(setsTable).upsert(
+//                value = setInfo,
+//                onConflict = "setId"
+//            )
+//        }
+//    }
+
     override suspend fun syncSets(sets: List<SetInfo>) {
-        sets.forEach { setInfo ->
-            postgrest.from(setsTable).upsert(
-                value = setInfo,
-                onConflict = "setId"
-            )
+        // Übergebe die GESAMTE Liste auf einmal an die upsert-Funktion.
+        postgrest.from(setsTable).upsert(sets) {
+            onConflict = "setId"
         }
     }
 

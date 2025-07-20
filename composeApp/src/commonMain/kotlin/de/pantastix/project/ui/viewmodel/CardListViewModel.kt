@@ -17,8 +17,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
-import kotlinx.datetime.Clock
-import kotlinx.serialization.encodeToString
+import kotlin.time.Clock
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.Job
@@ -55,6 +54,7 @@ data class UiState(
     val syncPromptMessage: String? = null
 )
 
+@OptIn(kotlin.time.ExperimentalTime::class)
 class CardListViewModel(
     private val localCardRepository: CardRepository, // Immer das SQLite-Repository
     private val settingsRepository: SettingsRepository,
@@ -294,7 +294,6 @@ class CardListViewModel(
         }
     }
 
-    //TODO: Create ConnectToSupabase function that connects to Supabase with the given URL and key and just leads the Data
     fun connectToSupabase(url: String, key: String) {
         viewModelScope.launch {
             setLoading(true)
@@ -345,7 +344,6 @@ class CardListViewModel(
         }
     }
 
-    //TODO: rename connectNewToSupabase
     fun connectNewToSupabase(url: String, key: String) {
         viewModelScope.launch {
             setLoading(true)
