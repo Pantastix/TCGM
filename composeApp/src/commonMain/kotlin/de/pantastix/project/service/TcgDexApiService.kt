@@ -6,6 +6,8 @@ import de.pantastix.project.model.api.TcgDexSet
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.decodeFromJsonElement
@@ -20,67 +22,111 @@ class TcgDexApiService(
     private val json = Json { ignoreUnknownKeys = true }
     private val baseUrl = "https://api.tcgdex.net/v2"
 
+    private val renameList = mapOf(
+        "Macdonald" to "McDonald",
+        "HeartGold SoulSilver" to "HeartGold & SoulSilver",
+        "(Latias)" to "Latias",
+        "(Latios)" to "Latios",
+        "(Plusle)" to "Plusle",
+        "(Minun)" to "Minun",
+        "Pokémon Futsal 2020" to "Pokémon Futsal Collection",
+    )
+
     override fun getName(): String {
         return "TCGdex.net API Service"
     }
 
-//    override suspend fun getAllSets(language: String): List<SetInfo> = coroutineScope {
-//        try {
-//            val tcgDexSets = client.get("$baseUrl/$language/sets").body<List<TcgDexSet>>()
-//
-//            tcgDexSets.map { tcgDexSet ->
-//                SetInfo(
-//                    setId = tcgDexSet.id,
-//                    abbreviation = null,
-//                    nameLocal = tcgDexSet.name,
-//                    nameEn = tcgDexSet.name,
-//                    logoUrl = tcgDexSet.logo ?: tcgDexSet.symbol,
-//                    cardCountOfficial = tcgDexSet.cardCount?.official ?: 0,
-//                    cardCountTotal = tcgDexSet.cardCount?.total ?: 0,
-//                    releaseDate = null
-//                )
-//            }
-//        } catch (e: Exception) {
-//            println("Fehler beim Abrufen der Sets von TCGdex.net für Sprache '$language': ${e.message}")
-//            emptyList()
-//        }
-//    }
+    /**
+     * Wendet die Korrekturen aus der `renameList` auf einen Set-Namen an.
+     */
+    private fun normalizeSetName(name: String): String {
+        var normalizedName = name
+        renameList.forEach { (key, value) ->
+            if (normalizedName.contains(key, ignoreCase = true)) {
+                normalizedName = normalizedName.replace(key, value, ignoreCase = true)
+            }
+        }
+        return normalizedName
+    }
 
-    override suspend fun getAllSets(language: String): List<SetInfo> {
+    override suspend fun getAllSets(language: String): List<SetInfo> = coroutineScope {
+        // Wenn die angeforderte Sprache bereits Englisch ist, machen wir nur eine Abfrage.
+        if (language == "en") {
+            return@coroutineScope fetchSingleLanguage("en")
+        }
+
+        try {
+            // 1. Rufe die lokale und die englische Set-Liste parallel ab.
+            val localSetsDeferred = async { fetchSetData(language) }
+            val enSetsDeferred = async { fetchSetData("en") }
+
+            val localSets = localSetsDeferred.await()
+            val enSets = enSetsDeferred.await() // Die englische Liste ist die Master-Liste.
+
+            // 2. Erstelle eine Map der lokalen Sets für schnellen Zugriff über die ID.
+            val localSetMap = localSets.associateBy { it.id }
+
+            // 3. Iteriere durch die englische Master-Liste und kombiniere sie mit den lokalen Daten.
+            enSets.map { enSet ->
+                val localSet = localSetMap[enSet.id]
+
+                // Wende die Namensnormalisierung an
+                val normalizedEnName = normalizeSetName(enSet.name)
+                val normalizedLocalName = localSet?.name?.let { normalizeSetName(it) } ?: normalizedEnName
+
+                // Erstelle das SetInfo-Objekt.
+                SetInfo(
+                    setId = enSet.id,
+                    abbreviation = null,
+                    nameLocal = normalizedLocalName,
+                    nameEn = normalizedEnName,
+                    logoUrl = localSet?.logo ?: localSet?.symbol ?: enSet.logo ?: enSet.symbol,
+                    cardCountOfficial = localSet?.cardCount?.official ?: enSet.cardCount?.official ?: 0,
+                    cardCountTotal = localSet?.cardCount?.total ?: enSet.cardCount?.total ?: 0,
+                    releaseDate = null
+                )
+            }
+        } catch (e: Exception) {
+            println("Fehler beim Abrufen der kombinierten Set-Listen von TCGdex.net: ${e.message}")
+            emptyList()
+        }
+    }
+
+    /**
+     * Hilfsfunktion, um die rohen Set-Daten für eine einzelne Sprache abzurufen und zu parsen.
+     */
+    private suspend fun fetchSetData(language: String): List<TcgDexSet> {
         return try {
-            // 1. Rufe die Antwort als generisches JsonArray ab, nicht als typisierte Liste.
             val rawJsonArray = client.get("$baseUrl/$language/sets").body<JsonArray>()
-
-            println("TCGdex API hat ${rawJsonArray.size} Set-Objekte in der Roh-Antwort geliefert.")
-
-            // 2. Verwende mapNotNull, um jedes Element sicher zu verarbeiten.
             rawJsonArray.mapNotNull { jsonElement ->
                 try {
-                    // 3. Versuche, ein einzelnes Element in unser TcgDexSet-Objekt zu dekodieren.
-                    val tcgDexSet = json.decodeFromJsonElement<TcgDexSet>(jsonElement)
-
-                    // Erfolgreich dekodiert, jetzt in das gemeinsame SetInfo-Modell umwandeln.
-                    SetInfo(
-                        setId = tcgDexSet.id,
-                        abbreviation = null,
-                        nameLocal = tcgDexSet.name,
-                        nameEn = tcgDexSet.name, // Wird später vom CombinedService überschrieben
-                        logoUrl = tcgDexSet.logo ?: tcgDexSet.symbol,
-                        cardCountOfficial = tcgDexSet.cardCount?.official ?: 0,
-                        cardCountTotal = tcgDexSet.cardCount?.total ?: 0,
-                        releaseDate = null
-                    )
+                    json.decodeFromJsonElement<TcgDexSet>(jsonElement)
                 } catch (e: Exception) {
-                    // 4. Wenn die Dekodierung für DIESES EINE Set fehlschlägt:
-                    println("!! Fehler beim Verarbeiten eines einzelnen Sets von TCGdex.net. Set wird übersprungen. Fehler: ${e.message}")
-                    println("!! Fehlerhaftes JSON-Element: $jsonElement")
-                    null // mapNotNull wird dieses fehlerhafte Element aus der finalen Liste entfernen.
+                    println("!! Fehler beim Parsen eines einzelnen TCGdex-Sets ($language): ${e.message}")
+                    null
                 }
             }
         } catch (e: Exception) {
-            // Dieser Catch-Block fängt jetzt nur noch größere Probleme ab (z.B. Netzwerkfehler).
-            println("Schwerwiegender Fehler beim Abrufen der Set-Liste von TCGdex.net für Sprache '$language': ${e.message}")
+            println("Fehler beim Abrufen der Set-Liste von TCGdex.net für Sprache '$language': ${e.message}")
             emptyList()
+        }
+    }
+
+    /**
+     * Vereinfachte Funktion für den Fall, dass nur Englisch abgefragt wird.
+     */
+    private suspend fun fetchSingleLanguage(language: String): List<SetInfo> {
+        return fetchSetData(language).map { set ->
+            SetInfo(
+                setId = set.id,
+                abbreviation = null,
+                nameLocal = set.name,
+                nameEn = set.name,
+                logoUrl = set.logo ?: set.symbol,
+                cardCountOfficial = set.cardCount?.official ?: 0,
+                cardCountTotal = set.cardCount?.total ?: 0,
+                releaseDate = null
+            )
         }
     }
 

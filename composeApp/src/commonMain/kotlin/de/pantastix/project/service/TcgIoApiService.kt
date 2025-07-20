@@ -13,6 +13,23 @@ class TcgIoApiService (val client: HttpClient // KORRIGIERT: Der Client wird jet
 ) : TcgApiService {
 
     private val baseUrl = "https://api.pokemontcg.io/v2"
+    private val renameList = mapOf(
+        "—" to "-"
+    )
+
+    /**
+     * Wendet die Korrekturen aus der `renameList` auf einen Set-Namen an.
+     */
+    private fun normalizeSetName(name: String): String {
+        var normalizedName = name
+        renameList.forEach { (key, value) ->
+            if (normalizedName.contains(key, ignoreCase = true)) {
+                normalizedName = normalizedName.replace(key, value, ignoreCase = true)
+            }
+        }
+        return normalizedName
+    }
+
     override fun getName(): String {
         return "PokemonTCG.io API Service"
     }
@@ -37,11 +54,13 @@ class TcgIoApiService (val client: HttpClient // KORRIGIERT: Der Client wird jet
                     null
                 }
 
+                val normalizedName = normalizeSetName(pokemonTcgIoSet.name)
+
                 SetInfo(
                     setId = pokemonTcgIoSet.id,
                     abbreviation = pokemonTcgIoSet.ptcgoCode,
-                    nameLocal = pokemonTcgIoSet.name, // Hier wird der englische Name als lokaler Name verwendet
-                    nameEn = pokemonTcgIoSet.name,
+                    nameLocal = normalizedName, // Hier wird der englische Name als lokaler Name verwendet
+                    nameEn = normalizedName,
                     logoUrl = pokemonTcgIoSet.images?.logo ?: pokemonTcgIoSet.images?.symbol, // Logos von PokemonTCG.io
                     cardCountOfficial = pokemonTcgIoSet.printedTotal,
                     cardCountTotal = pokemonTcgIoSet.total,

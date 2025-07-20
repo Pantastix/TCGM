@@ -37,10 +37,6 @@ class CombinedTcgApiService(
         return normalized
     }
 
-    private fun denormalizeSetId(id: String): String {
-        return id.replace("pt5", ".5")
-    }
-
     /**
      * Ruft alle Sets ab, kombiniert und priorisiert Daten von TCGdex.net und PokemonTCG.io.
      * @param language Die gewünschte Sprache für lokale Set-Namen.
@@ -48,52 +44,70 @@ class CombinedTcgApiService(
      */
     override suspend fun getAllSets(language: String): List<SetInfo> = coroutineScope {
         try {
-            // Parallel die Daten von beiden APIs abrufen
-            val enSetsDeferred = async { enApiService.getAllSets(CardLanguage.ENGLISH.code) } // Immer englische Sets von PokemonTCG.io
-            val localSetsDeferred = async { localApiService.getAllSets(language) } // Lokale Sets von TCGdex.net
+            val tcgIoSetsDeferred = async { enApiService.getAllSets(CardLanguage.ENGLISH.code) }
+            val tcgDexSetsDeferred = async { localApiService.getAllSets(language) }
 
-            val enSets = enSetsDeferred.await()
-            val localSets = localSetsDeferred.await()
+            val rawTcgIoSets = tcgIoSetsDeferred.await()
+            val tcgDexSets = tcgDexSetsDeferred.await()
 
-            // Maps für schnellen Zugriff erstellen
-            val localSetMap = localSets.associateBy { normalizeSetId(it.setId) }
+            val tcgIoSetsByPtcgCode = rawTcgIoSets
+                .filter { !it.abbreviation.isNullOrBlank() }
+                .groupBy { it.abbreviation!! }
 
-            println("Fetched ${enSets.size} sets from ${enApiService.getName()} and ${localSets.size} sets from ${localApiService.getName()}.")
-            println("Local sets map size: ${localSetMap.size}")
-
-            // Über die PokemonTCG.io Sets iterieren (diese haben Vorrang)
-            enSets.mapNotNull { enSet ->
-                val normalizedId = normalizeSetId(enSet.setId)
-                val localSet = localSetMap[normalizedId]
-
-                // Nur Sets berücksichtigen, die in beiden Quellen existieren
-                if (localSet != null) {
-                    SetInfo(
-                        setId = enSet.setId,
-                        abbreviation = enSet.abbreviation, // Von PokemonTCG.io
-                        nameLocal = localSet.nameLocal, // Von TCGdex.net (lokal)
-                        nameEn = enSet.nameEn, // Von PokemonTCG.io (englisch)
-                        logoUrl = localSet.logoUrl, // Von TCGdex.net
-                        cardCountOfficial = localSet.cardCountOfficial, // Von TCGdex.net
-                        cardCountTotal = localSet.cardCountTotal, // Von TCGdex.net
-                        releaseDate = enSet.releaseDate // Von PokemonTCG.io (geparst)
+            val mergedSets = tcgIoSetsByPtcgCode.map { (_, group) ->
+                if (group.size > 1) {
+                    val baseSet = group.first()
+                    val totalOfficial = group.sumOf { it.cardCountOfficial }
+                    val totalCards = group.sumOf { it.cardCountTotal }
+                    baseSet.copy(
+                        cardCountOfficial = totalOfficial,
+                        cardCountTotal = totalCards
                     )
                 } else {
-                    println("Set '${enSet.nameEn}' (${enSet.setId}) has no local equivalent. Using English data as fallback.")
+                    group.first()
+                }
+            }
+            val setsWithoutPtcgCode = rawTcgIoSets.filter { it.abbreviation.isNullOrBlank() }
+            val tcgIoSets = mergedSets + setsWithoutPtcgCode
+
+
+            // 2. Erstelle zwei Maps der TCGdex-Sets für schnellen Zugriff.
+            val tcgDexSetMapByName = tcgDexSets.associateBy { it.nameEn.lowercase().replace(Regex("\\s|'"), "") }
+            // Die Schlüssel dieser Map sind jetzt normalisiert.
+            val tcgDexSetMapById = tcgDexSets.associateBy { normalizeSetId(it.setId) }
+
+            println("Fetched ${tcgIoSets.size} sets from ${enApiService.getName()} and ${tcgDexSets.size} sets from ${localApiService.getName()}.")
+
+            tcgIoSets.mapNotNull { tcgIoSet ->
+                val normalizedEnName = tcgIoSet.nameEn.lowercase().replace(Regex("\\s|'"), "")
+                var tcgDexSet = tcgDexSetMapByName[normalizedEnName]
+
+                if (tcgDexSet == null) {
+                    val normalizedId = normalizeSetId(tcgIoSet.setId)
+                    tcgDexSet = tcgDexSetMapById[normalizedId]
+                    if (tcgDexSet != null) {
+//                        println("Set '${tcgIoSet.nameEn}' wurde über die ID '${tcgIoSet.setId}' als Fallback gefunden.")
+                    }
+                }
+
+                if (tcgDexSet != null) {
                     SetInfo(
-                        setId = enSet.setId,
-                        abbreviation = enSet.abbreviation,
-                        nameLocal = enSet.nameEn,
-                        nameEn = enSet.nameEn,
-                        logoUrl = enSet.logoUrl,
-                        cardCountOfficial = enSet.cardCountOfficial,
-                        cardCountTotal = enSet.cardCountTotal,
-                        releaseDate = enSet.releaseDate
+                        setId = tcgIoSet.setId, // ID von TCG.io ist führend
+                        abbreviation = tcgIoSet.abbreviation, // Abkürzung von TCG.io
+                        nameLocal = tcgDexSet.nameLocal, // Lokaler Name von TCGdex
+                        nameEn = tcgIoSet.nameEn, // Englischer Name von TCG.io
+                        logoUrl = tcgDexSet.logoUrl, // Logo von TCGdex
+                        cardCountOfficial = tcgDexSet.cardCountOfficial, // Kartenzahl von TCGdex
+                        cardCountTotal = tcgDexSet.cardCountTotal, // Kartenzahl von TCGdex
+                        releaseDate = tcgIoSet.releaseDate // Release-Datum von TCG.io
                     )
+                } else {
+                    println("Set '${tcgIoSet.nameEn}' hat kein Gegenstück in TCGdex. Wird aus der Liste entfernt.")
+                    null
                 }
             }
         } catch (e: Exception) {
-            println("Error while fetching sets: ${e.message}")
+            println("Error while fetching and combining sets: ${e.message}")
             emptyList()
         }
     }
