@@ -368,7 +368,7 @@ class CardListViewModel(
                     remoteCardRepository = SupabaseCardRepository(supabase.postgrest) // Activate the Cloud DB here
                     println("DEBUG: After remoteCardRepository assignment in connectToSupabase. remoteCardRepository is: $remoteCardRepository")
 
-                    _uiState.update { it.copy(isSupabaseConnected = true) }
+                    _uiState.update { it.copy(isSupabaseConnected = true, supabaseKey = key, supabaseUrl = url) }
                     print("DEBUG: Syncing local sets to Supabase")
                     syncSetsToSupabase()
                     loadCardInfos()
@@ -520,7 +520,7 @@ class CardListViewModel(
                 }
             }
 
-            loadCardInfos() // Lade die Remote-Daten neu
+            loadCardInfos()
             setLoading(false)
         }
     }
