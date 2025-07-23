@@ -7,11 +7,13 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import de.pantastix.project.ui.flow.AddCardFlow
 import de.pantastix.project.ui.screens.*
 import de.pantastix.project.ui.viewmodel.CardListViewModel
 
 @Composable
 fun MobileApp(viewModel: CardListViewModel) {
+    val uiState by viewModel.uiState.collectAsState()
     var currentScreen by remember { mutableStateOf(MainScreen.COLLECTION) }
     var showAddCardDialog by remember { mutableStateOf(false) }
 
@@ -22,24 +24,26 @@ fun MobileApp(viewModel: CardListViewModel) {
                     icon = { Icon(Icons.Default.Collections, "Sammlung") },
                     label = { Text("Sammlung") },
                     selected = currentScreen == MainScreen.COLLECTION,
-                    onClick = { currentScreen = MainScreen.COLLECTION }
+                    onClick = { if (!uiState.isLoading) currentScreen = MainScreen.COLLECTION }
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Analytics, "Wert") },
                     label = { Text("Wert") },
                     selected = currentScreen == MainScreen.VALUE,
-                    onClick = { currentScreen = MainScreen.VALUE }
+                    onClick = { if (!uiState.isLoading) currentScreen = MainScreen.VALUE }
                 )
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Settings, "Einstellungen") },
                     label = { Text("Einstellungen") },
                     selected = currentScreen == MainScreen.SETTINGS,
-                    onClick = { currentScreen = MainScreen.SETTINGS }
+                    onClick = { if (!uiState.isLoading) currentScreen = MainScreen.SETTINGS }
                 )
             }
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddCardDialog = true }) {
+            FloatingActionButton(
+                onClick = { if (!uiState.isLoading) showAddCardDialog = true }
+            ) {
                 Icon(Icons.Default.Add, "Karte hinzufügen")
             }
         }

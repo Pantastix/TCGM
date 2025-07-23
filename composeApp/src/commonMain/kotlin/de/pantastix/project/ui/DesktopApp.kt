@@ -20,6 +20,7 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.dp
+import de.pantastix.project.ui.flow.AddCardFlow
 import de.pantastix.project.ui.screens.*
 
 @Composable
@@ -50,13 +51,13 @@ fun DesktopApp(
                     icon = { Icon(Icons.Default.Collections, contentDescription = "Sammlung") },
                     label = { Text("Sammlung") },
                     selected = currentScreen == MainScreen.COLLECTION,
-                    onClick = { onScreenSelect(MainScreen.COLLECTION) }
+                    onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.COLLECTION) }
                 )
                 NavigationRailItem(
                     icon = { Icon(Icons.Default.Analytics, contentDescription = "Wert") },
                     label = { Text("Wert") },
                     selected = currentScreen == MainScreen.VALUE,
-                    onClick = { onScreenSelect(MainScreen.VALUE) }
+                    onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.VALUE) }
                 )
 
                 // Dieser Spacer schiebt das Einstellungs-Icon nach unten
@@ -66,7 +67,7 @@ fun DesktopApp(
                     icon = { Icon(Icons.Default.Settings, contentDescription = "Einstellungen") },
                     label = { Text("Einstellungen") },
                     selected = currentScreen == MainScreen.SETTINGS,
-                    onClick = { onScreenSelect(MainScreen.SETTINGS) }
+                    onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.SETTINGS) }
                 )
             }
 

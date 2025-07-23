@@ -4,4 +4,27 @@
     <string name="loading_default">Loading Data</string>
     <string name="settings_cloud_sync">Cloud-Synchronisation (Supabase)</string>
     <string name="settings_language">App-Language</string>
+    <string name="card_details_rarity">Rarity</string>
+    <string name="card_details_hp">HP</string>
+    <string name="card_details_types">Types</string>
+    <string name="card_details_abilities">Abilities</string>
+    <string name="card_details_attacks">Attacks</string>
+    <string name="card_details_retreat_cost">Retreat Cost</string>
+    <string name="card_details_illustrator">Illustrator</string>
+    <string name="card_details_regulation_mark">Regulation Mark</string>
+    <string name="card_details_collection_info">My Collection</string>
+    <string name="card_details_owned_copies">Owned</string>
+    <string name="card_details_notes">Notes</string>
+    <string name="card_details_current_price">Current Price</string>
+    <string name="card_details_cardmarket_link">View on Cardmarket</string>
+    <string name="card_details_other_details">Further Details</string>
+    <string name="card_details_delete_dialog_title">Delete Card?</string>
+    <string name="card_details_delete_dialog_text">Do you really want to remove this card from your collection?</string>
+    <string name="card_details_delete_button">Delete</string>
+    <string name="card_details_cancel_button">Cancel</string>
+    <string name="card_details_edit_button_desc">Edit Card</string>
+    <string name="card_details_delete_button_desc">Delete Card</string>
+    <string name="card_details_back_button_desc">Back</string>
+    <string name="card_details_loading_error">Card could not be loaded.</string>
+    <string name="card_details_no_notes">No notes available.</string>
 </resources>

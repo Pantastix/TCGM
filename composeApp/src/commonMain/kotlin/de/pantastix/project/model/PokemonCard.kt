@@ -30,7 +30,7 @@ data class PokemonCard(
     var notes: String?,
 
     // Zugehörige Set-Informationen
-    val setId: String, //TODO
+    val setId: String,
     val setName: String,
     val localId: String,
 

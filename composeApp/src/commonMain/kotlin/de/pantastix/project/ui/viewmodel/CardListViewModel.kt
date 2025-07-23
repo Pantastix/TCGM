@@ -88,14 +88,17 @@ class CardListViewModel(
             initializeLanguage()
 
             _uiState.update { it.copy(loadingMessage = "Prüfe Cloud-Verbindung...") }
+            // Diese Funktion wartet jetzt, bis die Verbindung steht.
             initializeSupabaseConnection()
 
-            _uiState.update { it.copy(loadingMessage = "Lade Sets...") }
-            val setsJob = loadSets()
-            loadCardInfos()
+            _uiState.update { it.copy(loadingMessage = "Lade initiale Daten...") }
+            // Lädt den ersten Satz an Daten, BEVOR die UI angezeigt wird.
+            loadInitialData()
 
-            setsJob.join()
+            // Startet die Hintergrund-Listener, um auf zukünftige Änderungen zu reagieren.
+            startBackgroundDataListeners()
 
+            // Gibt die UI frei, wenn alles bereit ist.
             _uiState.update { it.copy(isInitialized = true, isLoading = false, loadingMessage = null) }
         }
     }
@@ -113,15 +116,6 @@ class CardListViewModel(
         setAppLanguage(language.code) // Setzt die Sprache für moko-resources
         _uiState.update { it.copy(appLanguage = language) }
     }
-
-//    private fun loadSettings() {
-//        viewModelScope.launch {
-//            val savedLangCode = settingsRepository.getSetting("language") ?: AppLanguage.GERMAN.code
-//            val language = AppLanguage.entries.find { it.code == savedLangCode } ?: AppLanguage.GERMAN
-//            _uiState.update { it.copy(appLanguage = language) }
-//            loadSets(language)
-//        }
-//    }
 
     fun setAppLanguage(language: AppLanguage) {
         viewModelScope.launch {
@@ -173,34 +167,6 @@ class CardListViewModel(
         }
         return setsCollectionJob!!
     }
-
-//    private fun loadSets(language: AppLanguage? = null) {
-//        // Bricht den vorherigen Job ab, um sicherzustellen, dass nur ein Repository beobachtet wird
-//        setsCollectionJob?.cancel()
-//        println("DEBUG: loadSets() called. Cancelling previous setsCollectionJob.")
-//
-//        setsCollectionJob = viewModelScope.launch {
-//            setLoading(true)
-//            val loading_message = "Lade Sets..."
-//            _uiState.update { it.copy(loadingMessage = loading_message) }
-//
-//            val currentLanguage =
-//                language ?: uiState.value.appLanguage // Verwende die aktuelle App-Sprache, wenn nicht angegeben
-//            val setsFromApi = apiService.getAllSets(currentLanguage.code)
-//            println("DEBUG: Sets von API geladen: ${setsFromApi.size} Sets (Sprache: ${currentLanguage.displayName})")
-//            if (setsFromApi.isNotEmpty()) {
-//                // Synchronisiert immer die lokale DB, die als Cache dient
-//                activeCardRepository.syncSets(setsFromApi)
-//            }
-//            activeCardRepository.getAllSets().onEach { setsFromDb ->
-//                _uiState.update { it.copy(sets = setsFromDb.sortedByDescending { it.releaseDate }) }
-//                println("DEBUG: Sets geladen: ${setsFromDb.size} Sets (Quelle: ${if (remoteCardRepository != null) "Supabase" else "Lokal"})")
-//            }.launchIn(viewModelScope)
-//
-//            setLoading(false)
-//            _uiState.update { it.copy(loadingMessage = null) }
-//        }
-//    }
 
     fun deleteSelectedCard() {
         viewModelScope.launch {
@@ -364,21 +330,59 @@ class CardListViewModel(
         }
     }
 
-    fun connectToSupabase(url: String, key: String) {
-        viewModelScope.launch {
-            try {
-                val supabase = createSupabaseClient(url, key) { install(Postgrest) }
-                supabase.postgrest.from("PokemonCardEntity").select { limit(1) }
-                remoteCardRepository = SupabaseCardRepository(supabase.postgrest)
-                _uiState.update { it.copy(isSupabaseConnected = true) }
-
-            } catch (e: Exception) {
-                println("Supabase-Verbindung beim Start fehlgeschlagen: ${e.message}")
-                remoteCardRepository = null
-                _uiState.update { it.copy(isSupabaseConnected = false) }
-            }
-            setLoading(false)
+    private suspend fun connectToSupabase(url: String, key: String) {
+        try {
+            val supabase = createSupabaseClient(url, key) { install(Postgrest) }
+            supabase.postgrest.from("PokemonCardEntity").select { limit(1) }
+            remoteCardRepository = SupabaseCardRepository(supabase.postgrest)
+            _uiState.update { it.copy(isSupabaseConnected = true) }
+        } catch (e: Exception) {
+            println("Supabase-Verbindung beim Start fehlgeschlagen: ${e.message}")
+            remoteCardRepository = null
+            _uiState.update { it.copy(isSupabaseConnected = false) }
         }
+    }
+
+    private suspend fun loadInitialData() {
+        // Lade Sets
+        val currentLanguage = uiState.value.appLanguage
+        val setsFromApi = apiService.getAllSets(currentLanguage.code)
+        if (setsFromApi.isNotEmpty()) {
+            activeCardRepository.syncSets(setsFromApi)
+        }
+        val initialSets = activeCardRepository.getAllSets().first()
+
+        // Lade Karten
+        val initialCards = activeCardRepository.getCardInfos().first()
+
+        // Aktualisiere den State mit beiden Ergebnissen auf einmal
+        _uiState.update {
+            it.copy(
+                sets = initialSets.sortedByDescending { set -> set.releaseDate },
+                cardInfos = initialCards
+            )
+        }
+    }
+
+    private fun startBackgroundDataListeners() {
+        listenForCardUpdates()
+        listenForSetUpdates()
+    }
+
+    private fun listenForCardUpdates() {
+        cardInfosCollectionJob?.cancel()
+        cardInfosCollectionJob = activeCardRepository.getCardInfos()
+            .onEach { cards -> _uiState.update { it.copy(cardInfos = cards) } }
+            .launchIn(viewModelScope)
+    }
+
+    private fun listenForSetUpdates() {
+        setsCollectionJob?.cancel()
+        setsCollectionJob = activeCardRepository.getAllSets()
+            .onEach { setsFromDb ->
+                _uiState.update { it.copy(sets = setsFromDb.sortedByDescending { it.releaseDate }) }
+            }
+            .launchIn(viewModelScope)
     }
 
     fun connectNewToSupabase(url: String, key: String) {

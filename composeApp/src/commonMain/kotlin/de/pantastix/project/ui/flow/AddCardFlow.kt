@@ -1,4 +1,4 @@
-package de.pantastix.project.ui.screens
+package de.pantastix.project.ui.flow
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,9 +13,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import de.pantastix.project.platform.Platform
 import de.pantastix.project.platform.getPlatform
+import de.pantastix.project.ui.screens.FinalAddCardScreen
+import de.pantastix.project.ui.screens.SetSelectionScreen
 import de.pantastix.project.ui.viewmodel.CardListViewModel
 
 @Composable

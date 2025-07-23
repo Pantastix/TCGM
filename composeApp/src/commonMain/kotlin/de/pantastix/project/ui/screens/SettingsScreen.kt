@@ -37,32 +37,35 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
         ) {
             Text(stringResource(MR.strings.settings_title), style = MaterialTheme.typography.headlineMedium)
 
-            // Sprachauswahl als Dropdown-Menü
             Text(stringResource(MR.strings.settings_language), style = MaterialTheme.typography.titleLarge)
-            ExposedDropdownMenuBox(
-                expanded = languageDropdownExpanded && !uiState.isLoading,
-                onExpandedChange = { if (!uiState.isLoading) languageDropdownExpanded = !languageDropdownExpanded }
+            Box(
+                modifier = Modifier.width(300.dp),
             ) {
-                OutlinedTextField(
-                    value = uiState.appLanguage.displayName,
-                    onValueChange = {},
-                    readOnly = true,
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = languageDropdownExpanded) },
-                    modifier = Modifier.menuAnchor().fillMaxWidth(),
-                    enabled = !uiState.isLoading // Deaktiviert während des Ladens
-                )
-                ExposedDropdownMenu(
-                    expanded = languageDropdownExpanded,
-                    onDismissRequest = { languageDropdownExpanded = false }
+                ExposedDropdownMenuBox(
+                    expanded = languageDropdownExpanded && !uiState.isLoading,
+                    onExpandedChange = { if (!uiState.isLoading) languageDropdownExpanded = !languageDropdownExpanded }
                 ) {
-                    AppLanguage.entries.forEach { lang ->
-                        DropdownMenuItem(
-                            text = { Text(lang.displayName) },
-                            onClick = {
-                                viewModel.setAppLanguage(lang)
-                                languageDropdownExpanded = false
-                            }
-                        )
+                    OutlinedTextField(
+                        value = uiState.appLanguage.displayName,
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = languageDropdownExpanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                        enabled = !uiState.isLoading // Deaktiviert während des Ladens
+                    )
+                    ExposedDropdownMenu(
+                        expanded = languageDropdownExpanded,
+                        onDismissRequest = { languageDropdownExpanded = false }
+                    ) {
+                        AppLanguage.entries.forEach { lang ->
+                            DropdownMenuItem(
+                                text = { Text(lang.displayName) },
+                                onClick = {
+                                    viewModel.setAppLanguage(lang)
+                                    languageDropdownExpanded = false
+                                }
+                            )
+                        }
                     }
                 }
             }

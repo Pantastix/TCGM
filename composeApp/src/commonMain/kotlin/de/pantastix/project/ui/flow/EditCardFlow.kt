@@ -1,4 +1,4 @@
-package de.pantastix.project.ui.screens
+package de.pantastix.project.ui.flow
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import de.pantastix.project.platform.Platform
 import de.pantastix.project.platform.getPlatform
+import de.pantastix.project.ui.screens.EditCardScreen
 import de.pantastix.project.ui.viewmodel.CardListViewModel
 
 @Composable

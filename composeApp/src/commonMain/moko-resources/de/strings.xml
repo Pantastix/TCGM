@@ -4,4 +4,27 @@
     <string name="loading_default">Daten werden geladen</string>
     <string name="settings_cloud_sync">Cloud-Synchronisation (Supabase)</string>
     <string name="settings_language">App-Sprache</string>
+    <string name="card_details_rarity">Seltenheit</string>
+    <string name="card_details_hp">KP</string>
+    <string name="card_details_types">Typen</string>
+    <string name="card_details_abilities">Fähigkeiten</string>
+    <string name="card_details_attacks">Attacken</string>
+    <string name="card_details_retreat_cost">Rückzugskosten</string>
+    <string name="card_details_illustrator">Illustrator</string>
+    <string name="card_details_regulation_mark">Regulation Mark</string>
+    <string name="card_details_collection_info">Meine Sammlung</string>
+    <string name="card_details_owned_copies">Besitz</string>
+    <string name="card_details_notes">Notizen</string>
+    <string name="card_details_current_price">Aktueller Preis</string>
+    <string name="card_details_cardmarket_link">Auf Cardmarket ansehen</string>
+    <string name="card_details_other_details">Weitere Details</string>
+    <string name="card_details_delete_dialog_title">Karte löschen?</string>
+    <string name="card_details_delete_dialog_text">Möchtest du diese Karte wirklich aus deiner Sammlung entfernen?</string>
+    <string name="card_details_delete_button">Löschen</string>
+    <string name="card_details_cancel_button">Abbrechen</string>
+    <string name="card_details_edit_button_desc">Karte bearbeiten</string>
+    <string name="card_details_delete_button_desc">Karte löschen</string>
+    <string name="card_details_back_button_desc">Zurück</string>
+    <string name="card_details_loading_error">Karte konnte nicht geladen werden.</string>
+    <string name="card_details_no_notes">Keine Notizen vorhanden.</string>
 </resources>

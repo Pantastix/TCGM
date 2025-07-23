@@ -21,6 +21,13 @@ import coil3.compose.AsyncImage
 import de.pantastix.project.model.Attack
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.style.TextAlign
+import de.pantastix.project.model.Ability
+import de.pantastix.project.shared.resources.MR
+import dev.icerock.moko.resources.compose.stringResource
+import java.text.NumberFormat
+import java.util.Locale
 
 @Composable
 fun CardDetailScreen(
@@ -31,107 +38,116 @@ fun CardDetailScreen(
     onDelete: () -> Unit,
 ) {
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
-    Row() {
+
+    Row(modifier = Modifier.fillMaxSize()) {
         VerticalDivider(
             modifier = Modifier.fillMaxHeight(),
             color = MaterialTheme.colorScheme.primary,
             thickness = 4.dp
         )
+
         Box(modifier = Modifier.fillMaxSize()) {
-
-
             if (isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else if (card == null) {
-                Text("Karte konnte nicht geladen werden.", modifier = Modifier.align(Alignment.Center))
+                Text(stringResource(MR.strings.card_details_loading_error), modifier = Modifier.align(Alignment.Center))
             } else {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .verticalScroll(rememberScrollState()) // Macht die Spalte scrollbar
-                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState())
                 ) {
+                    // Top Action Bar
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(MR.strings.card_details_back_button_desc))
                         }
                         Row {
                             IconButton(onClick = onEdit) {
-                                Icon(Icons.Default.Edit, contentDescription = "Karte bearbeiten")
+                                Icon(Icons.Default.Edit, contentDescription = stringResource(MR.strings.card_details_edit_button_desc))
                             }
                             IconButton(onClick = { showDeleteConfirmDialog = true }) {
                                 Icon(
                                     Icons.Default.Delete,
-                                    contentDescription = "Karte löschen",
+                                    contentDescription = stringResource(MR.strings.card_details_delete_button_desc),
                                     tint = MaterialTheme.colorScheme.error
                                 )
                             }
                         }
                     }
 
-                    Spacer(Modifier.height(16.dp))
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(card.nameLocal, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
 
-                    AsyncImage(
-                        model = card.imageUrl,
-                        contentDescription = card.nameLocal,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(300.dp) // Feste Höhe oder anpassen
-                            .align(Alignment.CenterHorizontally)
-                    )
-                    Spacer(Modifier.height(16.dp))
+                        // KORRIGIERT: Bild verkleinert
+                        AsyncImage(
+                            model = card.imageUrl,
+                            contentDescription = card.nameLocal,
+                            modifier = Modifier
+                                .fillMaxWidth(0.6f) // Macht das Bild schmaler
+                                .aspectRatio(0.72f)
+                        )
 
-                    // Basis-Informationen
-                    Text(card.nameLocal, style = MaterialTheme.typography.headlineMedium)
-                    Text("${card.setName} - ${card.localId}", style = MaterialTheme.typography.titleMedium)
-                    Text("Seltenheit: ${card.rarity ?: "N/A"}", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "HP: ${card.hp ?: "N/A"} - Typen: ${card.types.joinToString(", ")}",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+                        // Primary Info
+                        Text("${card.setName} - ${card.localId}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-                    HorizontalDivider()
-
-                    // Fähigkeiten
-                    if (card.abilities.isNotEmpty()) {
-                        Text("Fähigkeiten", style = MaterialTheme.typography.titleLarge)
-                        card.abilities.forEach { ability ->
-                            Text(ability.name, fontWeight = FontWeight.Bold)
-                            Text(ability.effect, style = MaterialTheme.typography.bodyMedium)
-                            Spacer(Modifier.height(8.dp))
+                        // Combat Info
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceAround
+                        ) {
+                            InfoChip(stringResource(MR.strings.card_details_rarity), card.rarity ?: "N/A")
+                            InfoChip(stringResource(MR.strings.card_details_hp), card.hp?.toString() ?: "N/A")
+                            InfoChip(stringResource(MR.strings.card_details_types), card.types.joinToString(", "))
                         }
-                        Divider(modifier = Modifier.padding(vertical = 16.dp))
-                    }
 
-                    // Attacken
-                    if (card.attacks.isNotEmpty()) {
-                        Text("Attacken", style = MaterialTheme.typography.titleLarge)
-                        card.attacks.forEach { attack ->
-                            AttackView(attack)
-                            Spacer(Modifier.height(8.dp))
+                        HorizontalDivider()
+
+                        // Collection Info Section
+                        CollectionInfoSection(card)
+
+                        // Abilities Section
+                        if (card.abilities.isNotEmpty()) {
+                            Section(title = stringResource(MR.strings.card_details_abilities)) {
+                                card.abilities.forEach { ability -> AbilityView(ability) }
+                            }
                         }
-                    }
 
-                    // Weitere Details
-                    Divider(modifier = Modifier.padding(vertical = 16.dp))
-                    Text("Weitere Details", style = MaterialTheme.typography.titleLarge)
-                    Text("Rückzugskosten: ${card.retreatCost ?: "N/A"}")
-                    Text("Illustrator: ${card.illustrator ?: "N/A"}")
-                    Text("Regulation Mark: ${card.regulationMark ?: "N/A"}")
+                        // Attacks Section
+                        if (card.attacks.isNotEmpty()) {
+                            Section(title = stringResource(MR.strings.card_details_attacks)) {
+                                card.attacks.forEach { attack -> AttackView(attack) }
+                            }
+                        }
+
+                        // Further Details Section
+                        Section(title = stringResource(MR.strings.card_details_other_details)) {
+                            DetailRow(label = stringResource(MR.strings.card_details_retreat_cost), value = card.retreatCost?.toString() ?: "N/A")
+                            DetailRow(label = stringResource(MR.strings.card_details_illustrator), value = card.illustrator ?: "N/A")
+                            DetailRow(label = stringResource(MR.strings.card_details_regulation_mark), value = card.regulationMark ?: "N/A")
+                        }
+
+                        // KORRIGIERT: Padding am Ende der Seite
+                        Spacer(Modifier.height(16.dp))
+                    }
                 }
             }
         }
-
 
         if (showDeleteConfirmDialog) {
             AlertDialog(
                 modifier = Modifier.border(4.dp, MaterialTheme.colorScheme.error, MaterialTheme.shapes.large),
                 onDismissRequest = { showDeleteConfirmDialog = false },
-                title = { Text("Karte löschen?") },
-                text = { Text("Möchtest du diese Karte wirklich aus deiner Sammlung entfernen?") },
+                title = { Text(stringResource(MR.strings.card_details_delete_dialog_title)) },
+                text = { Text(stringResource(MR.strings.card_details_delete_dialog_text)) },
                 confirmButton = {
                     Button(
                         onClick = {
@@ -140,12 +156,12 @@ fun CardDetailScreen(
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                     ) {
-                        Text("Löschen")
+                        Text(stringResource(MR.strings.card_details_delete_button))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeleteConfirmDialog = false }) {
-                        Text("Abbrechen")
+                        Text(stringResource(MR.strings.card_details_cancel_button))
                     }
                 }
             )
@@ -154,14 +170,83 @@ fun CardDetailScreen(
 }
 
 @Composable
+private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(title, style = MaterialTheme.typography.titleLarge)
+        HorizontalDivider()
+        content()
+    }
+}
+
+@Composable
+private fun CollectionInfoSection(card: PokemonCard) {
+    val uriHandler = LocalUriHandler.current
+    val currencyFormat = NumberFormat.getCurrencyInstance(Locale.GERMANY)
+
+    Section(title = stringResource(MR.strings.card_details_collection_info)) {
+        DetailRow(label = stringResource(MR.strings.card_details_owned_copies), value = card.ownedCopies.toString())
+        DetailRow(label = stringResource(MR.strings.card_details_current_price), value = card.currentPrice?.let { currencyFormat.format(it) } ?: "-")
+        Text(stringResource(MR.strings.card_details_notes), style = MaterialTheme.typography.titleSmall)
+        Text(
+            text = if (card.notes.isNullOrBlank()) stringResource(MR.strings.card_details_no_notes) else card.notes!!,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (card.notes.isNullOrBlank()) MaterialTheme.colorScheme.onSurfaceVariant else LocalContentColor.current
+        )
+        card.cardMarketLink?.let { link ->
+            if (link.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = { uriHandler.openUri(link) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(stringResource(MR.strings.card_details_cardmarket_link))
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun AbilityView(ability: Ability) {
+    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+        Text("${ability.type}: ${ability.name}", style = MaterialTheme.typography.titleMedium)
+        Text(ability.effect, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
 private fun AttackView(attack: Attack) {
-    Column {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(attack.name, fontWeight = FontWeight.Bold)
-            Text(attack.damage ?: "", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(attack.name, style = MaterialTheme.typography.titleMedium)
+            Text(attack.damage ?: "", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
         }
+        // TODO: Hier könnten die Energiekosten (`attack.cost`) als Symbole dargestellt werden.
         attack.effect?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+            Text(it, style = MaterialTheme.typography.bodyMedium)
         }
+    }
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun InfoChip(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
     }
 }
