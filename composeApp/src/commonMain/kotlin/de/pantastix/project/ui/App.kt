@@ -6,6 +6,7 @@ import de.pantastix.project.ui.viewmodel.CardListViewModel
 import org.koin.compose.koinInject
 import de.pantastix.project.platform.Platform
 import de.pantastix.project.platform.getPlatform
+import de.pantastix.project.ui.screens.LoadingScreen
 
 enum class MainScreen {
     COLLECTION,
@@ -16,25 +17,36 @@ enum class MainScreen {
 
 @Composable
 fun App(viewModel: CardListViewModel = koinInject()) {
-    // Das zentrale Theme, das die gesamte App umschließt
-    AppTheme {
-        // Zustand für den aktuell ausgewählten Haupt-Screen
-        var currentScreen by remember { mutableStateOf(MainScreen.COLLECTION) }
+    val uiState by viewModel.uiState.collectAsState()
 
-        // Adaptive Logik: Wähle die passende UI-Struktur basierend auf der Plattform
-        when (getPlatform()) {
-            Platform.Desktop -> {
-                DesktopApp(
-                    viewModel = viewModel,
-                    currentScreen = currentScreen,
-                    onScreenSelect = { screen -> currentScreen = screen }
-                )
-            }
-            else -> { // Android, iOS, etc.
-                MobileApp(
-                    viewModel = viewModel
-                )
+    // Ruft die Initialisierung genau einmal auf, wenn die App startet.
+    LaunchedEffect(Unit) {
+        viewModel.initialize()
+    }
+
+    var currentScreen by remember { mutableStateOf(MainScreen.COLLECTION) }
+
+    key(uiState.appLanguage) {
+        AppTheme {
+            if (!uiState.isInitialized) {
+                LoadingScreen(viewModel)
+            } else {
+                when (getPlatform()) {
+                    Platform.Desktop -> {
+                        DesktopApp(
+                            viewModel = viewModel,
+                            currentScreen = currentScreen,
+                            onScreenSelect = { screen -> currentScreen = screen }
+                        )
+                    }
+                    else -> { // Android, iOS, etc.
+                        MobileApp(
+                            viewModel = viewModel
+                        )
+                    }
+                }
             }
         }
     }
 }
+

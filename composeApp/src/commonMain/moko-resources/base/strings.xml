@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <resources>
     <string name="settings_title">Settings</string>
-    <string name="welcome_message">Welcome to our app, %s!</string>
+    <string name="loading_default">Loading Data</string>
+    <string name="settings_cloud_sync">Cloud-Synchronisation (Supabase)</string>
+    <string name="settings_language">App-Language</string>
 </resources>
