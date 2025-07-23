@@ -11,6 +11,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import de.pantastix.project.shared.resources.MR
+import dev.icerock.moko.resources.compose.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,28 +42,28 @@ fun AddCardScreen(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         IconButton(onClick = onBack) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(MR.strings.add_card_back_button_desc))
         }
-        Text("Neue Karte hinzufügen", style = MaterialTheme.typography.headlineSmall)
+        Text(stringResource(MR.strings.add_card_title), style = MaterialTheme.typography.headlineSmall)
 
-        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Kartenname") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = setName, onValueChange = { setName = it }, label = { Text("Setname") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = cardNumber, onValueChange = { cardNumber = it }, label = { Text("Kartennummer") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = language, onValueChange = { language = it }, label = { Text("Sprache") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = cardMarketLink, onValueChange = { cardMarketLink = it }, label = { Text("CardMarket Link") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text(stringResource(MR.strings.add_card_name_label)) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = setName, onValueChange = { setName = it }, label = { Text(stringResource(MR.strings.add_card_set_name_label)) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = cardNumber, onValueChange = { cardNumber = it }, label = { Text(stringResource(MR.strings.add_card_number_label)) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = language, onValueChange = { language = it }, label = { Text(stringResource(MR.strings.add_card_language_label)) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = cardMarketLink, onValueChange = { cardMarketLink = it }, label = { Text(stringResource(MR.strings.add_card_cardmarket_link_label)) }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(
             value = currentPriceStr,
             onValueChange = { currentPriceStr = it },
-            label = { Text("Aktueller Preis (€)") },
+            label = { Text(stringResource(MR.strings.add_card_price_label)) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth()
         )
-        OutlinedTextField(value = lastPriceUpdate, onValueChange = { lastPriceUpdate = it }, label = { Text("Letztes Preisupdate (z.B. JJJJ-MM-TT)") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = imagePath, onValueChange = { imagePath = it }, label = { Text("Bild-Pfad/URL (optional)") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = lastPriceUpdate, onValueChange = { lastPriceUpdate = it }, label = { Text(stringResource(MR.strings.add_card_price_update_label)) }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = imagePath, onValueChange = { imagePath = it }, label = { Text(stringResource(MR.strings.add_card_image_label)) }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(
             value = ownedCopiesStr,
             onValueChange = { ownedCopiesStr = it },
-            label = { Text("Anzahl besessen") },
+            label = { Text(stringResource(MR.strings.add_card_owned_copies_label)) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth()
         )
@@ -74,13 +76,13 @@ fun AddCardScreen(
                 if (name.isNotBlank() && setName.isNotBlank() && language.isNotBlank() && cardMarketLink.isNotBlank() && cardNumber.isNotBlank()) {
                     onAddCard(name, setName, cardNumber, language, cardMarketLink, price, lastPriceUpdate.ifBlank { null }, imagePath.ifBlank { null }, copies)
                 } else {
-                    // TODO: Bessere Fehlermeldung für den User anzeigen
-                    println("Bitte fülle mindestens Name, Setname, Kartennr., Sprache und CardMarket Link aus.")
+                    // TODO: Bessere Fehlermeldung für den User anzeigen, z.B. über einen Snackbar oder Dialog
+                    println(MR.strings.add_card_error_fill_fields.localized())
                 }
             },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Speichern")
+            Text(stringResource(MR.strings.add_card_save_button))
         }
     }
 }

@@ -10,6 +10,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import de.pantastix.project.model.PokemonCard
+import de.pantastix.project.shared.resources.MR
+import dev.icerock.moko.resources.compose.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,12 +34,12 @@ fun EditCardScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Karte bearbeiten", style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(MR.strings.edit_card_title), style = MaterialTheme.typography.headlineSmall)
 
             OutlinedTextField(
                 value = ownedCopiesInput,
                 onValueChange = { ownedCopiesInput = it.filter { char -> char.isDigit() } },
-                label = { Text("Anzahl") },
+                label = { Text(stringResource(MR.strings.edit_card_quantity_label)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -45,14 +47,14 @@ fun EditCardScreen(
             OutlinedTextField(
                 value = notesInput,
                 onValueChange = { notesInput = it },
-                label = { Text("Notizen") },
+                label = { Text(stringResource(MR.strings.edit_card_notes_label)) },
                 modifier = Modifier.fillMaxWidth().height(100.dp)
             )
 
             OutlinedTextField(
                 value = priceInput,
                 onValueChange = { priceInput = it },
-                label = { Text("Preis (€)") },
+                label = { Text(stringResource(MR.strings.edit_card_price_label)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -64,7 +66,7 @@ fun EditCardScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
-                    Text("Abbrechen")
+                    Text(stringResource(MR.strings.edit_card_cancel_button))
                 }
                 Button(
                     onClick = {
@@ -79,7 +81,7 @@ fun EditCardScreen(
                     },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Speichern")
+                    Text(stringResource(MR.strings.edit_card_save_button))
                 }
             }
         }

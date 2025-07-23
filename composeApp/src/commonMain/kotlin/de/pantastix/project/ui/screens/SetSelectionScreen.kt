@@ -10,8 +10,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import de.pantastix.project.model.SetInfo
+import de.pantastix.project.shared.resources.MR
 import de.pantastix.project.ui.viewmodel.CardLanguage
 import de.pantastix.project.ui.viewmodel.CardListViewModel
+import dev.icerock.moko.resources.compose.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -21,28 +23,17 @@ fun SetSelectionScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     var selectedCardNumber by remember { mutableStateOf("") }
-    var setInputText by remember { mutableStateOf("") }
     var selectedSet by remember { mutableStateOf<SetInfo?>(null) }
     var isSetDropdownExpanded by remember { mutableStateOf(false) }
-
-    val filteredSets = remember(setInputText, uiState.sets) {
-        if (setInputText.isEmpty()) {
-            uiState.sets
-        } else {
-            uiState.sets.filter {
-                it.nameLocal.contains(setInputText, ignoreCase = true)
-            }
-        }
-    }
-
     var selectedLanguage by remember(uiState.appLanguage) { mutableStateOf(CardLanguage.GERMAN) }
     var isLangDropdownExpanded by remember { mutableStateOf(false) }
 
     if (uiState.error != null) {
         AlertDialog(
             onDismissRequest = { viewModel.clearError() },
-            title = { Text("Fehler") }, text = { Text(uiState.error!!) },
-            confirmButton = { Button(onClick = { viewModel.clearError() }) { Text("OK") } },
+            title = { Text(stringResource(MR.strings.set_selection_error_dialog_title)) },
+            text = { Text(uiState.error!!) },
+            confirmButton = { Button(onClick = { viewModel.clearError() }) { Text(stringResource(MR.strings.set_selection_ok_button)) } },
             modifier = Modifier.border(4.dp, MaterialTheme.colorScheme.error, MaterialTheme.shapes.large)
         )
     }
@@ -52,13 +43,13 @@ fun SetSelectionScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text("Karte hinzufügen", style = MaterialTheme.typography.headlineSmall)
+        Text(stringResource(MR.strings.set_selection_add_card_title), style = MaterialTheme.typography.headlineSmall)
 
         // Sprachauswahl
         ExposedDropdownMenuBox(expanded = isLangDropdownExpanded, onExpandedChange = { isLangDropdownExpanded = it }) {
             OutlinedTextField(
                 value = selectedLanguage.displayName,
-                onValueChange = {}, readOnly = true, label = { Text("Kartensprache") },
+                onValueChange = {}, readOnly = true, label = { Text(stringResource(MR.strings.set_selection_language_label)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isLangDropdownExpanded) },
                 modifier = Modifier.menuAnchor().fillMaxWidth()
             )
@@ -74,44 +65,26 @@ fun SetSelectionScreen(
 
         ExposedDropdownMenuBox(
             expanded = isSetDropdownExpanded,
-            onExpandedChange = { isSetDropdownExpanded = it }, // Öffnet/Schließt bei Klick auf den Pfeil
+            onExpandedChange = { isSetDropdownExpanded = it },
         ) {
-            // 1. Das Textfeld, das anzeigt, was ausgewählt ist.
             OutlinedTextField(
-                // Zeigt den Namen des Sets an oder einen Platzhalter
-                value = selectedSet?.nameLocal ?: "Set auswählen...",
-
-                // WICHTIG: onValueChange ist leer, da der Nutzer nicht tippen soll
+                value = selectedSet?.nameLocal ?: stringResource(MR.strings.set_selection_set_placeholder),
                 onValueChange = {},
-
-                // WICHTIG: Das macht das Feld nicht editierbar
                 readOnly = true,
-
-                label = { Text("Set") },
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = isSetDropdownExpanded)
-                },
-                modifier = Modifier
-                    .menuAnchor() // Verbindet das Feld mit dem Menü
-                    .fillMaxWidth()
+                label = { Text(stringResource(MR.strings.set_selection_set_label)) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isSetDropdownExpanded) },
+                modifier = Modifier.menuAnchor().fillMaxWidth()
             )
-
-            // 2. Das Menü, das aufklappt
             ExposedDropdownMenu(
                 expanded = isSetDropdownExpanded,
-                onDismissRequest = {
-                    // Schließt das Menü, wenn daneben geklickt wird
-                    isSetDropdownExpanded = false
-                }
+                onDismissRequest = { isSetDropdownExpanded = false }
             ) {
-                // Wir gehen die VOLLE Liste der Sets durch (nicht mehr filteredSets)
                 uiState.sets.forEach { set ->
                     DropdownMenuItem(
                         text = { Text(set.nameLocal) },
                         onClick = {
-                            // Die Logik beim Klick auf ein Item:
-                            selectedSet = set         // 1. Auswahl speichern
-                            isSetDropdownExpanded = false // 2. Menü schließen
+                            selectedSet = set
+                            isSetDropdownExpanded = false
                         }
                     )
                 }
@@ -121,7 +94,7 @@ fun SetSelectionScreen(
         OutlinedTextField(
             value = selectedCardNumber,
             onValueChange = { selectedCardNumber = it },
-            label = { Text("Kartennummer (z.B. 051)") },
+            label = { Text(stringResource(MR.strings.set_selection_card_number_label)) },
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(16.dp))
@@ -136,7 +109,7 @@ fun SetSelectionScreen(
                     }
                 },
                 enabled = selectedSet != null && selectedCardNumber.isNotBlank()
-            ) { Text("Karte suchen") }
+            ) { Text(stringResource(MR.strings.set_selection_search_button)) }
         }
     }
 }

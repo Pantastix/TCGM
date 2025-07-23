@@ -16,23 +16,21 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import de.pantastix.project.shared.resources.MR
+import dev.icerock.moko.resources.compose.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SupabaseGuideScreen(onBack: () -> Unit) {
     val clipboardManager = LocalClipboardManager.current
     val sqlBefehle = """
-        -- Löscht die alte View und Tabellen, falls sie existieren, um einen sauberen Start zu gewährleisten.
-        -- Vorsicht: Dies löscht alle vorhandenen Daten!
         DROP VIEW IF EXISTS public."PokemonCardInfoView";
         DROP TABLE IF EXISTS public."PokemonCardEntity";
         DROP TABLE IF EXISTS public."SetEntity";
 
-        -- Erstellt die Tabelle für die Set-Informationen.
-        -- Die Spalte "setId" ist jetzt die ID von TCGdex.
         CREATE TABLE public."SetEntity" (
             "setId" TEXT NOT NULL PRIMARY KEY,
-            "tcgIoSetId" TEXT, -- NEU: Speichert die ID von PokemonTCG.io, kann NULL sein.
+            "tcgIoSetId" TEXT,
             "abbreviation" TEXT,
             "nameLocal" TEXT NOT NULL,
             "nameEn" TEXT NOT NULL,
@@ -42,8 +40,6 @@ fun SupabaseGuideScreen(onBack: () -> Unit) {
             "releaseDate" TEXT
         );
 
-        -- Erstellt die Tabelle für die Karten in der Sammlung.
-        -- Der Foreign Key verweist weiterhin auf "setId".
         CREATE TABLE public."PokemonCardEntity" (
             "id" BIGSERIAL PRIMARY KEY,
             "setId" TEXT NOT NULL,
@@ -69,14 +65,10 @@ fun SupabaseGuideScreen(onBack: () -> Unit) {
             "abilitiesJson" TEXT,
             "attacksJson" TEXT,
             "legalJson" TEXT,
-            -- Stellt sicher, dass bei Löschung eines Sets auch alle zugehörigen Karten entfernt werden.
             FOREIGN KEY("setId") REFERENCES public."SetEntity"("setId") ON DELETE CASCADE,
-            -- Stellt sicher, dass jede Karte pro Sprache nur einmal existieren kann.
             UNIQUE("tcgDexCardId", "language")
         );
 
-        -- Erstellt eine View für eine vereinfachte und schnelle Abfrage der Kartenliste.
-        -- Diese View bleibt unverändert, da die Verknüpfung über "setId" weiterhin korrekt ist.
         CREATE OR REPLACE VIEW public."PokemonCardInfoView" AS
         SELECT
             P."id",
@@ -96,12 +88,12 @@ fun SupabaseGuideScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Supabase Einrichtungsanleitung") },
+                title = { Text(stringResource(MR.strings.guide_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Zurück zu den Einstellungen"
+                            contentDescription = stringResource(MR.strings.guide_back_button_desc)
                         )
                     }
                 }
@@ -118,14 +110,14 @@ fun SupabaseGuideScreen(onBack: () -> Unit) {
         ) {
             AnleitungSchritt(
                 nummer = 1,
-                titel = "Supabase-Projekt erstellen",
-                beschreibung = "Wenn sie noch kein Supabase Projekt haben, besuchen Sie supabase.com, erstellen Sie einen kostenlosen Account und legen Sie ein neues Projekt an. Wählen Sie eine Region in Ihrer Nähe (z.B. Frankfurt) und merken Sie sich Ihr Datenbank-Passwort."
+                titel = stringResource(MR.strings.guide_step1_title),
+                beschreibung = stringResource(MR.strings.guide_step1_desc)
             )
 
             AnleitungSchritt(
                 nummer = 2,
-                titel = "Datenbanktabellen anlegen",
-                beschreibung = "ACHTUNG!!! Diesen schritt nur ausführen, wenn sie noch keine Datenbank besitzen!\nNavigieren Sie in Ihrem neuen Supabase-Projekt zum 'SQL Editor'. Klicken Sie auf '+ New query' und fügen Sie den gesamten folgenden Text in das Editor-Fenster ein. Klicken Sie anschließend auf 'RUN', um die Tabellen zu erstellen."
+                titel = stringResource(MR.strings.guide_step2_title),
+                beschreibung = stringResource(MR.strings.guide_step2_desc)
             )
 
             Surface(
@@ -147,9 +139,9 @@ fun SupabaseGuideScreen(onBack: () -> Unit) {
                             },
                             modifier = Modifier.align(Alignment.CenterEnd)
                         ) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = "SQL kopieren", modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.ContentCopy, contentDescription = stringResource(MR.strings.guide_copy_sql_button_desc), modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("SQL Kopieren")
+                            Text(stringResource(MR.strings.guide_copy_sql_button))
                         }
                     }
                 }
@@ -157,14 +149,14 @@ fun SupabaseGuideScreen(onBack: () -> Unit) {
 
             AnleitungSchritt(
                 nummer = 3,
-                titel = "API-Schlüssel finden",
-                beschreibung = "Navigieren Sie in den Projekt-Einstellungen zum Reiter 'API'. Dort finden Sie zwei wichtige Informationen, die Sie für die App benötigen:\n\n1. Die Projekt-URL (unter 'Project URL').\n2. Den 'public anon' API-Schlüssel (unter 'Project API Keys'). Kopieren Sie beide Werte."
+                titel = stringResource(MR.strings.guide_step3_title),
+                beschreibung = stringResource(MR.strings.guide_step3_desc)
             )
 
             AnleitungSchritt(
                 nummer = 4,
-                titel = "Schlüssel in die App eintragen",
-                beschreibung = "Kehren Sie zur Einstellungsseite dieser App zurück. Fügen Sie die kopierte URL und den 'anon' Schlüssel in die entsprechenden Felder ein und klicken Sie auf 'Verbinden & Prüfen'."
+                titel = stringResource(MR.strings.guide_step4_title),
+                beschreibung = stringResource(MR.strings.guide_step4_desc)
             )
         }
     }
@@ -174,7 +166,7 @@ fun SupabaseGuideScreen(onBack: () -> Unit) {
 private fun AnleitungSchritt(nummer: Int, titel: String, beschreibung: String) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
-            text = "Schritt $nummer: $titel",
+            text = "${stringResource(MR.strings.guide_step_prefix)} $nummer: $titel",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
         )

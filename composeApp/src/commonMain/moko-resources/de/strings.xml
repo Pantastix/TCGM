@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <resources>
-    <string name="settings_title">Einstellungen</string>
     <string name="loading_default">Daten werden geladen</string>
+
+    <!-- Navigation -->
+    <string name="nav_collection">Sammlung</string>
+    <string name="nav_value">Wert</string>
+    <string name="nav_settings">Einstellungen</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Einstellungen</string>
     <string name="settings_cloud_sync">Cloud-Synchronisation (Supabase)</string>
     <string name="settings_language">App-Sprache</string>
+
+    <!-- CardDetailsScreen -->
     <string name="card_details_rarity">Seltenheit</string>
     <string name="card_details_hp">KP</string>
     <string name="card_details_types">Typen</string>
@@ -27,4 +36,139 @@
     <string name="card_details_back_button_desc">Zurück</string>
     <string name="card_details_loading_error">Karte konnte nicht geladen werden.</string>
     <string name="card_details_no_notes">Keine Notizen vorhanden.</string>
+
+    <!-- AddCardScreen -->
+    <string name="add_card_title">Neue Karte hinzufügen</string>
+    <string name="add_card_name_label">Kartenname</string>
+    <string name="add_card_set_name_label">Setname</string>
+    <string name="add_card_number_label">Kartennummer</string>
+    <string name="add_card_language_label">Sprache</string>
+    <string name="add_card_cardmarket_link_label">CardMarket Link</string>
+    <string name="add_card_price_label">Aktueller Preis (€)</string>
+    <string name="add_card_price_update_label">Letztes Preisupdate (z.B. JJJJ-MM-TT)</string>
+    <string name="add_card_image_label">Bild-Pfad/URL (optional)</string>
+    <string name="add_card_owned_copies_label">Anzahl besessen</string>
+    <string name="add_card_save_button">Speichern</string>
+    <string name="add_card_back_button_desc">Zurück</string>
+    <string name="add_card_error_fill_fields">Bitte fülle mindestens Name, Setname, Kartennr., Sprache und CardMarket Link aus.</string>
+
+    <!-- EditCardScreen -->
+    <string name="edit_card_title">Karte bearbeiten</string>
+    <string name="edit_card_quantity_label">Anzahl</string>
+    <string name="edit_card_notes_label">Notizen</string>
+    <string name="edit_card_price_label">Preis (€)</string>
+    <string name="edit_card_cancel_button">Abbrechen</string>
+    <string name="edit_card_save_button">Speichern</string>
+
+    <!-- FinalAddCardScreen -->
+    <string name="final_add_card_found_title">Karte gefunden!</string>
+    <string name="final_add_card_name_label">Kartenname</string>
+    <string name="final_add_card_set_abbr_label">Set-Kürzel für CardMarket (z.B. CRZ)</string>
+    <string name="final_add_card_set_abbr_support">Wird für den Link benötigt und gespeichert.</string>
+    <string name="final_add_card_cardmarket_link_label">CardMarket Link</string>
+    <string name="final_add_card_open_on_cardmarket">Auf CardMarket öffnen</string>
+    <string name="final_add_card_purchase_price_label">Dein Kaufpreis (€)</string>
+    <string name="final_add_card_quantity_label">Menge</string>
+    <string name="final_add_card_notes_label">Notizen (optional)</string>
+    <string name="final_add_card_cancel_button">Abbrechen</string>
+    <string name="final_add_card_save_button">Speichern</string>
+
+    <!-- SetSelectionScreen -->
+    <string name="set_selection_add_card_title">Karte hinzufügen</string>
+    <string name="set_selection_error_dialog_title">Fehler</string>
+    <string name="set_selection_ok_button">OK</string>
+    <string name="set_selection_language_label">Kartensprache</string>
+    <string name="set_selection_set_label">Set</string>
+    <string name="set_selection_set_placeholder">Set auswählen...</string>
+    <string name="set_selection_card_number_label">Kartennummer (z.B. 051)</string>
+    <string name="set_selection_search_button">Karte suchen</string>
+
+    <!-- CardCollectionScreen -->
+    <string name="collection_add_card_button">Karte hinzufügen</string>
+    <string name="collection_add_card_button_desc">Eine neue Karte zur Sammlung hinzufügen</string>
+
+    <!-- AddCardScreen -->
+    <string name="add_card_title">Neue Karte hinzufügen</string>
+    <string name="add_card_name_label">Kartenname</string>
+    <string name="add_card_set_name_label">Setname</string>
+    <string name="add_card_number_label">Kartennummer</string>
+    <string name="add_card_language_label">Sprache</string>
+    <string name="add_card_cardmarket_link_label">CardMarket Link</string>
+    <string name="add_card_price_label">Aktueller Preis (€)</string>
+    <string name="add_card_price_update_label">Letztes Preisupdate (z.B. JJJJ-MM-TT)</string>
+    <string name="add_card_image_label">Bild-Pfad/URL (optional)</string>
+    <string name="add_card_owned_copies_label">Anzahl besessen</string>
+    <string name="add_card_save_button">Speichern</string>
+    <string name="add_card_back_button_desc">Zurück</string>
+    <string name="add_card_error_fill_fields">Bitte fülle mindestens Name, Setname, Kartennr., Sprache und CardMarket Link aus.</string>
+
+    <!-- EditCardScreen -->
+    <string name="edit_card_title">Karte bearbeiten</string>
+    <string name="edit_card_quantity_label">Anzahl</string>
+    <string name="edit_card_notes_label">Notizen</string>
+    <string name="edit_card_price_label">Preis (€)</string>
+    <string name="edit_card_cancel_button">Abbrechen</string>
+    <string name="edit_card_save_button">Speichern</string>
+
+    <!-- FinalAddCardScreen -->
+    <string name="final_add_card_found_title">Karte gefunden!</string>
+    <string name="final_add_card_name_label">Kartenname</string>
+    <string name="final_add_card_set_abbr_label">Set-Kürzel für CardMarket (z.B. CRZ)</string>
+    <string name="final_add_card_set_abbr_support">Wird für den Link benötigt und gespeichert.</string>
+    <string name="final_add_card_cardmarket_link_label">CardMarket Link</string>
+    <string name="final_add_card_open_on_cardmarket">Auf CardMarket öffnen</string>
+    <string name="final_add_card_purchase_price_label">Dein Kaufpreis (€)</string>
+    <string name="final_add_card_quantity_label">Menge</string>
+    <string name="final_add_card_notes_label">Notizen (optional)</string>
+    <string name="final_add_card_cancel_button">Abbrechen</string>
+    <string name="final_add_card_save_button">Speichern</string>
+
+    <!-- SetSelectionScreen -->
+    <string name="set_selection_add_card_title">Karte hinzufügen</string>
+    <string name="set_selection_error_dialog_title">Fehler</string>
+    <string name="set_selection_ok_button">OK</string>
+    <string name="set_selection_language_label">Kartensprache</string>
+    <string name="set_selection_set_label">Set</string>
+    <string name="set_selection_set_placeholder">Set auswählen...</string>
+    <string name="set_selection_card_number_label">Kartennummer (z.B. 051)</string>
+    <string name="set_selection_search_button">Karte suchen</string>
+
+    <!-- SettingsScreen -->
+    <string name="settings_title">Einstellungen</string>
+    <string name="settings_language">App-Sprache</string>
+    <string name="settings_cloud_sync">Cloud-Synchronisation (Supabase)</string>
+    <string name="settings_cloud_sync_description">Verbinde deine eigene, kostenlose Supabase-Datenbank, um deine Sammlung auf mehreren Geräten zu synchronisieren.</string>
+    <string name="settings_supabase_url_label">Supabase URL</string>
+    <string name="settings_supabase_anon_key_label">Supabase Anon Key</string>
+    <string name="settings_connect_button">Verbinden &amp; Prüfen</string>
+    <string name="settings_disconnect_button">Verbindung trennen</string>
+    <string name="settings_guide_button">Anleitung</string>
+    <string name="settings_guide_button_desc">Hilfe</string>
+    <string name="settings_status_connected">Status: Verbunden</string>
+    <string name="settings_status_disconnected">Status: Nicht verbunden (Daten werden lokal gespeichert)</string>
+    <string name="settings_error_dialog_title">Fehler</string>
+    <string name="settings_ok_button">OK</string>
+    <string name="settings_disconnect_dialog_title">Verbindung trennen?</string>
+    <string name="settings_disconnect_dialog_migrate_button">Herunterladen &amp; Trennen</string>
+    <string name="settings_disconnect_dialog_disconnect_only_button">Nur Trennen</string>
+    <string name="settings_disconnect_dialog_cancel_button">Abbrechen</string>
+    <string name="settings_sync_dialog_title">Synchronisation</string>
+    <string name="settings_sync_dialog_confirm_button">Ja, hochladen</string>
+    <string name="settings_sync_dialog_dismiss_button">Später</string>
+
+    <!-- SupabaseGuideScreen -->
+    <string name="guide_title">Supabase Einrichtungsanleitung</string>
+    <string name="guide_back_button_desc">Zurück zu den Einstellungen</string>
+    <string name="guide_step_prefix">Schritt</string>
+    <string name="guide_step1_title">Supabase-Projekt erstellen</string>
+    <string name="guide_step1_desc">Wenn Sie noch kein Supabase Projekt haben, besuchen Sie supabase.com, erstellen Sie einen kostenlosen Account und legen Sie ein neues Projekt an. Wählen Sie eine Region in Ihrer Nähe (z.B. Frankfurt) und merken Sie sich Ihr Datenbank-Passwort.</string>
+    <string name="guide_step2_title">Datenbanktabellen anlegen</string>
+    <string name="guide_step2_desc">ACHTUNG!!! Diesen Schritt nur ausführen, wenn Sie noch keine Datenbank besitzen!\nNavigieren Sie in Ihrem neuen Supabase-Projekt zum 'SQL Editor'. Klicken Sie auf '+ New query' und fügen Sie den gesamten folgenden Text in das Editor-Fenster ein. Klicken Sie anschließend auf 'RUN', um die Tabellen zu erstellen.</string>
+    <string name="guide_copy_sql_button">SQL Kopieren</string>
+    <string name="guide_copy_sql_button_desc">SQL kopieren</string>
+    <string name="guide_step3_title">API-Schlüssel finden</string>
+    <string name="guide_step3_desc">Navigieren Sie in den Projekt-Einstellungen zum Reiter 'API'. Dort finden Sie zwei wichtige Informationen, die Sie für die App benötigen:\n\n1. Die Projekt-URL.\n2. Den 'public anon' API-Schlüssel (unter 'Project API Keys'). Kopieren Sie beide Werte.</string>
+    <string name="guide_step4_title">Schlüssel in die App eintragen</string>
+    <string name="guide_step4_desc">Kehren Sie zur Einstellungsseite dieser App zurück. Fügen Sie die kopierte URL und den 'anon' Schlüssel in die entsprechenden Felder ein und klicken Sie auf 'Verbinden &amp; Prüfen'.</string>
+
 </resources>

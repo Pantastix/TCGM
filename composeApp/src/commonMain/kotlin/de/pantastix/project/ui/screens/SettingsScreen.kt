@@ -51,7 +51,7 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
                         readOnly = true,
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = languageDropdownExpanded) },
                         modifier = Modifier.menuAnchor().fillMaxWidth(),
-                        enabled = !uiState.isLoading // Deaktiviert während des Ladens
+                        enabled = !uiState.isLoading
                     )
                     ExposedDropdownMenu(
                         expanded = languageDropdownExpanded,
@@ -72,7 +72,6 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-            // Supabase-Einstellungen
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -80,21 +79,21 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
             ) {
                 Text(stringResource(MR.strings.settings_cloud_sync), style = MaterialTheme.typography.titleLarge)
                 TextButton(onClick = onNavigateToGuide, enabled = !uiState.isLoading) {
-                    Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = "Hilfe", modifier = Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = stringResource(MR.strings.settings_guide_button_desc), modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Anleitung")
+                    Text(stringResource(MR.strings.settings_guide_button))
                 }
             }
 
             Text(
-                "Verbinde deine eigene, kostenlose Supabase-Datenbank, um deine Sammlung auf mehreren Geräten zu synchronisieren.",
+                stringResource(MR.strings.settings_cloud_sync_description),
                 style = MaterialTheme.typography.bodySmall
             )
 
             OutlinedTextField(
                 value = supabaseUrl,
                 onValueChange = { supabaseUrl = it },
-                label = { Text("Supabase URL") },
+                label = { Text(stringResource(MR.strings.settings_supabase_url_label)) },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !uiState.isLoading
             )
@@ -102,7 +101,7 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
             OutlinedTextField(
                 value = supabaseKey,
                 onValueChange = { supabaseKey = it },
-                label = { Text("Supabase Anon Key") },
+                label = { Text(stringResource(MR.strings.settings_supabase_anon_key_label)) },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !uiState.isLoading
             )
@@ -112,22 +111,21 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
                     onClick = { viewModel.connectNewToSupabase(supabaseUrl, supabaseKey) },
                     enabled = !uiState.isLoading && !uiState.isSupabaseConnected
                 ) {
-                    Text("Verbinden & Prüfen")
+                    Text(stringResource(MR.strings.settings_connect_button))
                 }
                 Button(
                     onClick = viewModel::disconnectFromSupabase,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     enabled = !uiState.isLoading && uiState.isSupabaseConnected
                 ) {
-                    Text("Verbindung trennen")
+                    Text(stringResource(MR.strings.settings_disconnect_button))
                 }
             }
 
-            // Status- und Synchronisationsanzeige
             if (uiState.isSupabaseConnected) {
-                Text("Status: Verbunden", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                Text(stringResource(MR.strings.settings_status_connected), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             } else {
-                Text("Status: Nicht verbunden (Daten werden lokal gespeichert)", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                Text(stringResource(MR.strings.settings_status_disconnected), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
             }
 
             uiState.syncPromptMessage?.let { message ->
@@ -155,7 +153,6 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
             }
         }
 
-        // Lade-Überlagerung, die die gesamte UI blockiert
         if (uiState.isLoading) {
             Box(
                 modifier = Modifier
@@ -184,10 +181,10 @@ private fun ErrorDialog(message: String, onDismiss: () -> Unit) {
     AlertDialog(
         modifier = Modifier.border(4.dp, MaterialTheme.colorScheme.error, MaterialTheme.shapes.large),
         onDismissRequest = onDismiss,
-        title = { Text("Fehler") },
+        title = { Text(stringResource(MR.strings.settings_error_dialog_title)) },
         text = { Text(message) },
         confirmButton = {
-            Button(onClick = onDismiss) { Text("OK") }
+            Button(onClick = onDismiss) { Text(stringResource(MR.strings.settings_ok_button)) }
         }
     )
 }
@@ -201,11 +198,11 @@ private fun DisconnectPromptDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Verbindung trennen?") },
+        title = { Text(stringResource(MR.strings.settings_disconnect_dialog_title)) },
         text = { Text(message) },
         confirmButton = {
             Button(onClick = onConfirmAndMigrate) {
-                Text("Herunterladen & Trennen")
+                Text(stringResource(MR.strings.settings_disconnect_dialog_migrate_button))
             }
         },
         dismissButton = {
@@ -214,11 +211,11 @@ private fun DisconnectPromptDialog(
                     onClick = onConfirmWithoutMigrate,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Nur Trennen")
+                    Text(stringResource(MR.strings.settings_disconnect_dialog_disconnect_only_button))
                 }
                 Spacer(Modifier.height(8.dp))
                 TextButton(onClick = onDismiss) {
-                    Text("Abbrechen")
+                    Text(stringResource(MR.strings.settings_disconnect_dialog_cancel_button))
                 }
             }
         }
@@ -233,13 +230,13 @@ private fun SyncPromptDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Synchronisation") },
+        title = { Text(stringResource(MR.strings.settings_sync_dialog_title)) },
         text = { Text(message) },
         confirmButton = {
-            Button(onClick = onConfirm) { Text("Ja, hochladen") }
+            Button(onClick = onConfirm) { Text(stringResource(MR.strings.settings_sync_dialog_confirm_button)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Später") }
+            TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.settings_sync_dialog_dismiss_button)) }
         },
         modifier = Modifier.border(4.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.large)
     )

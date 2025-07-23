@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <resources>
-    <string name="settings_title">Settings</string>
     <string name="loading_default">Loading Data</string>
+
+    <!-- Navigation -->
+    <string name="nav_collection">Collection</string>
+    <string name="nav_value">Value</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
     <string name="settings_cloud_sync">Cloud-Synchronisation (Supabase)</string>
     <string name="settings_language">App-Language</string>
+
+    <!-- CardDetailsScreen -->
     <string name="card_details_rarity">Rarity</string>
     <string name="card_details_hp">HP</string>
     <string name="card_details_types">Types</string>
@@ -27,4 +36,140 @@
     <string name="card_details_back_button_desc">Back</string>
     <string name="card_details_loading_error">Card could not be loaded.</string>
     <string name="card_details_no_notes">No notes available.</string>
+
+    <!-- AddCardScreen -->
+    <string name="add_card_title">Add New Card</string>
+    <string name="add_card_name_label">Card Name</string>
+    <string name="add_card_set_name_label">Set Name</string>
+    <string name="add_card_number_label">Card Number</string>
+    <string name="add_card_language_label">Language</string>
+    <string name="add_card_cardmarket_link_label">CardMarket Link</string>
+    <string name="add_card_price_label">Current Price (€)</string>
+    <string name="add_card_price_update_label">Last Price Update (e.g., YYYY-MM-DD)</string>
+    <string name="add_card_image_label">Image Path/URL (optional)</string>
+    <string name="add_card_owned_copies_label">Owned Copies</string>
+    <string name="add_card_save_button">Save</string>
+    <string name="add_card_back_button_desc">Back</string>
+    <string name="add_card_error_fill_fields">Please fill in at least Name, Set Name, Card No., Language, and CardMarket Link.</string>
+
+    <!-- EditCardScreen -->
+    <string name="edit_card_title">Edit Card</string>
+    <string name="edit_card_quantity_label">Quantity</string>
+    <string name="edit_card_notes_label">Notes</string>
+    <string name="edit_card_price_label">Price (€)</string>
+    <string name="edit_card_cancel_button">Cancel</string>
+    <string name="edit_card_save_button">Save</string>
+
+    <!-- FinalAddCardScreen -->
+    <string name="final_add_card_found_title">Card Found!</string>
+    <string name="final_add_card_name_label">Card Name</string>
+    <string name="final_add_card_set_abbr_label">Set Abbreviation for CardMarket (e.g., CRZ)</string>
+    <string name="final_add_card_set_abbr_support">Needed for the link and will be saved.</string>
+    <string name="final_add_card_cardmarket_link_label">CardMarket Link</string>
+    <string name="final_add_card_open_on_cardmarket">Open on CardMarket</string>
+    <string name="final_add_card_purchase_price_label">Your Purchase Price (€)</string>
+    <string name="final_add_card_quantity_label">Quantity</string>
+    <string name="final_add_card_notes_label">Notes (optional)</string>
+    <string name="final_add_card_cancel_button">Cancel</string>
+    <string name="final_add_card_save_button">Save</string>
+
+    <!-- SetSelectionScreen -->
+    <string name="set_selection_add_card_title">Add Card</string>
+    <string name="set_selection_error_dialog_title">Error</string>
+    <string name="set_selection_ok_button">OK</string>
+    <string name="set_selection_language_label">Card Language</string>
+    <string name="set_selection_set_label">Set</string>
+    <string name="set_selection_set_placeholder">Select set...</string>
+    <string name="set_selection_card_number_label">Card Number (e.g., 051)</string>
+    <string name="set_selection_search_button">Search Card</string>
+
+    <!-- CardCollectionScreen -->
+    <string name="collection_add_card_button">Add Card</string>
+    <string name="collection_add_card_button_desc">Add a new card to the collection</string>
+
+    <!-- AddCardScreen -->
+    <string name="add_card_title">Add New Card</string>
+    <string name="add_card_name_label">Card Name</string>
+    <string name="add_card_set_name_label">Set Name</string>
+    <string name="add_card_number_label">Card Number</string>
+    <string name="add_card_language_label">Language</string>
+    <string name="add_card_cardmarket_link_label">CardMarket Link</string>
+    <string name="add_card_price_label">Current Price (€)</string>
+    <string name="add_card_price_update_label">Last Price Update (e.g., YYYY-MM-DD)</string>
+    <string name="add_card_image_label">Image Path/URL (optional)</string>
+    <string name="add_card_owned_copies_label">Owned Copies</string>
+    <string name="add_card_save_button">Save</string>
+    <string name="add_card_back_button_desc">Back</string>
+    <string name="add_card_error_fill_fields">Please fill in at least Name, Set Name, Card No., Language, and CardMarket Link.</string>
+
+    <!-- EditCardScreen -->
+    <string name="edit_card_title">Edit Card</string>
+    <string name="edit_card_quantity_label">Quantity</string>
+    <string name="edit_card_notes_label">Notes</string>
+    <string name="edit_card_price_label">Price (€)</string>
+    <string name="edit_card_cancel_button">Cancel</string>
+    <string name="edit_card_save_button">Save</string>
+
+    <!-- FinalAddCardScreen -->
+    <string name="final_add_card_found_title">Card Found!</string>
+    <string name="final_add_card_name_label">Card Name</string>
+    <string name="final_add_card_set_abbr_label">Set Abbreviation for CardMarket (e.g., CRZ)</string>
+    <string name="final_add_card_set_abbr_support">Needed for the link and will be saved.</string>
+    <string name="final_add_card_cardmarket_link_label">CardMarket Link</string>
+    <string name="final_add_card_open_on_cardmarket">Open on CardMarket</string>
+    <string name="final_add_card_purchase_price_label">Your Purchase Price (€)</string>
+    <string name="final_add_card_quantity_label">Quantity</string>
+    <string name="final_add_card_notes_label">Notes (optional)</string>
+    <string name="final_add_card_cancel_button">Cancel</string>
+    <string name="final_add_card_save_button">Save</string>
+
+    <!-- SetSelectionScreen -->
+    <string name="set_selection_add_card_title">Add Card</string>
+    <string name="set_selection_error_dialog_title">Error</string>
+    <string name="set_selection_ok_button">OK</string>
+    <string name="set_selection_language_label">Card Language</string>
+    <string name="set_selection_set_label">Set</string>
+    <string name="set_selection_set_placeholder">Select set...</string>
+    <string name="set_selection_card_number_label">Card Number (e.g., 051)</string>
+    <string name="set_selection_search_button">Search Card</string>
+
+    <!-- SettingsScreen -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_language">App Language</string>
+    <string name="settings_cloud_sync">Cloud Sync (Supabase)</string>
+    <string name="settings_cloud_sync_description">Connect your own free Supabase database to sync your collection across multiple devices.</string>
+    <string name="settings_supabase_url_label">Supabase URL</string>
+    <string name="settings_supabase_anon_key_label">Supabase Anon Key</string>
+    <string name="settings_connect_button">Connect &amp; Check</string>
+    <string name="settings_disconnect_button">Disconnect</string>
+    <string name="settings_guide_button">Guide</string>
+    <string name="settings_guide_button_desc">Help</string>
+    <string name="settings_status_connected">Status: Connected</string>
+    <string name="settings_status_disconnected">Status: Not connected (data is stored locally)</string>
+    <string name="settings_error_dialog_title">Error</string>
+    <string name="settings_ok_button">OK</string>
+    <string name="settings_disconnect_dialog_title">Disconnect?</string>
+    <string name="settings_disconnect_dialog_migrate_button">Download &amp; Disconnect</string>
+    <string name="settings_disconnect_dialog_disconnect_only_button">Disconnect Only</string>
+    <string name="settings_disconnect_dialog_cancel_button">Cancel</string>
+    <string name="settings_sync_dialog_title">Synchronization</string>
+    <string name="settings_sync_dialog_confirm_button">Yes, upload</string>
+    <string name="settings_sync_dialog_dismiss_button">Later</string>
+
+    <!-- SupabaseGuideScreen -->
+    <string name="guide_title">Supabase Setup Guide</string>
+    <string name="guide_back_button_desc">Back to settings</string>
+    <string name="guide_step_prefix">Step</string>
+    <string name="guide_step1_title">Create Supabase Project</string>
+    <string name="guide_step1_desc">If you don't have a Supabase project yet, visit supabase.com, create a free account, and set up a new project. Choose a region near you (e.g., Frankfurt) and remember your database password.</string>
+    <string name="guide_step2_title">Create Database Tables</string>
+    <string name="guide_step2_desc">ATTENTION!!! Only perform this step if you do not have a database yet!\nNavigate to the 'SQL Editor' in your new Supabase project. Click on '+ New query' and paste the entire following text into the editor window. Then click 'RUN' to create the tables.</string>
+    <string name="guide_copy_sql_button">Copy SQL</string>
+    <string name="guide_copy_sql_button_desc">Copy SQL</string>
+    <string name="guide_step3_title">Find API Keys</string>
+    <string name="guide_step3_desc">Navigate to the 'API' tab in your project settings. There you will find two important pieces of information you need for the app:\n\n1. The Project URL.\n2. The 'public anon' API key (under 'Project API Keys'). Copy both values.</string>
+    <string name="guide_step4_title">Enter Keys into the App</string>
+    <string name="guide_step4_desc">Return to the settings page of this app. Paste the copied URL and the 'anon' key into the corresponding fields and click 'Connect &amp; Check'.</string>
+
+
 </resources>

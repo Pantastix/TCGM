@@ -18,15 +18,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import de.pantastix.project.model.PokemonCardInfo
+import de.pantastix.project.shared.resources.MR
 import de.pantastix.project.ui.util.formatPrice
 import de.pantastix.project.ui.viewmodel.CardListViewModel
+import dev.icerock.moko.resources.compose.stringResource
 
 @Composable
 fun CardCollectionScreen(
     viewModel: CardListViewModel,
     onAddCardClick: () -> Unit,
     onCardClick: (Long) -> Unit
-    ) {
+) {
 
     val uiState by viewModel.uiState.collectAsState()
 
@@ -40,9 +42,9 @@ fun CardCollectionScreen(
         ) {
             Button(onClick = onAddCardClick) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Add, contentDescription = "Add")
+                    Icon(Icons.Filled.Add, contentDescription = stringResource(MR.strings.collection_add_card_button_desc))
                 }
-                Text("Karte hinzufügen")
+                Text(stringResource(MR.strings.collection_add_card_button))
             }
             // TODO: Hier später weitere Filter-Elemente hinzufügen
         }

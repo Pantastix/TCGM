@@ -20,8 +20,10 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.dp
+import de.pantastix.project.shared.resources.MR
 import de.pantastix.project.ui.flow.AddCardFlow
 import de.pantastix.project.ui.screens.*
+import dev.icerock.moko.resources.compose.stringResource
 
 @Composable
 fun DesktopApp(
@@ -48,14 +50,14 @@ fun DesktopApp(
         Row {
             NavigationRail {
                 NavigationRailItem(
-                    icon = { Icon(Icons.Default.Collections, contentDescription = "Sammlung") },
-                    label = { Text("Sammlung") },
+                    icon = { Icon(Icons.Default.Collections, contentDescription = stringResource(MR.strings.nav_collection)) },
+                    label = { Text(stringResource(MR.strings.nav_collection)) },
                     selected = currentScreen == MainScreen.COLLECTION,
                     onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.COLLECTION) }
                 )
                 NavigationRailItem(
-                    icon = { Icon(Icons.Default.Analytics, contentDescription = "Wert") },
-                    label = { Text("Wert") },
+                    icon = { Icon(Icons.Default.Analytics, contentDescription = stringResource(MR.strings.nav_value)) },
+                    label = { Text(stringResource(MR.strings.nav_value)) },
                     selected = currentScreen == MainScreen.VALUE,
                     onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.VALUE) }
                 )
@@ -64,8 +66,8 @@ fun DesktopApp(
                 Spacer(Modifier.weight(1f))
 
                 NavigationRailItem(
-                    icon = { Icon(Icons.Default.Settings, contentDescription = "Einstellungen") },
-                    label = { Text("Einstellungen") },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = stringResource(MR.strings.nav_settings)) },
+                    label = { Text(stringResource(MR.strings.nav_settings)) },
                     selected = currentScreen == MainScreen.SETTINGS,
                     onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.SETTINGS) }
                 )
