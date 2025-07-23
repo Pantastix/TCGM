@@ -12,8 +12,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import de.pantastix.project.shared.resources.MR
 import de.pantastix.project.ui.viewmodel.AppLanguage
 import de.pantastix.project.ui.viewmodel.CardListViewModel
+import dev.icerock.moko.resources.compose.stringResource
 import org.koin.compose.koinInject
 
 @Composable
@@ -31,7 +33,7 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Einstellungen", style = MaterialTheme.typography.headlineMedium)
+        Text(stringResource(MR.strings.settings_title), style = MaterialTheme.typography.headlineMedium)
 
         // Sprachauswahl (Beispiel für eine Einstellung)
         Text("App-Sprache", style = MaterialTheme.typography.titleLarge)

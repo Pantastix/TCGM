@@ -17,6 +17,7 @@ ktor = "3.2.2"
 coil = "3.2.0"
 kotlinx-datetime = "0.6.0"
 supabase = "3.2.1"
+moko-resources = "0.25.0"
 
 [libraries]
 # Androidx
@@ -58,6 +59,11 @@ coil-network = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", versi
 # Supabase
 supabase-postgrest = { group = "io.github.jan-tennert.supabase", name = "postgrest-kt", version.ref = "supabase" }
 
+# Moko Resources
+moko-resources = { module = "dev.icerock.moko:resources", version.ref = "moko-resources" }
+moko-resources-compose = { module = "dev.icerock.moko:resources-compose", version.ref = "moko-resources" }
+moko-resources-test = { module = "dev.icerock.moko:resources-test", version.ref = "moko-resources" }
+
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
@@ -67,3 +73,4 @@ composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "k
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+moko-resources = { id = "dev.icerock.mobile.multiplatform-resources", version.ref = "moko-resources" }

@@ -10,6 +10,7 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.sqldelight)
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.moko.resources)
 }
 
 kotlin {
@@ -85,11 +86,16 @@ kotlin {
 
             // Supabase
             implementation(libs.supabase.postgrest)
+
+            // Moko Resources
+            implementation(libs.moko.resources)
+            implementation(libs.moko.resources.compose)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.ktor.client.mock)
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.moko.resources.test)
         }
         desktopMain.dependencies {
             implementation(compose.desktop.currentOs)
@@ -159,4 +165,8 @@ sqldelight {
             srcDirs.setFrom("src/commonMain/sqldelight/settingsDatabase")
         }
     }
+}
+
+multiplatformResources{
+    resourcesPackage.set("de.pantastix.project.shared.resources")
 }
