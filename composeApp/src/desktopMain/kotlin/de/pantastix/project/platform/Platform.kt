@@ -1,3 +1,3 @@
 package de.pantastix.project.platform
 
-actual fun getPlatform(): Platform = Platform.Desktop
+actual fun getPlatform(): Platform = Platform.Windows
