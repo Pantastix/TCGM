@@ -13,6 +13,7 @@ import de.pantastix.project.repository.CardRepository
 import de.pantastix.project.repository.SettingsRepository
 import de.pantastix.project.repository.SupabaseCardRepository
 import de.pantastix.project.service.TcgApiService
+import de.pantastix.project.service.UpdateChecker
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -25,6 +26,8 @@ import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import java.io.File
+import kotlin.system.exitProcess
 
 enum class AppLanguage(val code: String, val displayName: String) {
     GERMAN("de", "Deutsch"),
@@ -56,7 +59,8 @@ data class UiState(
     val supabaseKey: String = "",
     val isSupabaseConnected: Boolean = false,
     val syncPromptMessage: String? = null,
-    val disconnectPromptMessage: String? = null
+    val disconnectPromptMessage: String? = null,
+    val updateInfo: UpdateInfo? = null
 )
 
 @OptIn(kotlin.time.ExperimentalTime::class)
@@ -98,9 +102,47 @@ class CardListViewModel(
             // Startet die Hintergrund-Listener, um auf zukünftige Änderungen zu reagieren.
             startBackgroundDataListeners()
 
+            val update = UpdateChecker.checkForUpdate()
+
             // Gibt die UI frei, wenn alles bereit ist.
-            _uiState.update { it.copy(isInitialized = true, isLoading = false, loadingMessage = null) }
+            _uiState.update { it.copy(isInitialized = true, updateInfo = update, isLoading = false, loadingMessage = null) }
         }
+    }
+
+    /**
+     * Startet den In-App-Updater mit der angegebenen Download-URL.
+     * Erwartet, dass die Datei "updater.jar" im aktuellen Arbeitsverzeichnis vorhanden ist.
+     * Nur für Desktop-Plattformen gedacht.
+     *
+     * @param downloadUrl Die URL, von der die neue Version heruntergeladen werden soll.
+     */
+    fun startUpdate(downloadUrl: String) {
+        val resourcesDir = System.getProperty("compose.application.resources.dir")
+        if (resourcesDir == null) {
+            _uiState.update { it.copy(error = "Ressourcen-Verzeichnis nicht gefunden. Update nicht möglich.") }
+            return
+        }
+        val updaterJar = File(resourcesDir, "updater.jar")
+
+        if (!updaterJar.exists()) {
+            _uiState.update { it.copy(error = "Updater-Datei (updater.jar) nicht gefunden. Pfad: ${updaterJar.absolutePath}") }
+            return
+        }
+
+        try {
+            val fileName = downloadUrl.substringAfterLast('/')
+            ProcessBuilder("java", "-jar", updaterJar.absolutePath, downloadUrl, fileName).start()
+
+            // Wenn der Start keine Exception wirft, beenden wir die App sofort.
+            // Der Updater läuft jetzt als eigenständiger Prozess.
+            exitProcess(0)
+        } catch (e: Exception) {
+            _uiState.update { it.copy(error = "Updater konnte nicht gestartet werden: ${e.message}") }
+        }
+    }
+
+    fun dismissUpdateDialog() {
+        _uiState.update { it.copy(updateInfo = null) }
     }
 
     // --- Einstellungs- und Sprachlogik ---

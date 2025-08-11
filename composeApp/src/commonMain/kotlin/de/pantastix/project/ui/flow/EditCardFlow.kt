@@ -29,7 +29,7 @@ fun EditCardFlow(
     if (cardToEdit != null) {
         val platform = getPlatform()
         when (platform) {
-            Platform.Desktop -> {
+            Platform.Windows, Platform.Linux, Platform.Mac -> {
                 Dialog(onDismissRequest = onDismiss) {
                     Box(
                         modifier = Modifier

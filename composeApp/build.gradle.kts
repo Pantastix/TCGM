@@ -3,6 +3,8 @@ import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+val appVersion: String by project
+
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.kotlinMultiplatform)
@@ -114,7 +116,7 @@ android {
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
-        versionName = "1.0"
+        versionName = appVersion
     }
     packaging {
         resources {
@@ -139,10 +141,27 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "de.pantastix.project.MainKt"
+
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "de.pantastix.project.desktopApp"
-            packageVersion = "1.0.0"
+            packageName = "TCGM"
+            packageVersion = appVersion
+
+            vendor = "Pantastix"
+
+            modules("java.sql")
+            appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))
+
+
+            windows {
+                shortcut = true
+                menu = true
+                upgradeUuid = "2A721014-35A1-4A2E-83C8-A06175A384A9"
+            }
+
+            linux {
+                shortcut = true
+            }
         }
     }
 }

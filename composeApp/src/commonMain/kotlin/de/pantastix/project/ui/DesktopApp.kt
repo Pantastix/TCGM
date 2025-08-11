@@ -7,6 +7,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -16,10 +18,13 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
 import de.pantastix.project.ui.viewmodel.CardListViewModel
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
+import de.pantastix.project.platform.Platform
 import de.pantastix.project.shared.resources.MR
 import de.pantastix.project.ui.flow.AddCardFlow
 import de.pantastix.project.ui.screens.*
@@ -36,6 +41,7 @@ fun DesktopApp(
     var isEditing by remember { mutableStateOf(false) }
 
     val isDetailPaneVisible = uiState.selectedCardDetails != null && currentScreen == MainScreen.COLLECTION
+    val uriHandler = LocalUriHandler.current
 
     val detailPaneWidth by animateDpAsState(
         targetValue = if (isDetailPaneVisible) 500.dp else 0.dp,
@@ -129,6 +135,33 @@ fun DesktopApp(
             }
         }
     }
+
+    uiState.updateInfo?.let { update ->
+        AlertDialog(
+            onDismissRequest = { /* Modal */ },
+            title = { Text("Update verfügbar!") },
+            text = { Text("Eine neue Version (${update.version}) ist verfügbar. Möchten Sie sie jetzt installieren?") },
+            confirmButton = {
+                if (update.platform in listOf(Platform.Windows, Platform.Mac, Platform.Linux)) {
+                    Button(onClick = { viewModel.startUpdate(update.downloadUrl) }) {
+                        Text("Jetzt aktualisieren")
+                    }
+                } else { // Für Android etc.
+                    Button(onClick = { uriHandler.openUri(update.downloadUrl) }) {
+                        Text("Herunterladen")
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    viewModel.dismissUpdateDialog()
+                }) {
+                    Text("Später")
+                }
+            }
+        )
+    }
+
 
     if (showAddCardDialog) {
         AddCardFlow(

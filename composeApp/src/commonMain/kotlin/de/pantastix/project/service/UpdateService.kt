@@ -14,7 +14,7 @@ import kotlinx.serialization.json.Json
 
 object UpdateChecker {
     // Passen Sie dies an Ihr GitHub-Repository an!
-    private const val GITHUB_REPO_URL = "https://api.github.com/repos/IHR_BENUTZERNAME/IHR_REPO/releases/latest"
+    private const val GITHUB_REPO_URL = "https://api.github.com/repos/Pantastix/TCGM/releases/latest"
 
     private val client = HttpClient {
         install(ContentNegotiation) {
@@ -37,8 +37,13 @@ object UpdateChecker {
 
         return try {
             val currentVersion = getAppVersion()
+            println("Current version: $currentVersion")
             val latestRelease = client.get(GITHUB_REPO_URL).body<GitHubRelease>()
+            println("Latest release: ${latestRelease.tagName}")
+            println(latestRelease)
             val latestVersion = latestRelease.tagName.removePrefix("v")
+
+            println(latestRelease)
 
             if (isNewerVersion(latestVersion, currentVersion)) {
                 val assetUrl = latestRelease.assets.find { it.name.endsWith(osSuffix) }?.downloadUrl

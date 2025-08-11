@@ -32,7 +32,7 @@ fun App(viewModel: CardListViewModel = koinInject()) {
                 LoadingScreen(viewModel)
             } else {
                 when (getPlatform()) {
-                    Platform.Desktop -> {
+                    Platform.Windows, Platform.Linux, Platform.Mac -> {
                         DesktopApp(
                             viewModel = viewModel,
                             currentScreen = currentScreen,
