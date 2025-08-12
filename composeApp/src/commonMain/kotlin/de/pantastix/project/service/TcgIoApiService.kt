@@ -44,7 +44,7 @@ class TcgIoApiService (val client: HttpClient // KORRIGIERT: Der Client wird jet
         return try {
             val pokemonTcgIoSets = client.get("$baseUrl/sets").body<PokemonTcgIoSetResponse>().data
 
-            pokemonTcgIoSets.map { pokemonTcgIoSet ->
+            pokemonTcgIoSets.mapIndexed { index, pokemonTcgIoSet ->
                 val releaseDate = try {
                     // Datum parsieren von YYYY/MM/DD zu YYYY-MM-DD
                     val parsedDate = LocalDate.parse(pokemonTcgIoSet.releaseDate, DateTimeFormatter.ofPattern("yyyy/MM/dd"))
@@ -57,8 +57,8 @@ class TcgIoApiService (val client: HttpClient // KORRIGIERT: Der Client wird jet
                 val normalizedName = normalizeSetName(pokemonTcgIoSet.name)
 
                 SetInfo(
+                    id = index,
                     setId = pokemonTcgIoSet.id,
-                    tcgIoSetId = pokemonTcgIoSet.id,
                     abbreviation = pokemonTcgIoSet.ptcgoCode,
                     nameLocal = normalizedName, // Hier wird der englische Name als lokaler Name verwendet
                     nameEn = normalizedName,

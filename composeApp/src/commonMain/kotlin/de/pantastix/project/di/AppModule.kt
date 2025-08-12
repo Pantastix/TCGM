@@ -59,10 +59,11 @@ val commonModule = module {
     // Der Haupt-API-Service, der an andere Komponenten injiziert wird.
     // Er kombiniert die Funktionalität der beiden anderen Services.
     single<TcgApiService> {
-        CombinedTcgApiService(
-            localApiService = get<TcgDexApiService>(),
-            enApiService = get<TcgIoApiService>()
-        )
+//        CombinedTcgApiService(
+//            localApiService = get<TcgDexApiService>(),
+//            enApiService = get<TcgIoApiService>()
+//        )
+        TcgDexApiService(client = get())
     }
 
     // ViewModel

@@ -61,13 +61,16 @@ class TcgDexApiService(
             val enSetsDeferred = async { fetchSetData("en") }
 
             val localSets = localSetsDeferred.await()
-            val enSets = enSetsDeferred.await() // Die englische Liste ist die Master-Liste.
+            val enSetsRaw = enSetsDeferred.await() // Die englische Liste ist die Master-Liste.
 
             // 2. Erstelle eine Map der lokalen Sets für schnellen Zugriff über die ID.
             val localSetMap = localSets.associateBy { it.id }
 
+            val filterRegex = Regex("^A\\d+[a-zA-Z]?$")
+            val enSets = enSetsRaw.filterNot { filterRegex.matches(it.id) }
+
             // 3. Iteriere durch die englische Master-Liste und kombiniere sie mit den lokalen Daten.
-            enSets.map { enSet ->
+            enSets.mapIndexed { index, enSet ->
                 val localSet = localSetMap[enSet.id]
 
                 // Wende die Namensnormalisierung an
@@ -76,8 +79,8 @@ class TcgDexApiService(
 
                 // Erstelle das SetInfo-Objekt.
                 SetInfo(
+                    id = index,
                     setId = enSet.id,
-                    tcgIoSetId = null,
                     abbreviation = null,
                     nameLocal = normalizedLocalName,
                     nameEn = normalizedEnName,
@@ -117,10 +120,15 @@ class TcgDexApiService(
      * Vereinfachte Funktion für den Fall, dass nur Englisch abgefragt wird.
      */
     private suspend fun fetchSingleLanguage(language: String): List<SetInfo> {
-        return fetchSetData(language).map { set ->
+        val rawSets = fetchSetData(language)
+
+        val filterRegex = Regex("^A\\d+[a-zA-Z]?$")
+        val filteredSets = rawSets.filterNot { filterRegex.matches(it.id) }
+
+        return filteredSets.mapIndexed { index, set ->
             SetInfo(
+                id = index,
                 setId = set.id,
-                tcgIoSetId = null,
                 abbreviation = null,
                 nameLocal = set.name,
                 nameEn = set.name,

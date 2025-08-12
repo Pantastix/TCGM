@@ -2,6 +2,15 @@
 <resources>
     <string name="loading_default">Daten werden geladen</string>
 
+    <!-- General -->
+    <string name="app_name">TCGM</string>
+    <string name="error">Fehler</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="yes">Ja</string>
+    <string name="no">Nein</string>
+    <string name="warning">Warnung</string>
+
     <!-- Navigation -->
     <string name="nav_collection">Sammlung</string>
     <string name="nav_value">Wert</string>

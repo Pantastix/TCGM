@@ -5,8 +5,8 @@
 -- Speichert alle Set-Informationen, die von der TCGdex-API abgerufen werden.
 -- Der Primärschlüssel ist die offizielle Set-ID (z.B. "sv10").
 CREATE TABLE SetEntity (
+    id INTEGER NOT NULL UNIQUE,
     setId TEXT NOT NULL PRIMARY KEY,
-    tcgIoSetId TEXT,
     abbreviation TEXT,
     nameLocal TEXT NOT NULL,
     nameEn TEXT NOT NULL,
@@ -57,7 +57,7 @@ CREATE TABLE PokemonCardEntity (
 
 insertOrReplaceSet:
 INSERT OR REPLACE INTO SetEntity (
-    setId, tcgIoSetId, abbreviation, nameLocal, nameEn, logoUrl, cardCountOfficial, cardCountTotal, releaseDate
+    id, setId, abbreviation, nameLocal, nameEn, logoUrl, cardCountOfficial, cardCountTotal, releaseDate
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateSetAbbreviation:

@@ -26,6 +26,7 @@ import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import java.io.File
 import kotlin.system.exitProcess
 
@@ -60,7 +61,8 @@ data class UiState(
     val isSupabaseConnected: Boolean = false,
     val syncPromptMessage: String? = null,
     val disconnectPromptMessage: String? = null,
-    val updateInfo: UpdateInfo? = null
+    val updateInfo: UpdateInfo? = null,
+    val setsUpdateWarning: String? = null
 )
 
 @OptIn(kotlin.time.ExperimentalTime::class)
@@ -86,6 +88,9 @@ class CardListViewModel(
             return repo
         }
 
+    /**
+     * Initializes the ViewModel by loading initial data and setting up the environment.
+     */
     fun initialize() {
         viewModelScope.launch {
             _uiState.update { it.copy(loadingMessage = "Initialisiere Sprache...") }
@@ -95,18 +100,71 @@ class CardListViewModel(
             // Diese Funktion wartet jetzt, bis die Verbindung steht.
             initializeSupabaseConnection()
 
-            _uiState.update { it.copy(loadingMessage = "Lade initiale Daten...") }
-            // Lädt den ersten Satz an Daten, BEVOR die UI angezeigt wird.
-            loadInitialData()
+            val isFirstLaunch = activeCardRepository.getAllSets().first().isEmpty()
 
-            // Startet die Hintergrund-Listener, um auf zukünftige Änderungen zu reagieren.
-            startBackgroundDataListeners()
+            val success = if (isFirstLaunch) {
+                handleFirstLaunchSetLoading()
+            } else {
+                handleSubsequentLaunchSetLoading()
+            }
 
-            val update = UpdateChecker.checkForUpdate()
-
-            // Gibt die UI frei, wenn alles bereit ist.
-            _uiState.update { it.copy(isInitialized = true, updateInfo = update, isLoading = false, loadingMessage = null) }
+            if (success) {
+                _uiState.update { it.copy(loadingMessage = "Lade Kartensammlung...") }
+                startBackgroundDataListeners()
+                val update = UpdateChecker.checkForUpdate()
+                _uiState.update { it.copy(isInitialized = true, updateInfo = update, isLoading = false, loadingMessage = null) }
+            } else {
+                // Beim Erststart bleibt die App im Fehlerzustand, wenn das Laden fehlschlägt.
+                _uiState.update { it.copy(isLoading = false, loadingMessage = null) }
+            }
         }
+    }
+
+    /**
+     * Behandelt das Laden der Sets beim allerersten Start der App.
+     * Versucht es 3 Mal, bevor ein blockierender Fehler angezeigt wird.
+     * @return `true` bei Erfolg, `false` bei endgültigem Fehlschlag.
+     */
+    private suspend fun handleFirstLaunchSetLoading(): Boolean {
+        for (attempt in 1..3) {
+            if( attempt > 1) {
+                _uiState.update { it.copy(loadingMessage = "Lade Set-Informationen (Versuch $attempt/3)...") }
+            }else{
+                _uiState.update { it.copy(loadingMessage = "Lade Set-Informationen") }
+            }
+            val setsFromApi = apiService.getAllSets(uiState.value.appLanguage.code)
+
+            if (setsFromApi.isNotEmpty()) {
+                activeCardRepository.syncSets(setsFromApi)
+                return true // Erfolg!
+            }
+
+            if (attempt < 3) {
+                _uiState.update { it.copy(loadingMessage = "Fehler beim Laden. Nächster Versuch in 5 Sekunden...") }
+                delay(5000)
+            } else {
+                // Nach 3 Fehlversuchen wird ein permanenter Fehler angezeigt.
+                _uiState.update { it.copy(error = "Konnte Set-Informationen nach 3 Versuchen nicht laden. Bitte prüfe deine Internetverbindung und starte die App neu.") }
+                return false // Endgültiger Fehlschlag.
+            }
+        }
+        return false
+    }
+
+    /**
+     * Behandelt das Laden der Sets bei jedem normalen App-Start (wenn bereits Daten vorhanden sind).
+     * @return Immer `true`, da die App mit den zwischengespeicherten Daten fortfahren kann.
+     */
+    private suspend fun handleSubsequentLaunchSetLoading(): Boolean {
+        _uiState.update { it.copy(loadingMessage = "Lade Set-Informationen") }
+        val setsFromApi = apiService.getAllSets(uiState.value.appLanguage.code)
+        if (setsFromApi.isNotEmpty()) {
+            activeCardRepository.syncSets(setsFromApi)
+            _uiState.update { it.copy(setsUpdateWarning = null) }
+        } else {
+            _uiState.update { it.copy(setsUpdateWarning = "Set-Liste konnte nicht aktualisiert werden. Angezeigte Daten sind möglicherweise nicht aktuell.") }
+        }
+        return true // Die App kann immer fortfahren.
     }
 
     /**
@@ -545,6 +603,7 @@ class CardListViewModel(
     fun resetApiCardDetails() = _uiState.update { it.copy(apiCardDetails = null, searchedCardLanguage = null) }
     private fun setLoading(isLoading: Boolean, message: String? = null) =
         _uiState.update { it.copy(isLoading = isLoading, loadingMessage = message) }
+    fun dismissSetsUpdateWarning() { _uiState.update { it.copy(setsUpdateWarning = null) } }
 
     fun clearSelectedCard() = _uiState.update { it.copy(selectedCardDetails = null) }
     fun clearError() = _uiState.update { it.copy(error = null) }

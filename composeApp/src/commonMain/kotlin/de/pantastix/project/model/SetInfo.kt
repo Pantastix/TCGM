@@ -4,8 +4,8 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class SetInfo(
+    val id: Int,
     val setId: String,
-    val tcgIoSetId: String?,
     val abbreviation: String?,
     val nameLocal: String,
     val nameEn: String,

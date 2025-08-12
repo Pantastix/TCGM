@@ -29,8 +29,8 @@ fun SupabaseGuideScreen(onBack: () -> Unit) {
         DROP TABLE IF EXISTS public."SetEntity";
 
         CREATE TABLE public."SetEntity" (
+            "id" BIGSERIAL NOT NULL PRIMARY KEY,
             "setId" TEXT NOT NULL PRIMARY KEY,
-            "tcgIoSetId" TEXT,
             "abbreviation" TEXT,
             "nameLocal" TEXT NOT NULL,
             "nameEn" TEXT NOT NULL,

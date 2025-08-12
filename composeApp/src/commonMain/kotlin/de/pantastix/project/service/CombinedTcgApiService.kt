@@ -92,8 +92,9 @@ class CombinedTcgApiService(
 
                 if (tcgDexSet != null) {
                     SetInfo(
+                        id = tcgIoSet.id, // ID von TCG.io ist führend
                         setId = tcgDexSet.setId, // ID von TCG.io ist führend
-                        tcgIoSetId = tcgIoSet.setId,
+//                        tcgIoSetId = tcgIoSet.setId,
                         abbreviation = tcgIoSet.abbreviation, // Abkürzung von TCG.io
                         nameLocal = tcgDexSet.nameLocal, // Lokaler Name von TCGdex
                         nameEn = tcgIoSet.nameEn, // Englischer Name von TCG.io

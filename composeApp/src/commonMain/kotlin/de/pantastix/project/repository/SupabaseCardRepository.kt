@@ -1,5 +1,6 @@
 package de.pantastix.project.repository
 
+import androidx.compose.foundation.layout.Column
 import de.pantastix.project.model.*
 import de.pantastix.project.model.supabase.FullPokemonCardResponse
 import de.pantastix.project.model.supabase.SupabasePokemonCard
@@ -185,7 +186,6 @@ class SupabaseCardRepository(
 //    }
 
     override suspend fun syncSets(sets: List<SetInfo>) {
-        // Übergebe die GESAMTE Liste auf einmal an die upsert-Funktion.
         postgrest.from(setsTable).upsert(sets) {
             onConflict = "setId"
         }

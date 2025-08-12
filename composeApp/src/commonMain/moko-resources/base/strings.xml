@@ -2,6 +2,15 @@
 <resources>
     <string name="loading_default">Loading Data</string>
 
+    <!-- General -->
+    <string name="app_name">TCGM</string>
+    <string name="error">Error</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="warning">Warning</string>
+
     <!-- Navigation -->
     <string name="nav_collection">Collection</string>
     <string name="nav_value">Value</string>
@@ -171,5 +180,6 @@
     <string name="guide_step4_title">Enter Keys into the App</string>
     <string name="guide_step4_desc">Return to the settings page of this app. Paste the copied URL and the 'anon' key into the corresponding fields and click 'Connect &amp; Check'.</string>
 
+    <!-- CardCollectionScreen -->
 
 </resources>

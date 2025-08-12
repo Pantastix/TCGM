@@ -1,5 +1,6 @@
 package de.pantastix.project.ui.screens
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -19,7 +20,9 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import de.pantastix.project.model.PokemonCardInfo
 import de.pantastix.project.shared.resources.MR
+import de.pantastix.project.ui.components.ErrorDialog
 import de.pantastix.project.ui.util.formatPrice
+import de.pantastix.project.ui.components.WarningDialog
 import de.pantastix.project.ui.viewmodel.CardListViewModel
 import dev.icerock.moko.resources.compose.stringResource
 
@@ -83,6 +86,20 @@ fun CardCollectionScreen(
             }
         }
     }
+
+    uiState.error?.let { message ->
+        ErrorDialog(
+            message = message,
+            onDismiss = { viewModel.clearError() }
+        )
+    }
+
+    uiState.setsUpdateWarning?.let { message ->
+        WarningDialog(
+            message = message,
+            onDismiss = { viewModel.dismissSetsUpdateWarning() }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -132,4 +149,5 @@ fun CardGridItem(cardInfo: PokemonCardInfo, onClick: () -> Unit) {
             }
         }
     }
+
 }

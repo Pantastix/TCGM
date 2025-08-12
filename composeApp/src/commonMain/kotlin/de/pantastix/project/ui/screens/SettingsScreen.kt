@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import de.pantastix.project.shared.resources.MR
+import de.pantastix.project.ui.components.ErrorDialog
 import de.pantastix.project.ui.viewmodel.AppLanguage
 import de.pantastix.project.ui.viewmodel.CardListViewModel
 import dev.icerock.moko.resources.compose.stringResource
@@ -174,19 +175,6 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
             }
         }
     }
-}
-
-@Composable
-private fun ErrorDialog(message: String, onDismiss: () -> Unit) {
-    AlertDialog(
-        modifier = Modifier.border(4.dp, MaterialTheme.colorScheme.error, MaterialTheme.shapes.large),
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(MR.strings.settings_error_dialog_title)) },
-        text = { Text(message) },
-        confirmButton = {
-            Button(onClick = onDismiss) { Text(stringResource(MR.strings.settings_ok_button)) }
-        }
-    )
 }
 
 @Composable
