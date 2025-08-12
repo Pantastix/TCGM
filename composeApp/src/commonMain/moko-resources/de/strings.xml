@@ -136,11 +136,15 @@
     <string name="set_selection_add_card_title">Karte hinzufügen</string>
     <string name="set_selection_error_dialog_title">Fehler</string>
     <string name="set_selection_ok_button">OK</string>
+    <string name="set_selection_tab_by_name">Nach Name</string>
+    <string name="set_selection_tab_by_set">Nach Set</string>
     <string name="set_selection_language_label">Kartensprache</string>
     <string name="set_selection_set_label">Set</string>
     <string name="set_selection_set_placeholder">Set auswählen...</string>
     <string name="set_selection_card_number_label">Kartennummer (z.B. 051)</string>
     <string name="set_selection_search_button">Karte suchen</string>
+    <string name="set_selection_card_name_label">Kartenname</string>
+    <string name="set_selection_card_number_count_label">Kartennummer (z.B. 161/086)</string>
 
     <!-- SettingsScreen -->
     <string name="settings_title">Einstellungen</string>

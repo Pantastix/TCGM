@@ -191,6 +191,14 @@ class SupabaseCardRepository(
         }
     }
 
+    override suspend fun getSetsByOfficialCount(count: Int): List<SetInfo> {
+        return postgrest.from(setsTable).select {
+            filter {
+                eq("cardCountOfficial", count)
+            }
+        }.decodeList<SetInfo>()
+    }
+
     override suspend fun updateSetAbbreviation(setId: String, abbreviation: String) {
         postgrest.from(setsTable).update({
             set("abbreviation", abbreviation)

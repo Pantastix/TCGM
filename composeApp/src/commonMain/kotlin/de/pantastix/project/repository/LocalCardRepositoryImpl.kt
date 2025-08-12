@@ -70,6 +70,24 @@ class LocalCardRepositoryImpl(
         }
     }
 
+    override suspend fun getSetsByOfficialCount(count: Int): List<SetInfo> {
+        return withContext(ioDispatcher) {
+            queries.selectSetsByOfficialCount(count.toLong()).executeAsList().map { entity ->
+                SetInfo(
+                    id = entity.id.toInt(),
+                    setId = entity.setId,
+                    abbreviation = entity.abbreviation,
+                    nameLocal = entity.nameLocal,
+                    nameEn = entity.nameEn,
+                    logoUrl = entity.logoUrl,
+                    cardCountOfficial = entity.cardCountOfficial.toInt(),
+                    cardCountTotal = entity.cardCountTotal.toInt(),
+                    releaseDate = entity.releaseDate
+                )
+            }
+        }
+    }
+
     // --- Pokémon-Karten-Implementierungen ---
 
     override fun getCardInfos(): Flow<List<PokemonCardInfo>> {

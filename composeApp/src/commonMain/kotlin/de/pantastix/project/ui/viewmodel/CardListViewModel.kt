@@ -26,6 +26,8 @@ import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import java.io.File
 import kotlin.system.exitProcess
@@ -294,6 +296,64 @@ class CardListViewModel(
                 _uiState.update { it.copy(error = "Karte nicht gefunden.") }
             } else {
                 _uiState.update { it.copy(apiCardDetails = details) }
+            }
+            setLoading(false)
+        }
+    }
+
+    fun fetchCardDetailsByNameAndNumber(
+        cardName: String,
+        cardNumberInput: String, // z.B. "161/086"
+        language: CardLanguage
+    ) {
+        viewModelScope.launch {
+            setLoading(true, "Suche Karte...")
+            _uiState.update { it.copy(error = null, apiCardDetails = null) }
+
+            val parts = cardNumberInput.split("/")
+            if (parts.size != 2) {//TODO: intl
+                _uiState.update { it.copy(error = "Ungültiges Kartenformat. Bitte 'Nummer/Setgröße' verwenden.") }
+                setLoading(false)
+                return@launch
+            }
+            val localId = parts[0].trim()
+            val officialCount = parts[1].trim().toIntOrNull()
+
+            if (officialCount == null) { //TODO: intl
+                _uiState.update { it.copy(error = "Ungültige Setgröße in der Eingabe.") }
+                setLoading(false)
+                return@launch
+            }
+
+            val potentialSets = activeCardRepository.getSetsByOfficialCount(officialCount)
+            if (potentialSets.isEmpty()) {
+                _uiState.update { it.copy(error = "Keine Sets mit $officialCount offiziellen Karten gefunden.") }
+                setLoading(false)
+                return@launch
+            }
+
+            val cardDetailJobs = potentialSets.map { set ->
+                async { apiService.getCardDetails(set.setId, localId, language.code) }
+            }
+
+            val foundCards = cardDetailJobs.awaitAll().filterNotNull()
+
+            if (foundCards.isEmpty()) {
+                _uiState.update { it.copy(error = "Keine Karte mit der Nummer '$localId' in den passenden Sets gefunden.") }
+                setLoading(false)
+                return@launch
+            }
+
+            val normalizedInputName = cardName.replace(Regex("[\\s-]"), "").lowercase()
+            val bestMatch = foundCards.find { card ->
+                val normalizedCardName = card.name.replace(Regex("[\\s-]"), "").lowercase()
+                normalizedCardName.contains(normalizedInputName)
+            }
+
+            if (bestMatch == null) {
+                _uiState.update { it.copy(error = "Keine Karte mit dem Namen '$cardName' in den gefundenen Sets gefunden.") }
+            } else {
+                _uiState.update { it.copy(apiCardDetails = bestMatch, searchedCardLanguage = language) }
             }
             setLoading(false)
         }

@@ -86,11 +86,15 @@
     <string name="set_selection_add_card_title">Add Card</string>
     <string name="set_selection_error_dialog_title">Error</string>
     <string name="set_selection_ok_button">OK</string>
+    <string name="set_selection_tab_by_name">By Name</string>
+    <string name="set_selection_tab_by_set">By Set</string>
     <string name="set_selection_language_label">Card Language</string>
     <string name="set_selection_set_label">Set</string>
     <string name="set_selection_set_placeholder">Select set...</string>
     <string name="set_selection_card_number_label">Card Number (e.g., 051)</string>
     <string name="set_selection_search_button">Search Card</string>
+    <string name="set_selection_card_name_label">Card Name</string>
+    <string name="set_selection_card_number_count_label">Card Number (e.g., 161/086)</string>
 
     <!-- CardCollectionScreen -->
     <string name="collection_add_card_button">Add Card</string>
