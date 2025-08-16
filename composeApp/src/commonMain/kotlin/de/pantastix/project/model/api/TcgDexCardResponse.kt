@@ -1,6 +1,14 @@
 package de.pantastix.project.model.api
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
+
+
+@Serializable
+data class TcgDexCardSearchResult(
+    val id: String,
+    val name: String
+)
 
 /**
  * Dieses Datenmodell repräsentiert die komplette JSON-Antwort für eine einzelne Karte von der TCGdex API.
@@ -25,7 +33,10 @@ data class TcgDexCardResponse(
     val effect: String? = null,
     val trainerType: String? = null,
     val regulationMark: String? = null,
-    val legal: TcgDexLegal? = null
+    val legal: TcgDexLegal? = null,
+
+    @Transient
+    var cardmarketVersion: Int? = null
 )
 
 @Serializable
