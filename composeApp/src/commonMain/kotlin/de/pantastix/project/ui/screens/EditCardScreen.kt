@@ -24,64 +24,72 @@ fun EditCardScreen(
     var notesInput by remember { mutableStateOf(card.notes ?: "") }
     var priceInput by remember { mutableStateOf(card.currentPrice?.toString() ?: "") }
 
-    Box(
-        modifier = Modifier
-    ) {
-        Column(
+    Row(modifier = Modifier.fillMaxSize()) {
+        VerticalDivider(
+            modifier = Modifier.fillMaxHeight(),
+            color = MaterialTheme.colorScheme.primary,
+            thickness = 4.dp
+        )
+
+        Box(
             modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(stringResource(MR.strings.edit_card_title), style = MaterialTheme.typography.headlineSmall)
-
-            OutlinedTextField(
-                value = ownedCopiesInput,
-                onValueChange = { ownedCopiesInput = it.filter { char -> char.isDigit() } },
-                label = { Text(stringResource(MR.strings.edit_card_quantity_label)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            OutlinedTextField(
-                value = notesInput,
-                onValueChange = { notesInput = it },
-                label = { Text(stringResource(MR.strings.edit_card_notes_label)) },
-                modifier = Modifier.fillMaxWidth().height(100.dp)
-            )
-
-            OutlinedTextField(
-                value = priceInput,
-                onValueChange = { priceInput = it },
-                label = { Text(stringResource(MR.strings.edit_card_price_label)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.weight(1f))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(MR.strings.edit_card_cancel_button))
-                }
-                Button(
-                    onClick = {
-                        card.id?.let { nonNullId ->
-                            onSave(
-                                nonNullId,
-                                ownedCopiesInput.toIntOrNull() ?: 1,
-                                notesInput.ifBlank { null },
-                                priceInput.replace(",", ".").toDoubleOrNull()
-                            )
-                        }
-                    },
-                    modifier = Modifier.weight(1f)
+                Text(stringResource(MR.strings.edit_card_title), style = MaterialTheme.typography.headlineSmall)
+
+                OutlinedTextField(
+                    value = ownedCopiesInput,
+                    onValueChange = { ownedCopiesInput = it.filter { char -> char.isDigit() } },
+                    label = { Text(stringResource(MR.strings.edit_card_quantity_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = notesInput,
+                    onValueChange = { notesInput = it },
+                    label = { Text(stringResource(MR.strings.edit_card_notes_label)) },
+                    modifier = Modifier.fillMaxWidth().height(100.dp)
+                )
+
+                OutlinedTextField(
+                    value = priceInput,
+                    onValueChange = { priceInput = it },
+                    label = { Text(stringResource(MR.strings.edit_card_price_label)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(Modifier.weight(1f))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(stringResource(MR.strings.edit_card_save_button))
+                    OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(MR.strings.edit_card_cancel_button))
+                    }
+                    Button(
+                        onClick = {
+                            card.id?.let { nonNullId ->
+                                onSave(
+                                    nonNullId,
+                                    ownedCopiesInput.toIntOrNull() ?: 1,
+                                    notesInput.ifBlank { null },
+                                    priceInput.replace(",", ".").toDoubleOrNull()
+                                )
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(stringResource(MR.strings.edit_card_save_button))
+                    }
                 }
             }
         }

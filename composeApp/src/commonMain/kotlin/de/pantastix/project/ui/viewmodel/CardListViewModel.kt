@@ -162,10 +162,6 @@ class CardListViewModel(
         _uiState.update { it.copy(loadingMessage = "Lade Set-Informationen") }
         val setsFromApi = apiService.getAllSets(uiState.value.appLanguage.code)
         if (setsFromApi.isNotEmpty()) {
-
-            for (set in setsFromApi) {
-                println("DEBUG: Set geladen: ${set.nameLocal} (${set.setId}) (${set.id} - ${set.cardCountTotal ?: "unbekannt"} Karten")
-            }
             activeCardRepository.syncSets(setsFromApi)
             _uiState.update { it.copy(setsUpdateWarning = null) }
         } else {
@@ -389,7 +385,7 @@ class CardListViewModel(
                 activeCardRepository.updateCardUserData(
                     cardId = existingCard.id,
                     ownedCopies = existingCard.ownedCopies + ownedCopies,
-                    notes = null,
+                    notes = notes,
                     currentPrice = price ?: existingCard.currentPrice,
                     lastPriceUpdate = if (price != null) Clock.System.now().toString() else null
                 )
@@ -412,6 +408,7 @@ class CardListViewModel(
                     notes
                 )
             }
+
             setLoading(false)
             resetApiCardDetails()
         }
@@ -462,7 +459,7 @@ class CardListViewModel(
             ownedCopies = ownedCopies,
             notes = notes,
             setName = localCardDetails.set.name,
-            localId = "${localCardDetails.localId} / ${localCardDetails.set.cardCount?.total ?: '?'}",
+            localId = "${localCardDetails.localId} / ${localCardDetails.set.cardCount?.official ?: '?'}",
             currentPrice = price,
             lastPriceUpdate = if (price != null) Clock.System.now().toString() else null,
             rarity = localCardDetails.rarity,
@@ -482,11 +479,8 @@ class CardListViewModel(
         // Übergebe das einzelne Objekt an das Repository
         activeCardRepository.insertFullPokemonCard(newCard)
 
-        if(abbreviation != null) {
-            activeCardRepository.updateSetAbbreviation(
-                setId = localCardDetails.set.id,
-                abbreviation = abbreviation
-            )
+        if (!abbreviation.isNullOrBlank()) {
+            activeCardRepository.updateSetAbbreviation(newCard.setId, abbreviation)
         }
 
         loadCardInfos()
@@ -553,7 +547,7 @@ class CardListViewModel(
         setsCollectionJob?.cancel()
         setsCollectionJob = activeCardRepository.getAllSets()
             .onEach { setsFromDb ->
-                _uiState.update { it.copy(sets = setsFromDb.sortedByDescending { it.releaseDate }) }
+                _uiState.update { it.copy(sets = setsFromDb.sortedBy { it.id }) }
             }
             .launchIn(viewModelScope)
     }
