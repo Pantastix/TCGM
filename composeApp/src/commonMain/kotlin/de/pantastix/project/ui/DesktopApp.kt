@@ -2,6 +2,7 @@ package de.pantastix.project.ui
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
@@ -138,6 +139,7 @@ fun DesktopApp(
 
     uiState.updateInfo?.let { update ->
         AlertDialog(
+            modifier = Modifier.border(4.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.large),
             onDismissRequest = { /* Modal */ },
             title = { Text("Update verfügbar!") },
             text = { Text("Eine neue Version (${update.version}) ist verfügbar. Möchten Sie sie jetzt installieren?") },

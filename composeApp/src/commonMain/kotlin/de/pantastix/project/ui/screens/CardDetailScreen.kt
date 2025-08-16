@@ -87,7 +87,6 @@ fun CardDetailScreen(
                     ) {
                         Text(card.nameLocal, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
 
-                        // KORRIGIERT: Bild verkleinert
                         AsyncImage(
                             model = card.imageUrl,
                             contentDescription = card.nameLocal,

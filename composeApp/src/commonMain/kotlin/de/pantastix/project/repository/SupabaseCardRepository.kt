@@ -173,6 +173,13 @@ class SupabaseCardRepository(
     // --- SET-OPERATIONEN---
     override fun getAllSets(): Flow<List<SetInfo>> = flow {
         val data = postgrest.from(setsTable).select().decodeList<SetInfo>()
+        //for set id=pp sv10.5b
+        for (set in data) {
+            // Convert the setId to a more readable format if needed
+            if (set.setId == "sv10.5b") {
+                println(set)
+            }
+        }
         emit(data)
     }
 
