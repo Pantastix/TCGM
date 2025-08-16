@@ -31,6 +31,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import java.io.File
 import kotlin.system.exitProcess
+import kotlin.time.ExperimentalTime
 
 enum class AppLanguage(val code: String, val displayName: String) {
     GERMAN("de", "Deutsch"),
@@ -67,7 +68,7 @@ data class UiState(
     val setsUpdateWarning: String? = null
 )
 
-@OptIn(kotlin.time.ExperimentalTime::class)
+@OptIn(ExperimentalTime::class)
 class CardListViewModel(
     private val localCardRepository: CardRepository, // Immer das SQLite-Repository
     private val settingsRepository: SettingsRepository,
@@ -161,6 +162,10 @@ class CardListViewModel(
         _uiState.update { it.copy(loadingMessage = "Lade Set-Informationen") }
         val setsFromApi = apiService.getAllSets(uiState.value.appLanguage.code)
         if (setsFromApi.isNotEmpty()) {
+
+            for (set in setsFromApi) {
+                println("DEBUG: Set geladen: ${set.nameLocal} (${set.setId}) (${set.id} - ${set.cardCountTotal ?: "unbekannt"} Karten")
+            }
             activeCardRepository.syncSets(setsFromApi)
             _uiState.update { it.copy(setsUpdateWarning = null) }
         } else {
@@ -476,6 +481,14 @@ class CardListViewModel(
 
         // Übergebe das einzelne Objekt an das Repository
         activeCardRepository.insertFullPokemonCard(newCard)
+
+        if(abbreviation != null) {
+            activeCardRepository.updateSetAbbreviation(
+                setId = localCardDetails.set.id,
+                abbreviation = abbreviation
+            )
+        }
+
         loadCardInfos()
     }
 

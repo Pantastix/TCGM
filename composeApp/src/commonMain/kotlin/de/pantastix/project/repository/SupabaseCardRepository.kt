@@ -7,6 +7,8 @@ import de.pantastix.project.model.supabase.SupabasePokemonCard
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -20,6 +22,7 @@ class SupabaseCardRepository(
     private val cardsTable = "PokemonCardEntity" // Name deiner Tabelle in Supabase
     private val setsTable = "SetEntity"
     private val pokemonCardInfoView = "PokemonCardInfoView"
+    private val _setsFlow = MutableStateFlow<List<SetInfo>>(emptyList())
 
     private fun PokemonCard.toSupabasePokemonCard(): SupabasePokemonCard {
         return SupabasePokemonCard(
@@ -171,10 +174,11 @@ class SupabaseCardRepository(
     }
 
     // --- SET-OPERATIONEN---
-    override fun getAllSets(): Flow<List<SetInfo>> = flow {
-        val data = postgrest.from(setsTable).select().decodeList<SetInfo>()
-        emit(data)
-    }
+//    override fun getAllSets(): Flow<List<SetInfo>> = flow {
+//        val data = postgrest.from(setsTable).select().decodeList<SetInfo>()
+//        emit(data)
+//    }
+    override fun getAllSets(): Flow<List<SetInfo>> = _setsFlow.asStateFlow()
 
 //    override suspend fun syncSets(sets: List<SetInfo>) {
 //        sets.forEach { setInfo ->
@@ -185,10 +189,29 @@ class SupabaseCardRepository(
 //        }
 //    }
 
+    private suspend fun refreshSets() {
+        val data = postgrest.from(setsTable).select().decodeList<SetInfo>()
+        _setsFlow.value = data
+    }
+
     override suspend fun syncSets(sets: List<SetInfo>) {
-        postgrest.from(setsTable).upsert(sets) {
+        val oldSetsMap = postgrest.from(setsTable).select().decodeList<SetInfo>().associateBy { it.setId }
+
+        val setsToSave = sets.map { newSet ->
+            val existingAbbreviation = oldSetsMap[newSet.setId]?.abbreviation
+            if (!existingAbbreviation.isNullOrBlank()) {
+                // Wenn eine Abkürzung existiert, behalte sie.
+                newSet.copy(abbreviation = existingAbbreviation)
+            } else {
+                newSet
+            }
+        }
+
+        postgrest.from(setsTable).upsert(setsToSave) {
             onConflict = "setId"
         }
+
+        refreshSets()
     }
 
     override suspend fun getSetsByOfficialCount(count: Int): List<SetInfo> {
@@ -205,6 +228,7 @@ class SupabaseCardRepository(
         }) {
             filter { eq("setId", setId) }
         }
+        refreshSets()
     }
 
     override suspend fun findExistingCard(setId: String, localId: String, language: String): PokemonCardInfo? = null

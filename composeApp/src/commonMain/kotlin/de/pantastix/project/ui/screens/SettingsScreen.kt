@@ -80,7 +80,11 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
             ) {
                 Text(stringResource(MR.strings.settings_cloud_sync), style = MaterialTheme.typography.titleLarge)
                 TextButton(onClick = onNavigateToGuide, enabled = !uiState.isLoading) {
-                    Icon(Icons.AutoMirrored.Filled.HelpOutline, contentDescription = stringResource(MR.strings.settings_guide_button_desc), modifier = Modifier.size(18.dp))
+                    Icon(
+                        Icons.AutoMirrored.Filled.HelpOutline,
+                        contentDescription = stringResource(MR.strings.settings_guide_button_desc),
+                        modifier = Modifier.size(18.dp)
+                    )
                     Spacer(Modifier.width(4.dp))
                     Text(stringResource(MR.strings.settings_guide_button))
                 }
@@ -124,9 +128,16 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
             }
 
             if (uiState.isSupabaseConnected) {
-                Text(stringResource(MR.strings.settings_status_connected), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                Text(
+                    stringResource(MR.strings.settings_status_connected),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Bold
+                )
             } else {
-                Text(stringResource(MR.strings.settings_status_disconnected), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                Text(
+                    stringResource(MR.strings.settings_status_disconnected),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
             }
 
             uiState.syncPromptMessage?.let { message ->
@@ -185,26 +196,27 @@ private fun DisconnectPromptDialog(
     onDismiss: () -> Unit
 ) {
     AlertDialog(
+        modifier = Modifier.border(4.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.large),
         onDismissRequest = onDismiss,
         title = { Text(stringResource(MR.strings.settings_disconnect_dialog_title)) },
         text = { Text(message) },
         confirmButton = {
-            Button(onClick = onConfirmAndMigrate) {
-                Text(stringResource(MR.strings.settings_disconnect_dialog_migrate_button))
-            }
-        },
-        dismissButton = {
-            Column(horizontalAlignment = Alignment.End) {
+            Row {
                 Button(
                     onClick = onConfirmWithoutMigrate,
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text(stringResource(MR.strings.settings_disconnect_dialog_disconnect_only_button))
                 }
-                Spacer(Modifier.height(8.dp))
-                TextButton(onClick = onDismiss) {
-                    Text(stringResource(MR.strings.settings_disconnect_dialog_cancel_button))
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = onConfirmAndMigrate) {
+                    Text(stringResource(MR.strings.settings_disconnect_dialog_migrate_button))
                 }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(MR.strings.settings_disconnect_dialog_cancel_button))
             }
         }
     )
