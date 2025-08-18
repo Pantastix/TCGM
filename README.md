@@ -23,7 +23,7 @@ You can download and use TCGM on the following platforms:
 
 [![Github All Releases](https://img.shields.io/github/downloads/Pantastix/TCGM/total.svg)]()
 
-Find the latest installers on our [GitHub Releases Page](https://www.google.com/search?q=https://github.com/Pantastix/TCGM/releases).
+Find the latest installers on our [GitHub Releases Page](https://github.com/Pantastix/TCGM/releases).
 
 ## Roadmap
 Here are some of the features planned for future releases:
