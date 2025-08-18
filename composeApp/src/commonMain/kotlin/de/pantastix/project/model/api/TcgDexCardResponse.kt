@@ -36,7 +36,9 @@ data class TcgDexCardResponse(
     val legal: TcgDexLegal? = null,
 
     @Transient
-    var cardmarketVersion: Int? = null
+    var cardmarketVersion: Int? = null,
+    @Transient
+    var totalCardmarketVersions: Int? = null
 )
 
 @Serializable
@@ -57,7 +59,7 @@ data class TcgDexAbility(
 @Serializable
 data class TcgDexAttack(
     val cost: List<String>? = emptyList(),
-    val name: String,
+    val name: String? = null,
     val effect: String? = null,
     val damage: String? = null
 )

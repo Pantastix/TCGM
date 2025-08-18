@@ -27,6 +27,7 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 @Composable
 fun FinalAddCardScreen(
     cardDetails: TcgDexCardResponse,
+    englishCardDetails: TcgDexCardResponse?,
     setInfo: SetInfo?,
     isLoading: Boolean,
     onConfirm: (
@@ -47,15 +48,27 @@ fun FinalAddCardScreen(
     var linkInput by remember { mutableStateOf("") }
     var userHasEditedLink by remember { mutableStateOf(false) }
 
-    LaunchedEffect(abbreviationInput, cardDetails, setInfo) {
+    LaunchedEffect(abbreviationInput, cardDetails, englishCardDetails, setInfo) {
         if (!userHasEditedLink) {
-            fun slugify(input: String) = input.replace("'", "").replace(" ", "-").replace(":", "")
+            fun slugify(input: String) = input.replace("'", "")
+                .replace(" ", "-")
+                .replace(":", "")
+                .replace("&", "")
+                .replace(Regex("--+"), "-")
 
-            // Erstellt den Versions-Suffix (z.B. "-V1"), falls eine Version vorhanden ist.
-            val versionSuffix = cardDetails.cardmarketVersion?.let { "-V$it" } ?: ""
+            val versionSuffix = cardDetails.cardmarketVersion?.let { version ->
+                // Annahme: cardDetails hat jetzt ein Feld `totalCardmarketVersions`
+                val totalVersions = cardDetails.totalCardmarketVersions ?: 1
+                if (totalVersions > 1) {
+                    "-V$version"
+                } else {
+                    "" // Kein Suffix, wenn es nur eine Version gibt.
+                }
+            } ?: ""
 
             // Fügt den Suffix zum slugifizierten Kartennamen hinzu.
-            val slugifiedCardNameWithVersion = "${slugify(cardDetails.name)}${versionSuffix}"
+            val cardNameToUse = englishCardDetails?.name ?: cardDetails.name
+            val slugifiedCardNameWithVersion = "${slugify(cardNameToUse)}${versionSuffix}"
 
             val finalAbbreviation = if (abbreviationInput.isNotBlank()) abbreviationInput.uppercase() else cardDetails.set.id.uppercase()
 

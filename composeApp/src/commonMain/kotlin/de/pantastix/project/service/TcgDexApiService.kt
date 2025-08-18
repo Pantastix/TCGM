@@ -170,6 +170,7 @@ class TcgDexApiService(
             // Wenn die Karte nicht gefunden wird, bleibt die Version null.
             if (versionIndex != -1) {
                 cardDetails.cardmarketVersion = versionIndex + 1
+                cardDetails.totalCardmarketVersions = versionsInSameSet.size
                 println("Cardmarket-Version für '${cardDetails.name}' (${cardDetails.id}) ermittelt: ${cardDetails.cardmarketVersion}")
             }
 

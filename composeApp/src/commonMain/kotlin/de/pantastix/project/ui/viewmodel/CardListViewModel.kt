@@ -23,6 +23,7 @@ import kotlinx.serialization.json.Json
 import kotlin.time.Clock
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
@@ -54,6 +55,7 @@ data class UiState(
     val sets: List<SetInfo> = emptyList(),
     val selectedCardDetails: PokemonCard? = null,
     val apiCardDetails: TcgDexCardResponse? = null,
+    val englishApiCardDetails: TcgDexCardResponse? = null,
     val searchedCardLanguage: CardLanguage? = null, // Speichert die Sprache der letzten Suche
     val isLoading: Boolean = false,
     val loadingMessage: String? = null,
@@ -286,33 +288,134 @@ class CardListViewModel(
 
     // --- Karte Hinzufügen Workflow ---
 
-    fun fetchCardDetailsFromApi(setId: String, localId: String, language: CardLanguage) {
-        viewModelScope.launch {
-            setLoading(true)
-            _uiState.update { it.copy(error = null, apiCardDetails = null) }
-            _uiState.update { it.copy(searchedCardLanguage = language) }
+//    fun fetchCardDetailsFromApi(setId: String, localId: String, language: CardLanguage) {
+//        viewModelScope.launch {
+//            setLoading(true)
+//            _uiState.update { it.copy(error = null, apiCardDetails = null) }
+//            _uiState.update { it.copy(searchedCardLanguage = language) }
+//
+//            val details = apiService.getCardDetails(setId, localId, language.code)
+//            if (details == null) {
+//                _uiState.update { it.copy(error = "Karte nicht gefunden.") }
+//            } else {
+//                _uiState.update { it.copy(apiCardDetails = details) }
+//            }
+//            setLoading(false)
+//        }
+//    }
+//
+//    fun fetchCardDetailsByNameAndNumber(
+//        cardName: String,
+//        cardNumberInput: String, // z.B. "161/086"
+//        language: CardLanguage
+//    ) {
+//        viewModelScope.launch {
+//            setLoading(true, "Suche Karte...")
+//            _uiState.update { it.copy(error = null, apiCardDetails = null) }
+//
+//            val parts = cardNumberInput.split("/")
+//            if (parts.size != 2) {
+//                _uiState.update { it.copy(error = "Ungültiges Kartenformat. Bitte 'Nummer/Setgröße' verwenden.") }
+//                setLoading(false)
+//                return@launch
+//            }
+//            val localId = parts[0].trim()
+//            val officialCount = parts[1].trim().toIntOrNull()
+//
+//            if (officialCount == null) {
+//                _uiState.update { it.copy(error = "Ungültige Setgröße in der Eingabe.") }
+//                setLoading(false)
+//                return@launch
+//            }
+//
+//            val potentialSets = activeCardRepository.getSetsByOfficialCount(officialCount)
+//            if (potentialSets.isEmpty()) {
+//                _uiState.update { it.copy(error = "Keine Sets mit $officialCount offiziellen Karten gefunden.") }
+//                setLoading(false)
+//                return@launch
+//            }
+//
+//            val cardDetailJobs = potentialSets.map { set ->
+//                async { apiService.getCardDetails(set.setId, localId, language.code) }
+//            }
+//
+//            val foundCards = cardDetailJobs.awaitAll().filterNotNull()
+//
+//            if (foundCards.isEmpty()) {
+//                _uiState.update { it.copy(error = "Keine Karte mit der Nummer '$localId' in den passenden Sets gefunden.") }
+//                setLoading(false)
+//                return@launch
+//            }
+//
+//            val normalizedInputName = cardName.replace(Regex("[\\s-]"), "").lowercase()
+//            val bestMatch = foundCards.find { card ->
+//                val normalizedCardName = card.name.replace(Regex("[\\s-]"), "").lowercase()
+//                normalizedCardName.contains(normalizedInputName)
+//            }
+//
+//            if (bestMatch == null) {
+//                _uiState.update { it.copy(error = "Keine Karte mit dem Namen '$cardName' in den gefundenen Sets gefunden.") }
+//            } else {
+//                _uiState.update { it.copy(apiCardDetails = bestMatch, searchedCardLanguage = language) }
+//            }
+//            setLoading(false)
+//        }
+//    }
 
-            val details = apiService.getCardDetails(setId, localId, language.code)
+    private fun fetchAndProcessCardDetails(detailsJob: Deferred<TcgDexCardResponse?>, language: CardLanguage) {
+        viewModelScope.launch {
+            val details = detailsJob.await()
             if (details == null) {
-                _uiState.update { it.copy(error = "Karte nicht gefunden.") }
-            } else {
-                _uiState.update { it.copy(apiCardDetails = details) }
+                _uiState.update { it.copy(error = "Karte nicht gefunden.", isLoading = false) }
+                return@launch
             }
-            setLoading(false)
+
+            // Wenn die gesuchte Sprache bereits Englisch ist, brauchen wir keine zweite Abfrage.
+            if (language == CardLanguage.ENGLISH) {
+                _uiState.update {
+                    it.copy(
+                        apiCardDetails = details,
+                        englishApiCardDetails = details, // Setze beide auf dasselbe Objekt
+                        searchedCardLanguage = language,
+                        isLoading = false
+                    )
+                }
+            } else {
+                // Starte die Abfrage für die englische Version parallel.
+                val englishDetailsJob = async {
+                    apiService.getCardDetails(details.set.id, details.localId, CardLanguage.ENGLISH.code)
+                }
+                val englishDetails = englishDetailsJob.await()
+                _uiState.update {
+                    it.copy(
+                        apiCardDetails = details,
+                        englishApiCardDetails = englishDetails,
+                        searchedCardLanguage = language,
+                        isLoading = false
+                    )
+                }
+            }
         }
+    }
+
+    fun fetchCardDetailsFromApi(setId: String, localId: String, language: CardLanguage) {
+        setLoading(true, "Suche Karte...")
+        _uiState.update { it.copy(error = null, apiCardDetails = null, englishApiCardDetails = null) }
+        val detailsJob = viewModelScope.async { apiService.getCardDetails(setId, localId, language.code) }
+        fetchAndProcessCardDetails(detailsJob, language)
     }
 
     fun fetchCardDetailsByNameAndNumber(
         cardName: String,
-        cardNumberInput: String, // z.B. "161/086"
+        cardNumberInput: String,
         language: CardLanguage
     ) {
         viewModelScope.launch {
             setLoading(true, "Suche Karte...")
-            _uiState.update { it.copy(error = null, apiCardDetails = null) }
+            _uiState.update { it.copy(error = null, apiCardDetails = null, englishApiCardDetails = null) }
 
             val parts = cardNumberInput.split("/")
-            if (parts.size != 2) {//TODO: intl
+            if (parts.size != 2) {
                 _uiState.update { it.copy(error = "Ungültiges Kartenformat. Bitte 'Nummer/Setgröße' verwenden.") }
                 setLoading(false)
                 return@launch
@@ -320,7 +423,7 @@ class CardListViewModel(
             val localId = parts[0].trim()
             val officialCount = parts[1].trim().toIntOrNull()
 
-            if (officialCount == null) { //TODO: intl
+            if (officialCount == null) {
                 _uiState.update { it.copy(error = "Ungültige Setgröße in der Eingabe.") }
                 setLoading(false)
                 return@launch
@@ -333,39 +436,24 @@ class CardListViewModel(
                 return@launch
             }
 
-            val cardDetailJobs = potentialSets.map { set ->
-                async { apiService.getCardDetails(set.setId, localId, language.code) }
+            // Starte die parallele Suche und übergib den Job an die Verarbeitungsfunktion.
+            val bestMatchJob = async {
+                val cardDetailJobs = potentialSets.map { set ->
+                    async { apiService.getCardDetails(set.setId, localId, language.code) }
+                }
+                val foundCards = cardDetailJobs.awaitAll().filterNotNull()
+                if (foundCards.isEmpty()) {
+                    _uiState.update { it.copy(error = "Keine Karte mit der Nummer '$localId' in den passenden Sets gefunden.") }
+                    return@async null
+                }
+                val normalizedInputName = cardName.replace(Regex("[\\s-]"), "").lowercase()
+                foundCards.find { card ->
+                    val normalizedCardName = card.name.replace(Regex("[\\s-]"), "").lowercase()
+                    normalizedCardName.contains(normalizedInputName)
+                }
             }
 
-            val foundCards = cardDetailJobs.awaitAll().filterNotNull()
-
-            if (foundCards.isEmpty()) {
-                _uiState.update { it.copy(error = "Keine Karte mit der Nummer '$localId' in den passenden Sets gefunden.") }
-                setLoading(false)
-                return@launch
-            }
-
-            val normalizedInputName = cardName.replace(Regex("[\\s-]"), "").lowercase()
-            val bestMatch = foundCards.find { card ->
-                val normalizedCardName = card.name.replace(Regex("[\\s-]"), "").lowercase()
-                normalizedCardName.contains(normalizedInputName)
-            }
-
-            if (bestMatch == null) {
-                _uiState.update { it.copy(error = "Keine Karte mit dem Namen '$cardName' in den gefundenen Sets gefunden.") }
-            } else {
-                _uiState.update { it.copy(apiCardDetails = bestMatch, searchedCardLanguage = language) }
-            }
-            setLoading(false)
-        }
-    }
-
-    fun selectCard(cardId: Long) {
-        viewModelScope.launch {
-            setLoading(true)
-            val details = activeCardRepository.getFullCardDetails(cardId)
-            _uiState.update { it.copy(selectedCardDetails = details) }
-            setLoading(false)
+            fetchAndProcessCardDetails(bestMatchJob, language)
         }
     }
 
@@ -380,6 +468,14 @@ class CardListViewModel(
     ) {
         viewModelScope.launch {
             setLoading(true)
+            val englishCardDetails = uiState.value.englishApiCardDetails
+
+            if (englishCardDetails == null && languageCode != CardLanguage.ENGLISH.code) {
+                _uiState.update { it.copy(error = "Konnte englische Kartendetails nicht abrufen. Speichern fehlgeschlagen.") }
+                setLoading(false)
+                return@launch
+            }
+
             val existingCard = activeCardRepository.findCardByTcgDexId(cardDetails.id, languageCode)
             if (existingCard != null) {
                 activeCardRepository.updateCardUserData(
@@ -390,16 +486,9 @@ class CardListViewModel(
                     lastPriceUpdate = if (price != null) Clock.System.now().toString() else null
                 )
             } else {
-                val englishCardDetails =
-                    apiService.getCardDetails(cardDetails.set.id, cardDetails.localId, CardLanguage.ENGLISH.code)
-                if (englishCardDetails == null) {
-                    _uiState.update { it.copy(error = "Konnte englische Kartendetails nicht abrufen.") }
-                    setLoading(false)
-                    return@launch
-                }
                 saveNewCard(
                     cardDetails,
-                    englishCardDetails,
+                    englishCardDetails ?: cardDetails,
                     abbreviation,
                     price,
                     languageCode,
@@ -413,6 +502,60 @@ class CardListViewModel(
             resetApiCardDetails()
         }
     }
+
+    fun selectCard(cardId: Long) {
+        viewModelScope.launch {
+            setLoading(true)
+            val details = activeCardRepository.getFullCardDetails(cardId)
+            _uiState.update { it.copy(selectedCardDetails = details) }
+            setLoading(false)
+        }
+    }
+
+//    fun confirmAndSaveCard(
+//        cardDetails: TcgDexCardResponse,
+//        languageCode: String,
+//        abbreviation: String?,
+//        price: Double?,
+//        cardMarketLink: String,
+//        ownedCopies: Int,
+//        notes: String?
+//    ) {
+//        viewModelScope.launch {
+//            setLoading(true)
+//            val existingCard = activeCardRepository.findCardByTcgDexId(cardDetails.id, languageCode)
+//            if (existingCard != null) {
+//                activeCardRepository.updateCardUserData(
+//                    cardId = existingCard.id,
+//                    ownedCopies = existingCard.ownedCopies + ownedCopies,
+//                    notes = notes,
+//                    currentPrice = price ?: existingCard.currentPrice,
+//                    lastPriceUpdate = if (price != null) Clock.System.now().toString() else null
+//                )
+//            } else {
+//                val englishCardDetails =
+//                    apiService.getCardDetails(cardDetails.set.id, cardDetails.localId, CardLanguage.ENGLISH.code)
+//                if (englishCardDetails == null) {
+//                    _uiState.update { it.copy(error = "Konnte englische Kartendetails nicht abrufen.") }
+//                    setLoading(false)
+//                    return@launch
+//                }
+//                saveNewCard(
+//                    cardDetails,
+//                    englishCardDetails,
+//                    abbreviation,
+//                    price,
+//                    languageCode,
+//                    cardMarketLink,
+//                    ownedCopies,
+//                    notes
+//                )
+//            }
+//
+//            setLoading(false)
+//            resetApiCardDetails()
+//        }
+//    }
 
     fun updateCard(
         cardId: Long,
@@ -470,7 +613,11 @@ class CardListViewModel(
             retreatCost = localCardDetails.retreat,
             regulationMark = localCardDetails.regulationMark,
             abilities = localCardDetails.abilities?.map { Ability(it.name, it.type, it.effect) } ?: emptyList(),
-            attacks = localCardDetails.attacks?.map { Attack(it.cost, it.name, it.effect, it.damage) } ?: emptyList(),
+            attacks = localCardDetails.attacks?.mapNotNull { attack ->
+                attack.name?.let { name -> // Nur wenn der Name nicht null ist...
+                    Attack(attack.cost, name, attack.effect, attack.damage)
+                }
+            } ?: emptyList(),
             setId = localCardDetails.set.id,
             variantsJson = localCardDetails.variants?.let { Json.encodeToString(it) },
             legalJson = localCardDetails.legal?.let { Json.encodeToString(it) }
@@ -507,27 +654,6 @@ class CardListViewModel(
             println("Supabase-Verbindung beim Start fehlgeschlagen: ${e.message}")
             remoteCardRepository = null
             _uiState.update { it.copy(isSupabaseConnected = false) }
-        }
-    }
-
-    private suspend fun loadInitialData() {
-        // Lade Sets
-        val currentLanguage = uiState.value.appLanguage
-        val setsFromApi = apiService.getAllSets(currentLanguage.code)
-        if (setsFromApi.isNotEmpty()) {
-            activeCardRepository.syncSets(setsFromApi)
-        }
-        val initialSets = activeCardRepository.getAllSets().first()
-
-        // Lade Karten
-        val initialCards = activeCardRepository.getCardInfos().first()
-
-        // Aktualisiere den State mit beiden Ergebnissen auf einmal
-        _uiState.update {
-            it.copy(
-                sets = initialSets.sortedByDescending { set -> set.releaseDate },
-                cardInfos = initialCards
-            )
         }
     }
 
@@ -667,7 +793,9 @@ class CardListViewModel(
     }
 
     fun dismissSyncPrompt() = _uiState.update { it.copy(syncPromptMessage = null) }
-    fun resetApiCardDetails() = _uiState.update { it.copy(apiCardDetails = null, searchedCardLanguage = null) }
+    fun resetApiCardDetails() {
+        _uiState.update { it.copy(apiCardDetails = null, englishApiCardDetails = null, searchedCardLanguage = null) }
+    }
     private fun setLoading(isLoading: Boolean, message: String? = null) =
         _uiState.update { it.copy(isLoading = isLoading, loadingMessage = message) }
     fun dismissSetsUpdateWarning() { _uiState.update { it.copy(setsUpdateWarning = null) } }
