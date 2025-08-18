@@ -21,7 +21,7 @@ You can download and use TCGM on the following platforms:
 - Desktop (Windows .msi, Linux .deb, macOS .dmg)
 - Android (.apk)
 
-[![Github All Releases](https://img.shields.io/github/downloads/Pantastix/TCGM/total.svg)]()
+[![Github All Releases](https://img.shields.io/github/downloads/Pantastix/TCGM/total.svg)](https://github.com/Pantastix/TCGM/releases)
 
 Find the latest installers on our [GitHub Releases Page](https://github.com/Pantastix/TCGM/releases).
 
