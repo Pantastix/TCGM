@@ -81,6 +81,7 @@
     <string name="final_add_card_notes_label">Notizen (optional)</string>
     <string name="final_add_card_cancel_button">Abbrechen</string>
     <string name="final_add_card_save_button">Speichern</string>
+    <string name="final_add_card_pricing_warning">Hinweiß: Die Preisfunktionalität ist noch in Entwicklung durch TCGdex und kann daher falsche Informationen beinhalten.</string>
 
     <!-- SetSelectionScreen -->
     <string name="set_selection_add_card_title">Karte hinzufügen</string>

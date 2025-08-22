@@ -81,6 +81,7 @@
     <string name="final_add_card_notes_label">Notes (optional)</string>
     <string name="final_add_card_cancel_button">Cancel</string>
     <string name="final_add_card_save_button">Save</string>
+    <string name="final_add_card_pricing_warning">Note: The pricing feature is still W.I.P. by TCGdex and may not contain correct data.</string>
 
     <!-- SetSelectionScreen -->
     <string name="set_selection_add_card_title">Add Card</string>
