@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Collections
+import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -68,6 +69,12 @@ fun DesktopApp(
                     selected = currentScreen == MainScreen.VALUE,
                     onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.VALUE) }
                 )
+                NavigationRailItem(
+                    icon = { Icon(Icons.Default.ImportExport, contentDescription = stringResource(MR.strings.nav_export)) },
+                    label = { Text(stringResource(MR.strings.nav_export)) },
+                    selected = currentScreen == MainScreen.EXPORT,
+                    onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.EXPORT) }
+                )
 
                 // Dieser Spacer schiebt das Einstellungs-Icon nach unten
                 Spacer(Modifier.weight(1f))
@@ -103,6 +110,7 @@ fun DesktopApp(
                     MainScreen.SUPABASE_GUIDE -> SupabaseGuideScreen(
                         onBack = { onScreenSelect(MainScreen.SETTINGS) }
                     )
+                    MainScreen.EXPORT -> ExportScreen(viewModel = viewModel)
                 }
             }
 

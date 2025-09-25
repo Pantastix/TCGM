@@ -12,7 +12,8 @@ enum class MainScreen {
     COLLECTION,
     VALUE,
     SETTINGS,
-    SUPABASE_GUIDE
+    SUPABASE_GUIDE,
+    EXPORT
 }
 
 @Composable
