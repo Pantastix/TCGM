@@ -1,16 +1,20 @@
 package de.pantastix.project.ui.screens
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -20,11 +24,60 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import de.pantastix.project.model.PokemonCardInfo
 import de.pantastix.project.shared.resources.MR
+import dev.icerock.moko.resources.compose.stringResource
+
 import de.pantastix.project.ui.components.ErrorDialog
 import de.pantastix.project.ui.util.formatPrice
 import de.pantastix.project.ui.components.WarningDialog
 import de.pantastix.project.ui.viewmodel.CardListViewModel
-import dev.icerock.moko.resources.compose.stringResource
+import androidx.compose.runtime.setValue
+import de.pantastix.project.ui.components.AddFilterDialog
+import de.pantastix.project.ui.components.FilterAndSortControls
+import de.pantastix.project.ui.viewmodel.Filter
+import de.pantastix.project.ui.viewmodel.Sort
+
+// Hilfsfunktionen für Übersetzungen
+@Composable
+fun getFilterDisplayName(attribute: String): String {
+    return when (attribute) {
+        "nameLocal" -> stringResource(MR.strings.filter_name)
+        "setName" -> stringResource(MR.strings.filter_set)
+        "language" -> stringResource(MR.strings.filter_language)
+        "currentPrice" -> stringResource(MR.strings.filter_price)
+        "ownedCopies" -> stringResource(MR.strings.filter_copies)
+        else -> attribute
+    }
+}
+
+@Composable
+fun getSortDisplayName(attribute: String): String {
+    return when (attribute) {
+        "nameLocal" -> stringResource(MR.strings.sort_name)
+        "setName" -> stringResource(MR.strings.sort_set)
+        "language" -> stringResource(MR.strings.sort_language)
+        "currentPrice" -> stringResource(MR.strings.sort_price)
+        "ownedCopies" -> stringResource(MR.strings.sort_copies)
+        else -> attribute
+    }
+}
+
+@Composable
+fun getLanguageDisplayName(code: String): String {
+    return when (code) {
+        "de" -> stringResource(MR.strings.language_german)
+        "en" -> stringResource(MR.strings.language_english)
+        "fr" -> stringResource(MR.strings.language_french)
+        "es" -> stringResource(MR.strings.language_spanish)
+        "it" -> stringResource(MR.strings.language_italian)
+        "pt" -> stringResource(MR.strings.language_portuguese)
+        "jp" -> stringResource(MR.strings.language_japanese)
+        else -> code
+    }
+}
+
+// Erweiterte Filter- und Sortieroptionen
+val filterAttributes = listOf("nameLocal", "setName", "language", "currentPrice", "ownedCopies")
+val sortAttributes = listOf("nameLocal", "setName", "language", "currentPrice", "ownedCopies")
 
 @Composable
 fun CardCollectionScreen(
@@ -34,6 +87,7 @@ fun CardCollectionScreen(
 ) {
 
     val uiState by viewModel.uiState.collectAsState()
+    var showAddFilterDialog by remember { mutableStateOf(false) }
 
     println("UI: Card Infos size: ${uiState.cardInfos.size}, isSupabaseConnected: ${uiState.isSupabaseConnected}")
 
@@ -49,11 +103,18 @@ fun CardCollectionScreen(
                 }
                 Text(stringResource(MR.strings.collection_add_card_button))
             }
-            // TODO: Hier später weitere Filter-Elemente hinzufügen
         }
+        FilterAndSortControls(
+            filters = uiState.filters,
+            sort = uiState.sort,
+            onAddFilter = { showAddFilterDialog = true },
+            onUpdateSort = { viewModel.updateSort(it) },
+            onRemoveFilter = { viewModel.removeFilter(it) },
+            onResetSort = { viewModel.updateSort(Sort("nameLocal", true)) }
+        )
 
         HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
             thickness = 4.dp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
         )
@@ -98,6 +159,16 @@ fun CardCollectionScreen(
         WarningDialog(
             message = message,
             onDismiss = { viewModel.dismissSetsUpdateWarning() }
+        )
+    }
+
+    if (showAddFilterDialog) {
+        AddFilterDialog(
+            onDismiss = { showAddFilterDialog = false },
+            onAddFilter = { filter ->
+                viewModel.addFilter(filter)
+                showAddFilterDialog = false
+            }
         )
     }
 }
@@ -150,4 +221,138 @@ fun CardGridItem(cardInfo: PokemonCardInfo, onClick: () -> Unit) {
         }
     }
 
+}
+
+@Composable
+fun FilterAndSortControls(
+    filters: List<Filter>,
+    sort: Sort,
+    onAddFilter: () -> Unit,
+    onUpdateSort: (Sort) -> Unit,
+    onRemoveFilter: (Filter) -> Unit,
+    onResetSort: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.End // Buttons rechts
+    ) {
+        // Chips für aktive Filter und Sortierungen
+        Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.Start) {
+            filters.forEach { filter ->
+                FilterChip(
+                    onClick = { onRemoveFilter(filter) },
+                    label = {
+                        Text(getFilterDisplayName(filter.attribute))
+                    },
+                    selected = true
+                )
+            }
+            if (sort.sortBy.isNotEmpty()) {
+                FilterChip(
+                    onClick = { onResetSort() },
+                    label = {
+                        Text(getSortDisplayName(sort.sortBy))
+                    },
+                    selected = true
+                )
+            }
+        }
+        // Buttons für Filter und Sortierung
+        Column(horizontalAlignment = Alignment.End) {
+            IconButton(onClick = onAddFilter) {
+                Icon(Icons.Default.FilterList, contentDescription = stringResource(MR.strings.filter_button_desc))
+            }
+            Text(stringResource(MR.strings.filter_button_text), style = MaterialTheme.typography.labelSmall)
+            Spacer(modifier = Modifier.height(4.dp))
+            IconButton(onClick = { /* Sortiermenü öffnen */ }) {
+                Icon(Icons.Default.Sort, contentDescription = stringResource(MR.strings.sort_button_desc))
+            }
+            Text(stringResource(MR.strings.sort_button_text), style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+// Dialog für Filterauswahl inkl. Preis- und Kopienfilter
+@Composable
+fun AddFilterDialog(
+    onDismiss: () -> Unit,
+    onAddFilter: (Filter) -> Unit
+) {
+    var selectedAttribute by remember { mutableStateOf(filterAttributes.first()) }
+    var selectedLanguage by remember { mutableStateOf("de") }
+    var priceValue by remember { mutableStateOf(0.0) }
+    var priceType by remember { mutableStateOf("under") }
+    var copiesValue by remember { mutableStateOf(1) }
+    var copiesType by remember { mutableStateOf("min") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(MR.strings.filter_dialog_title)) },
+        text = {
+            Column {
+                // Dropdown für Attributauswahl
+                DropdownMenu(
+                    expanded = true,
+                    onDismissRequest = {},
+                ) {
+                    filterAttributes.forEach { attr ->
+                        DropdownMenuItem(
+                            onClick = { selectedAttribute = attr },
+                            text = { Text(getFilterDisplayName(attr)) }
+                        )
+                    }
+                }
+                // Spezialfelder je nach Attribut
+                when (selectedAttribute) {
+                    "language" -> {
+                        DropdownMenu(expanded = true, onDismissRequest = {}) {
+                            listOf("de", "en", "fr", "es", "it", "pt", "jp").forEach { code ->
+                                DropdownMenuItem(
+                                    onClick = { selectedLanguage = code },
+                                    text = { Text(getLanguageDisplayName(code)) }
+                                )
+                            }
+                        }
+                    }
+                    "currentPrice" -> {
+                        Row {
+                            DropdownMenu(expanded = true, onDismissRequest = {}) {
+                                DropdownMenuItem(onClick = { priceType = "under" }, text = { Text(stringResource(MR.strings.filter_price_under)) })
+                                DropdownMenuItem(onClick = { priceType = "over" }, text = { Text(stringResource(MR.strings.filter_price_over)) })
+                            }
+                            TextField(value = priceValue.toString(), onValueChange = { priceValue = it.toDoubleOrNull() ?: 0.0 })
+                        }
+                    }
+                    "ownedCopies" -> {
+                        Row {
+                            DropdownMenu(expanded = true, onDismissRequest = {}) {
+                                DropdownMenuItem(onClick = { copiesType = "min" }, text = { Text(stringResource(MR.strings.filter_copies_min)) })
+                                DropdownMenuItem(onClick = { copiesType = "max" }, text = { Text(stringResource(MR.strings.filter_copies_max)) })
+                            }
+                            TextField(value = copiesValue.toString(), onValueChange = { copiesValue = it.toIntOrNull() ?: 1 })
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                // Filterobjekt erstellen und zurückgeben
+                val filter = when (selectedAttribute) {
+                    "language" -> Filter("language", selectedLanguage)
+                    "currentPrice" -> Filter("currentPrice", "${priceType}:${priceValue}")
+                    "ownedCopies" -> Filter("ownedCopies", "${copiesType}:${copiesValue}")
+                    else -> Filter(selectedAttribute, "")
+                }
+                onAddFilter(filter)
+            }) {
+                Text(stringResource(MR.strings.filter_dialog_confirm))
+            }
+        },
+        dismissButton = {
+            Button(onClick = onDismiss) {
+                Text(stringResource(MR.strings.filter_dialog_cancel))
+            }
+        }
+    )
 }

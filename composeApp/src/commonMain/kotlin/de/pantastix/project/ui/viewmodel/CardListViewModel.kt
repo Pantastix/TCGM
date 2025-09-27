@@ -25,8 +25,6 @@ import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
@@ -49,6 +47,9 @@ enum class CardLanguage(val code: String, val displayName: String) {
     JAPANESE("jp", "Japanisch")
 }
 
+data class Filter(val attribute: String, val value: String)
+data class Sort(val sortBy: String, val ascending: Boolean)
+
 data class UiState(
     val isInitialized: Boolean = false,
     val cardInfos: List<PokemonCardInfo> = emptyList(),
@@ -67,7 +68,9 @@ data class UiState(
     val syncPromptMessage: String? = null,
     val disconnectPromptMessage: String? = null,
     val updateInfo: UpdateInfo? = null,
-    val setsUpdateWarning: String? = null
+    val setsUpdateWarning: String? = null,
+    val filters: List<Filter> = emptyList(),
+    val sort: Sort = Sort("nameLocal", true)
 )
 
 @OptIn(ExperimentalTime::class)
@@ -306,7 +309,7 @@ class CardListViewModel(
 //
 //    fun fetchCardDetailsByNameAndNumber(
 //        cardName: String,
-//        cardNumberInput: String, // z.B. "161/086"
+//        cardNumberInput: String // z.B. "161/086"
 //        language: CardLanguage
 //    ) {
 //        viewModelScope.launch {
@@ -802,4 +805,52 @@ class CardListViewModel(
 
     fun clearSelectedCard() = _uiState.update { it.copy(selectedCardDetails = null) }
     fun clearError() = _uiState.update { it.copy(error = null) }
+
+    fun addFilter(filter: Filter) {
+        _uiState.update { it.copy(filters = it.filters + filter) }
+        collectCardInfos()
+    }
+
+    fun removeFilter(filter: Filter) {
+        _uiState.update { it.copy(filters = it.filters - filter) }
+        collectCardInfos()
+    }
+
+    fun updateSort(sort: Sort) {
+        _uiState.update { it.copy(sort = sort) }
+        collectCardInfos()
+    }
+
+    private fun collectCardInfos() {
+        cardInfosCollectionJob?.cancel()
+        cardInfosCollectionJob = viewModelScope.launch {
+            activeCardRepository.getCardInfos()
+                .map { list ->
+                    var filteredList = list
+                    _uiState.value.filters.forEach { filter ->
+                        filteredList = filteredList.filter { cardInfo ->
+                            when (filter.attribute) {
+                                "setName" -> cardInfo.setName.contains(filter.value, ignoreCase = true)
+                                "language" -> cardInfo.language.equals(filter.value, ignoreCase = true)
+                                else -> true
+                            }
+                        }
+                    }
+
+                    val sort = _uiState.value.sort
+                    val sortedList = when (sort.sortBy) {
+                        "nameLocal" -> if (sort.ascending) filteredList.sortedBy { it.nameLocal } else filteredList.sortedByDescending { it.nameLocal }
+                        "setName" -> if (sort.ascending) filteredList.sortedBy { it.setName } else filteredList.sortedByDescending { it.setName }
+                        "currentPrice" -> if (sort.ascending) filteredList.sortedBy { it.currentPrice } else filteredList.sortedByDescending { it.currentPrice }
+                        "ownedCopies" -> if (sort.ascending) filteredList.sortedBy { it.ownedCopies } else filteredList.sortedByDescending { it.ownedCopies }
+                        "language" -> if (sort.ascending) filteredList.sortedBy { it.language } else filteredList.sortedByDescending { it.language }
+                        else -> filteredList
+                    }
+                    sortedList
+                }
+                .collect { cardInfos ->
+                    _uiState.update { it.copy(cardInfos = cardInfos) }
+                }
+        }
+    }
 }

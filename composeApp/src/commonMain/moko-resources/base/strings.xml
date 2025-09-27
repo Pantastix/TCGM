@@ -101,6 +101,18 @@
     <!-- CardCollectionScreen -->
     <string name="collection_add_card_button">Add Card</string>
     <string name="collection_add_card_button_desc">Add a new card to the collection</string>
+    <string name="filter">Filter</string>
+    <string name="sort">Sort</string>
+
+    <!-- Sort/Filter Options -->
+    <string name="filter">Filter</string>
+    <string name="sort">Sort</string>
+    <string name="attribute_name">Name</string>
+    <string name="attribute_set">Set</string>
+    <string name="attribute_price">Price</string>
+    <string name="attribute_owned">Owned</string>
+    <string name="attribute_language">Language</string>
+    <string name="unknown_attribute">-</string>
 
     <!-- AddCardScreen -->
     <string name="add_card_title">Add New Card</string>
@@ -185,7 +197,32 @@
     <string name="guide_step3_desc">Navigate to the 'API' tab in your project settings. There you will find two important pieces of information you need for the app:\n\n1. The Project URL.\n2. The 'public anon' API key (under 'Project API Keys'). Copy both values.</string>
     <string name="guide_step4_title">Enter Keys into the App</string>
     <string name="guide_step4_desc">Return to the settings page of this app. Paste the copied URL and the 'anon' key into the corresponding fields and click 'Connect &amp; Check'.</string>
-
-    <!-- CardCollectionScreen -->
-
+    <string name="filter_name">Name</string>
+    <string name="filter_set">Set</string>
+    <string name="filter_language">Language</string>
+    <string name="filter_price">Price</string>
+    <string name="filter_copies">Copies</string>
+    <string name="sort_name">Name</string>
+    <string name="sort_set">Set</string>
+    <string name="sort_language">Language</string>
+    <string name="sort_price">Price</string>
+    <string name="sort_copies">Copies</string>
+    <string name="filter_price_under">under</string>
+    <string name="filter_price_over">over</string>
+    <string name="filter_copies_min">at least</string>
+    <string name="filter_copies_max">up to</string>
+    <string name="filter_button_text">Filter</string>
+    <string name="filter_button_desc">Open filter dialog</string>
+    <string name="sort_button_text">Sort</string>
+    <string name="sort_button_desc">Open sort dialog</string>
+    <string name="filter_dialog_title">Add Filter</string>
+    <string name="filter_dialog_confirm">Add</string>
+    <string name="filter_dialog_cancel">Cancel</string>
+    <string name="language_german">German</string>
+    <string name="language_english">English</string>
+    <string name="language_french">French</string>
+    <string name="language_spanish">Spanish</string>
+    <string name="language_italian">Italian</string>
+    <string name="language_portuguese">Portuguese</string>
+    <string name="language_japanese">Japanese</string>
 </resources>
