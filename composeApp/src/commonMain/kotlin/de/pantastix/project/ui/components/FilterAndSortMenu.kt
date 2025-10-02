@@ -57,37 +57,57 @@ fun SortChip(
 }
 
 @Composable
-fun FilterAndSortControls(
+fun FilterAndSortChips(
     filters: List<Filter>,
+    sort: Sort,
+    onRemoveFilter: (Filter) -> Unit,
+    onResetSort: () -> Unit
+){
+    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),) {
+        LazyRow(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (sort.sortBy != "nameLocal") { // Don't show default sort
+                item {
+                    SortChip(sort = sort, onRemove = onResetSort)
+                }
+            }
+            items(filters) { filter ->
+                FilterChip(filter = filter, onRemove = { onRemoveFilter(filter) })
+            }
+        }
+    }
+}
+
+@Composable
+fun FilterAndSortControls(
     sort: Sort,
     onAddFilter: () -> Unit,
     onUpdateSort: (Sort) -> Unit,
-    onRemoveFilter: (Filter) -> Unit,
-    onResetSort: () -> Unit
 ) {
     var showSortMenu by remember { mutableStateOf(false) }
 
-    Column {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Chips for active filters and sort
-            LazyRow(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (sort.sortBy != "nameLocal") { // Don't show default sort
-                    item {
-                        SortChip(sort = sort, onRemove = onResetSort)
-                    }
-                }
-                items(filters) { filter ->
-                    FilterChip(filter = filter, onRemove = { onRemoveFilter(filter) })
-                }
-            }
+//            LazyRow(
+//                modifier = Modifier.weight(1f),
+//                horizontalArrangement = Arrangement.spacedBy(8.dp)
+//            ) {
+//                if (sort.sortBy != "nameLocal") { // Don't show default sort
+//                    item {
+//                        SortChip(sort = sort, onRemove = onResetSort)
+//                    }
+//                }
+//                items(filters) { filter ->
+//                    FilterChip(filter = filter, onRemove = { onRemoveFilter(filter) })
+//                }
+//            }
 
-            Spacer(modifier = Modifier.width(16.dp))
+//            Spacer(modifier = Modifier.width(16.dp))
 
             // Filter Button
             TextButton(onClick = onAddFilter) {
@@ -128,5 +148,5 @@ fun FilterAndSortControls(
                 }
             }
         }
-    }
+
 }

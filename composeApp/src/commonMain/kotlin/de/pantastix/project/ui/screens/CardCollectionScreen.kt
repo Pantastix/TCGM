@@ -1,14 +1,12 @@
 package de.pantastix.project.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -26,12 +24,18 @@ import de.pantastix.project.model.PokemonCardInfo
 import de.pantastix.project.shared.resources.MR
 import dev.icerock.moko.resources.compose.stringResource
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+
 import de.pantastix.project.ui.components.ErrorDialog
 import de.pantastix.project.ui.util.formatPrice
 import de.pantastix.project.ui.components.WarningDialog
 import de.pantastix.project.ui.viewmodel.CardListViewModel
 import androidx.compose.runtime.setValue
 import de.pantastix.project.ui.components.AddFilterDialog
+import de.pantastix.project.ui.components.FilterAndSortChips
 import de.pantastix.project.ui.components.FilterAndSortControls
 import de.pantastix.project.ui.viewmodel.Filter
 import de.pantastix.project.ui.viewmodel.Sort
@@ -89,6 +93,8 @@ fun CardCollectionScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showAddFilterDialog by remember { mutableStateOf(false) }
 
+    val shouldShowChips = uiState.filters.isNotEmpty() || uiState.sort.sortBy != "nameLocal"
+
     println("UI: Card Infos size: ${uiState.cardInfos.size}, isSupabaseConnected: ${uiState.isSupabaseConnected}")
 
     Column(modifier = Modifier.fillMaxSize()) {
@@ -99,19 +105,48 @@ fun CardCollectionScreen(
         ) {
             Button(onClick = onAddCardClick) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Add, contentDescription = stringResource(MR.strings.collection_add_card_button_desc))
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = stringResource(MR.strings.collection_add_card_button_desc)
+                    )
                 }
                 Text(stringResource(MR.strings.collection_add_card_button))
             }
+            // Fill entwire Space between items
+
+
+            FilterAndSortControls(
+//                filters = uiState.filters,
+                sort = uiState.sort,
+                onAddFilter = { showAddFilterDialog = true },
+                onUpdateSort = { viewModel.updateSort(it) },
+//                onRemoveFilter = { viewModel.removeFilter(it) },
+//                onResetSort = { viewModel.updateSort(Sort("nameLocal", true)) }
+            )
         }
-        FilterAndSortControls(
-            filters = uiState.filters,
-            sort = uiState.sort,
-            onAddFilter = { showAddFilterDialog = true },
-            onUpdateSort = { viewModel.updateSort(it) },
-            onRemoveFilter = { viewModel.removeFilter(it) },
-            onResetSort = { viewModel.updateSort(Sort("nameLocal", true)) }
-        )
+
+        AnimatedVisibility(
+            visible = shouldShowChips,
+            enter = expandVertically(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            ),
+            exit = shrinkVertically(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            )
+        ) {
+            FilterAndSortChips(
+                filters = uiState.filters,
+                sort = uiState.sort,
+                onRemoveFilter = { viewModel.removeFilter(it) },
+                onResetSort = { viewModel.updateSort(Sort("nameLocal", true)) }
+            )
+        }
 
         HorizontalDivider(
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
@@ -223,55 +258,83 @@ fun CardGridItem(cardInfo: PokemonCardInfo, onClick: () -> Unit) {
 
 }
 
-@Composable
-fun FilterAndSortControls(
-    filters: List<Filter>,
-    sort: Sort,
-    onAddFilter: () -> Unit,
-    onUpdateSort: (Sort) -> Unit,
-    onRemoveFilter: (Filter) -> Unit,
-    onResetSort: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.End // Buttons rechts
-    ) {
-        // Chips für aktive Filter und Sortierungen
-        Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.Start) {
-            filters.forEach { filter ->
-                FilterChip(
-                    onClick = { onRemoveFilter(filter) },
-                    label = {
-                        Text(getFilterDisplayName(filter.attribute))
-                    },
-                    selected = true
-                )
-            }
-            if (sort.sortBy.isNotEmpty()) {
-                FilterChip(
-                    onClick = { onResetSort() },
-                    label = {
-                        Text(getSortDisplayName(sort.sortBy))
-                    },
-                    selected = true
-                )
-            }
-        }
-        // Buttons für Filter und Sortierung
-        Column(horizontalAlignment = Alignment.End) {
-            IconButton(onClick = onAddFilter) {
-                Icon(Icons.Default.FilterList, contentDescription = stringResource(MR.strings.filter_button_desc))
-            }
-            Text(stringResource(MR.strings.filter_button_text), style = MaterialTheme.typography.labelSmall)
-            Spacer(modifier = Modifier.height(4.dp))
-            IconButton(onClick = { /* Sortiermenü öffnen */ }) {
-                Icon(Icons.Default.Sort, contentDescription = stringResource(MR.strings.sort_button_desc))
-            }
-            Text(stringResource(MR.strings.sort_button_text), style = MaterialTheme.typography.labelSmall)
-        }
-    }
-}
+//@Composable
+//fun FilterAndSortChips(
+//    filters: List<Filter>,
+//    sort: Sort,
+//    onRemoveFilter: (Filter) -> Unit,
+//    onResetSort: () -> Unit
+//){
+//    Row(horizontalArrangement = Arrangement.Start) {
+//        filters.forEach { filter ->
+//            FilterChip(
+//                onClick = { onRemoveFilter(filter) },
+//                label = {
+//                    Text(getFilterDisplayName(filter.attribute))
+//                },
+//                selected = true
+//            )
+//        }
+//        if (sort.sortBy.isNotEmpty()) {
+//            FilterChip(
+//                onClick = { onResetSort() },
+//                label = {
+//                    Text(getSortDisplayName(sort.sortBy))
+//                },
+//                selected = true
+//            )
+//        }
+//    }
+//}
+//
+//@Composable
+//fun FilterAndSortControls(
+////    filters: List<Filter>,
+////    sort: Sort,
+//    onAddFilter: () -> Unit,
+////    onRemoveFilter: (Filter) -> Unit,
+////    onResetSort: () -> Unit
+//) {
+//    Row(
+//        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+//        verticalAlignment = Alignment.CenterVertically,
+//        horizontalArrangement = Arrangement.End // Buttons rechts
+//    ) {
+//        // Chips für aktive Filter und Sortierungen
+////        Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.Start) {
+////            filters.forEach { filter ->
+////                FilterChip(
+////                    onClick = { onRemoveFilter(filter) },
+////                    label = {
+////                        Text(getFilterDisplayName(filter.attribute))
+////                    },
+////                    selected = true
+////                )
+////            }
+////            if (sort.sortBy.isNotEmpty()) {
+////                FilterChip(
+////                    onClick = { onResetSort() },
+////                    label = {
+////                        Text(getSortDisplayName(sort.sortBy))
+////                    },
+////                    selected = true
+////                )
+////            }
+////        }
+//        // Buttons für Filter und Sortierung
+//        Column(horizontalAlignment = Alignment.End) {
+//            IconButton(onClick = onAddFilter) {
+//                Icon(Icons.Default.FilterList, contentDescription = stringResource(MR.strings.filter_button_desc))
+//            }
+//            Text(stringResource(MR.strings.filter_button_text), style = MaterialTheme.typography.labelSmall)
+//            Spacer(modifier = Modifier.height(4.dp))
+//            IconButton(onClick = { /* Sortiermenü öffnen */ }) {
+//                Icon(Icons.Default.Sort, contentDescription = stringResource(MR.strings.sort_button_desc))
+//            }
+//            Text(stringResource(MR.strings.sort_button_text), style = MaterialTheme.typography.labelSmall)
+//        }
+//    }
+//}
 
 // Dialog für Filterauswahl inkl. Preis- und Kopienfilter
 @Composable
@@ -314,22 +377,36 @@ fun AddFilterDialog(
                             }
                         }
                     }
+
                     "currentPrice" -> {
                         Row {
                             DropdownMenu(expanded = true, onDismissRequest = {}) {
-                                DropdownMenuItem(onClick = { priceType = "under" }, text = { Text(stringResource(MR.strings.filter_price_under)) })
-                                DropdownMenuItem(onClick = { priceType = "over" }, text = { Text(stringResource(MR.strings.filter_price_over)) })
+                                DropdownMenuItem(
+                                    onClick = { priceType = "under" },
+                                    text = { Text(stringResource(MR.strings.filter_price_under)) })
+                                DropdownMenuItem(
+                                    onClick = { priceType = "over" },
+                                    text = { Text(stringResource(MR.strings.filter_price_over)) })
                             }
-                            TextField(value = priceValue.toString(), onValueChange = { priceValue = it.toDoubleOrNull() ?: 0.0 })
+                            TextField(
+                                value = priceValue.toString(),
+                                onValueChange = { priceValue = it.toDoubleOrNull() ?: 0.0 })
                         }
                     }
+
                     "ownedCopies" -> {
                         Row {
                             DropdownMenu(expanded = true, onDismissRequest = {}) {
-                                DropdownMenuItem(onClick = { copiesType = "min" }, text = { Text(stringResource(MR.strings.filter_copies_min)) })
-                                DropdownMenuItem(onClick = { copiesType = "max" }, text = { Text(stringResource(MR.strings.filter_copies_max)) })
+                                DropdownMenuItem(
+                                    onClick = { copiesType = "min" },
+                                    text = { Text(stringResource(MR.strings.filter_copies_min)) })
+                                DropdownMenuItem(
+                                    onClick = { copiesType = "max" },
+                                    text = { Text(stringResource(MR.strings.filter_copies_max)) })
                             }
-                            TextField(value = copiesValue.toString(), onValueChange = { copiesValue = it.toIntOrNull() ?: 1 })
+                            TextField(
+                                value = copiesValue.toString(),
+                                onValueChange = { copiesValue = it.toIntOrNull() ?: 1 })
                         }
                     }
                 }
