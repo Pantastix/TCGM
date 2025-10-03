@@ -37,7 +37,6 @@ import androidx.compose.runtime.setValue
 import de.pantastix.project.ui.components.AddFilterDialog
 import de.pantastix.project.ui.components.FilterAndSortChips
 import de.pantastix.project.ui.components.FilterAndSortControls
-import de.pantastix.project.ui.viewmodel.Filter
 import de.pantastix.project.ui.viewmodel.Sort
 
 // Hilfsfunktionen für Übersetzungen
@@ -90,7 +89,9 @@ fun CardCollectionScreen(
     onCardClick: (Long) -> Unit
 ) {
 
+    val maxFilterAmount = 3
     val uiState by viewModel.uiState.collectAsState()
+    val availableLanguages by viewModel.availableLanguages.collectAsState()
     var showAddFilterDialog by remember { mutableStateOf(false) }
 
     val shouldShowChips = uiState.filters.isNotEmpty() || uiState.sort.sortBy != "nameLocal"
@@ -116,12 +117,10 @@ fun CardCollectionScreen(
 
 
             FilterAndSortControls(
-//                filters = uiState.filters,
                 sort = uiState.sort,
+                isAddFilterEnabled = uiState.filters.size < maxFilterAmount, // Button deaktivieren, wenn 3 Filter aktiv sind
                 onAddFilter = { showAddFilterDialog = true },
                 onUpdateSort = { viewModel.updateSort(it) },
-//                onRemoveFilter = { viewModel.removeFilter(it) },
-//                onResetSort = { viewModel.updateSort(Sort("nameLocal", true)) }
             )
         }
 
@@ -199,6 +198,7 @@ fun CardCollectionScreen(
 
     if (showAddFilterDialog) {
         AddFilterDialog(
+            availableLanguages = availableLanguages,
             onDismiss = { showAddFilterDialog = false },
             onAddFilter = { filter ->
                 viewModel.addFilter(filter)
@@ -258,178 +258,101 @@ fun CardGridItem(cardInfo: PokemonCardInfo, onClick: () -> Unit) {
 
 }
 
-//@Composable
-//fun FilterAndSortChips(
-//    filters: List<Filter>,
-//    sort: Sort,
-//    onRemoveFilter: (Filter) -> Unit,
-//    onResetSort: () -> Unit
-//){
-//    Row(horizontalArrangement = Arrangement.Start) {
-//        filters.forEach { filter ->
-//            FilterChip(
-//                onClick = { onRemoveFilter(filter) },
-//                label = {
-//                    Text(getFilterDisplayName(filter.attribute))
-//                },
-//                selected = true
-//            )
-//        }
-//        if (sort.sortBy.isNotEmpty()) {
-//            FilterChip(
-//                onClick = { onResetSort() },
-//                label = {
-//                    Text(getSortDisplayName(sort.sortBy))
-//                },
-//                selected = true
-//            )
-//        }
-//    }
-//}
-//
-//@Composable
-//fun FilterAndSortControls(
-////    filters: List<Filter>,
-////    sort: Sort,
-//    onAddFilter: () -> Unit,
-////    onRemoveFilter: (Filter) -> Unit,
-////    onResetSort: () -> Unit
-//) {
-//    Row(
-//        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-//        verticalAlignment = Alignment.CenterVertically,
-//        horizontalArrangement = Arrangement.End // Buttons rechts
-//    ) {
-//        // Chips für aktive Filter und Sortierungen
-////        Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.Start) {
-////            filters.forEach { filter ->
-////                FilterChip(
-////                    onClick = { onRemoveFilter(filter) },
-////                    label = {
-////                        Text(getFilterDisplayName(filter.attribute))
-////                    },
-////                    selected = true
-////                )
-////            }
-////            if (sort.sortBy.isNotEmpty()) {
-////                FilterChip(
-////                    onClick = { onResetSort() },
-////                    label = {
-////                        Text(getSortDisplayName(sort.sortBy))
-////                    },
-////                    selected = true
-////                )
-////            }
-////        }
-//        // Buttons für Filter und Sortierung
-//        Column(horizontalAlignment = Alignment.End) {
-//            IconButton(onClick = onAddFilter) {
-//                Icon(Icons.Default.FilterList, contentDescription = stringResource(MR.strings.filter_button_desc))
-//            }
-//            Text(stringResource(MR.strings.filter_button_text), style = MaterialTheme.typography.labelSmall)
-//            Spacer(modifier = Modifier.height(4.dp))
-//            IconButton(onClick = { /* Sortiermenü öffnen */ }) {
-//                Icon(Icons.Default.Sort, contentDescription = stringResource(MR.strings.sort_button_desc))
-//            }
-//            Text(stringResource(MR.strings.sort_button_text), style = MaterialTheme.typography.labelSmall)
-//        }
-//    }
-//}
 
 // Dialog für Filterauswahl inkl. Preis- und Kopienfilter
-@Composable
-fun AddFilterDialog(
-    onDismiss: () -> Unit,
-    onAddFilter: (Filter) -> Unit
-) {
-    var selectedAttribute by remember { mutableStateOf(filterAttributes.first()) }
-    var selectedLanguage by remember { mutableStateOf("de") }
-    var priceValue by remember { mutableStateOf(0.0) }
-    var priceType by remember { mutableStateOf("under") }
-    var copiesValue by remember { mutableStateOf(1) }
-    var copiesType by remember { mutableStateOf("min") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(MR.strings.filter_dialog_title)) },
-        text = {
-            Column {
-                // Dropdown für Attributauswahl
-                DropdownMenu(
-                    expanded = true,
-                    onDismissRequest = {},
-                ) {
-                    filterAttributes.forEach { attr ->
-                        DropdownMenuItem(
-                            onClick = { selectedAttribute = attr },
-                            text = { Text(getFilterDisplayName(attr)) }
-                        )
-                    }
-                }
-                // Spezialfelder je nach Attribut
-                when (selectedAttribute) {
-                    "language" -> {
-                        DropdownMenu(expanded = true, onDismissRequest = {}) {
-                            listOf("de", "en", "fr", "es", "it", "pt", "jp").forEach { code ->
-                                DropdownMenuItem(
-                                    onClick = { selectedLanguage = code },
-                                    text = { Text(getLanguageDisplayName(code)) }
-                                )
-                            }
-                        }
-                    }
-
-                    "currentPrice" -> {
-                        Row {
-                            DropdownMenu(expanded = true, onDismissRequest = {}) {
-                                DropdownMenuItem(
-                                    onClick = { priceType = "under" },
-                                    text = { Text(stringResource(MR.strings.filter_price_under)) })
-                                DropdownMenuItem(
-                                    onClick = { priceType = "over" },
-                                    text = { Text(stringResource(MR.strings.filter_price_over)) })
-                            }
-                            TextField(
-                                value = priceValue.toString(),
-                                onValueChange = { priceValue = it.toDoubleOrNull() ?: 0.0 })
-                        }
-                    }
-
-                    "ownedCopies" -> {
-                        Row {
-                            DropdownMenu(expanded = true, onDismissRequest = {}) {
-                                DropdownMenuItem(
-                                    onClick = { copiesType = "min" },
-                                    text = { Text(stringResource(MR.strings.filter_copies_min)) })
-                                DropdownMenuItem(
-                                    onClick = { copiesType = "max" },
-                                    text = { Text(stringResource(MR.strings.filter_copies_max)) })
-                            }
-                            TextField(
-                                value = copiesValue.toString(),
-                                onValueChange = { copiesValue = it.toIntOrNull() ?: 1 })
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(onClick = {
-                // Filterobjekt erstellen und zurückgeben
-                val filter = when (selectedAttribute) {
-                    "language" -> Filter("language", selectedLanguage)
-                    "currentPrice" -> Filter("currentPrice", "${priceType}:${priceValue}")
-                    "ownedCopies" -> Filter("ownedCopies", "${copiesType}:${copiesValue}")
-                    else -> Filter(selectedAttribute, "")
-                }
-                onAddFilter(filter)
-            }) {
-                Text(stringResource(MR.strings.filter_dialog_confirm))
-            }
-        },
-        dismissButton = {
-            Button(onClick = onDismiss) {
-                Text(stringResource(MR.strings.filter_dialog_cancel))
-            }
-        }
-    )
-}
+//@Composable
+//fun AddFilterDialog(
+//    onDismiss: () -> Unit,
+//    onAddFilter: (Filter) -> Unit
+//) {
+//    var selectedAttribute by remember { mutableStateOf(filterAttributes.first()) }
+//    var selectedLanguage by remember { mutableStateOf("de") }
+//    var priceValue by remember { mutableStateOf(0.0) }
+//    var priceType by remember { mutableStateOf("under") }
+//    var copiesValue by remember { mutableStateOf(1) }
+//    var copiesType by remember { mutableStateOf("min") }
+//    AlertDialog(
+//        onDismissRequest = onDismiss,
+//        title = { Text(stringResource(MR.strings.filter_dialog_title)) },
+//        text = {
+//            Column {
+//                // Dropdown für Attributauswahl
+//                DropdownMenu(
+//                    expanded = true,
+//                    onDismissRequest = {},
+//                ) {
+//                    filterAttributes.forEach { attr ->
+//                        DropdownMenuItem(
+//                            onClick = { selectedAttribute = attr },
+//                            text = { Text(getFilterDisplayName(attr)) }
+//                        )
+//                    }
+//                }
+//                // Spezialfelder je nach Attribut
+//                when (selectedAttribute) {
+//                    "language" -> {
+//                        DropdownMenu(expanded = true, onDismissRequest = {}) {
+//                            listOf("de", "en", "fr", "es", "it", "pt", "jp").forEach { code ->
+//                                DropdownMenuItem(
+//                                    onClick = { selectedLanguage = code },
+//                                    text = { Text(getLanguageDisplayName(code)) }
+//                                )
+//                            }
+//                        }
+//                    }
+//
+//                    "currentPrice" -> {
+//                        Row {
+//                            DropdownMenu(expanded = true, onDismissRequest = {}) {
+//                                DropdownMenuItem(
+//                                    onClick = { priceType = "under" },
+//                                    text = { Text(stringResource(MR.strings.filter_price_under)) })
+//                                DropdownMenuItem(
+//                                    onClick = { priceType = "over" },
+//                                    text = { Text(stringResource(MR.strings.filter_price_over)) })
+//                            }
+//                            TextField(
+//                                value = priceValue.toString(),
+//                                onValueChange = { priceValue = it.toDoubleOrNull() ?: 0.0 })
+//                        }
+//                    }
+//
+//                    "ownedCopies" -> {
+//                        Row {
+//                            DropdownMenu(expanded = true, onDismissRequest = {}) {
+//                                DropdownMenuItem(
+//                                    onClick = { copiesType = "min" },
+//                                    text = { Text(stringResource(MR.strings.filter_copies_min)) })
+//                                DropdownMenuItem(
+//                                    onClick = { copiesType = "max" },
+//                                    text = { Text(stringResource(MR.strings.filter_copies_max)) })
+//                            }
+//                            TextField(
+//                                value = copiesValue.toString(),
+//                                onValueChange = { copiesValue = it.toIntOrNull() ?: 1 })
+//                        }
+//                    }
+//                }
+//            }
+//        },
+//        confirmButton = {
+//            Button(onClick = {
+//                // Filterobjekt erstellen und zurückgeben
+//                val filter = when (selectedAttribute) {
+//                    "language" -> Filter("language", selectedLanguage)
+//                    "currentPrice" -> Filter("currentPrice", "${priceType}:${priceValue}")
+//                    "ownedCopies" -> Filter("ownedCopies", "${copiesType}:${copiesValue}")
+//                    else -> Filter(selectedAttribute, "")
+//                }
+//                onAddFilter(filter)
+//            }) {
+//                Text(stringResource(MR.strings.filter_dialog_confirm))
+//            }
+//        },
+//        dismissButton = {
+//            Button(onClick = onDismiss) {
+//                Text(stringResource(MR.strings.filter_dialog_cancel))
+//            }
+//        }
+//    )
+//}

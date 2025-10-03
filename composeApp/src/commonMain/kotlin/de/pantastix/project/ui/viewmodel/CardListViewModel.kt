@@ -47,7 +47,24 @@ enum class CardLanguage(val code: String, val displayName: String) {
     JAPANESE("jp", "Japanisch")
 }
 
-data class Filter(val attribute: String, val value: String)
+/**
+ * Definiert die verschiedenen Arten von Filtern, die angewendet werden können.
+ * Eine sealed class stellt sicher, dass wir alle möglichen Filtertypen kennen.
+ */
+sealed class FilterCondition {
+    data class ByName(val nameQuery: String) : FilterCondition()
+    data class ByLanguage(val languageCode: String) : FilterCondition()
+    data class ByNumericValue(
+        val attribute: NumericAttribute,
+        val comparison: ComparisonType,
+        val value: Double
+    ) : FilterCondition()
+    // Hier kann später z.B. ein BySet Filter hinzugefügt werden.
+}
+
+enum class NumericAttribute { OWNED_COPIES, CURRENT_PRICE }
+enum class ComparisonType { EQUAL, GREATER_THAN, LESS_THAN }
+
 data class Sort(val sortBy: String, val ascending: Boolean)
 
 data class UiState(
@@ -69,7 +86,7 @@ data class UiState(
     val disconnectPromptMessage: String? = null,
     val updateInfo: UpdateInfo? = null,
     val setsUpdateWarning: String? = null,
-    val filters: List<Filter> = emptyList(),
+    val filters: List<FilterCondition> = emptyList(),
     val sort: Sort = Sort("nameLocal", true)
 )
 
@@ -97,6 +114,13 @@ class CardListViewModel(
         }
 
     /**
+     * Stellt eine reaktive Liste der in der Sammlung verfügbaren Sprachen für die UI bereit.
+     */
+    val availableLanguages: StateFlow<List<String>> = uiState
+        .map { state -> state.cardInfos.map { it.language }.distinct() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /**
      * Initializes the ViewModel by loading initial data and setting up the environment.
      */
     fun initialize() {
@@ -120,7 +144,14 @@ class CardListViewModel(
                 _uiState.update { it.copy(loadingMessage = "Lade Kartensammlung...") }
                 startBackgroundDataListeners()
                 val update = UpdateChecker.checkForUpdate()
-                _uiState.update { it.copy(isInitialized = true, updateInfo = update, isLoading = false, loadingMessage = null) }
+                _uiState.update {
+                    it.copy(
+                        isInitialized = true,
+                        updateInfo = update,
+                        isLoading = false,
+                        loadingMessage = null
+                    )
+                }
             } else {
                 // Beim Erststart bleibt die App im Fehlerzustand, wenn das Laden fehlschlägt.
                 _uiState.update { it.copy(isLoading = false, loadingMessage = null) }
@@ -135,9 +166,9 @@ class CardListViewModel(
      */
     private suspend fun handleFirstLaunchSetLoading(): Boolean {
         for (attempt in 1..3) {
-            if( attempt > 1) {
+            if (attempt > 1) {
                 _uiState.update { it.copy(loadingMessage = "Lade Set-Informationen (Versuch $attempt/3)...") }
-            }else{
+            } else {
                 _uiState.update { it.copy(loadingMessage = "Lade Set-Informationen") }
             }
             val setsFromApi = apiService.getAllSets(uiState.value.appLanguage.code)
@@ -661,16 +692,17 @@ class CardListViewModel(
     }
 
     private fun startBackgroundDataListeners() {
-        listenForCardUpdates()
+//        listenForCardUpdates()
+        collectCardInfos()
         listenForSetUpdates()
     }
 
-    private fun listenForCardUpdates() {
-        cardInfosCollectionJob?.cancel()
-        cardInfosCollectionJob = activeCardRepository.getCardInfos()
-            .onEach { cards -> _uiState.update { it.copy(cardInfos = cards) } }
-            .launchIn(viewModelScope)
-    }
+//    private fun listenForCardUpdates() {
+//        cardInfosCollectionJob?.cancel()
+//        cardInfosCollectionJob = activeCardRepository.getCardInfos()
+//            .onEach { cards -> _uiState.update { it.copy(cardInfos = cards) } }
+//            .launchIn(viewModelScope)
+//    }
 
     private fun listenForSetUpdates() {
         setsCollectionJob?.cancel()
@@ -799,19 +831,25 @@ class CardListViewModel(
     fun resetApiCardDetails() {
         _uiState.update { it.copy(apiCardDetails = null, englishApiCardDetails = null, searchedCardLanguage = null) }
     }
+
     private fun setLoading(isLoading: Boolean, message: String? = null) =
         _uiState.update { it.copy(isLoading = isLoading, loadingMessage = message) }
-    fun dismissSetsUpdateWarning() { _uiState.update { it.copy(setsUpdateWarning = null) } }
+
+    fun dismissSetsUpdateWarning() {
+        _uiState.update { it.copy(setsUpdateWarning = null) }
+    }
 
     fun clearSelectedCard() = _uiState.update { it.copy(selectedCardDetails = null) }
     fun clearError() = _uiState.update { it.copy(error = null) }
 
-    fun addFilter(filter: Filter) {
+    fun addFilter(filter: FilterCondition) {
+        // Sicherheitsabfrage, um das Limit von 3 Filtern durchzusetzen
+        if (_uiState.value.filters.size >= 3) return
         _uiState.update { it.copy(filters = it.filters + filter) }
         collectCardInfos()
     }
 
-    fun removeFilter(filter: Filter) {
+    fun removeFilter(filter: FilterCondition) {
         _uiState.update { it.copy(filters = it.filters - filter) }
         collectCardInfos()
     }
@@ -821,22 +859,46 @@ class CardListViewModel(
         collectCardInfos()
     }
 
+    /**
+     * Diese Funktion ist jetzt der zentrale Punkt für Filterung und Sortierung.
+     * Sie wird jedes Mal aufgerufen, wenn sich Filter oder Sortierung ändern.
+     */
     private fun collectCardInfos() {
         cardInfosCollectionJob?.cancel()
         cardInfosCollectionJob = viewModelScope.launch {
             activeCardRepository.getCardInfos()
                 .map { list ->
+                    // 1. Filter anwenden
                     var filteredList = list
                     _uiState.value.filters.forEach { filter ->
                         filteredList = filteredList.filter { cardInfo ->
-                            when (filter.attribute) {
-                                "setName" -> cardInfo.setName.contains(filter.value, ignoreCase = true)
-                                "language" -> cardInfo.language.equals(filter.value, ignoreCase = true)
-                                else -> true
+                            when (filter) {
+                                is FilterCondition.ByName -> cardInfo.nameLocal.contains(
+                                    filter.nameQuery,
+                                    ignoreCase = true
+                                )
+
+                                is FilterCondition.ByLanguage -> cardInfo.language.equals(
+                                    filter.languageCode,
+                                    ignoreCase = true
+                                )
+
+                                is FilterCondition.ByNumericValue -> {
+                                    val cardValue = when (filter.attribute) {
+                                        NumericAttribute.OWNED_COPIES -> cardInfo.ownedCopies.toDouble()
+                                        NumericAttribute.CURRENT_PRICE -> cardInfo.currentPrice ?: 0.0
+                                    }
+                                    when (filter.comparison) {
+                                        ComparisonType.EQUAL -> cardValue == filter.value
+                                        ComparisonType.GREATER_THAN -> cardValue > filter.value
+                                        ComparisonType.LESS_THAN -> cardValue < filter.value
+                                    }
+                                }
                             }
                         }
                     }
 
+                    // 2. Sortierung anwenden
                     val sort = _uiState.value.sort
                     val sortedList = when (sort.sortBy) {
                         "nameLocal" -> if (sort.ascending) filteredList.sortedBy { it.nameLocal } else filteredList.sortedByDescending { it.nameLocal }
