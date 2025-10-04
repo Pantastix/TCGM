@@ -39,7 +39,8 @@ interface CardRepository {
         ownedCopies: Int,
         notes: String?,
         currentPrice: Double?,
-        lastPriceUpdate: String?
+        lastPriceUpdate: String?,
+        selectedPriceSource: String?,
     )
 
     suspend fun findExistingCard(setId: String, localId: String, language: String): PokemonCardInfo?

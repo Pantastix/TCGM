@@ -61,6 +61,7 @@ fun SupabaseGuideScreen(onBack: () -> Unit) {
             "regulationMark" TEXT,
             "currentPrice" DOUBLE PRECISION,
             "lastPriceUpdate" TEXT,
+            "selectedPriceSource" TEXT,
             "variantsJson" TEXT,
             "abilitiesJson" TEXT,
             "attacksJson" TEXT,

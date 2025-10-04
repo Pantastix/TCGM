@@ -14,6 +14,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
+
 class SupabaseCardRepository(
     private val postgrest: Postgrest
 ) : CardRepository {
@@ -46,6 +47,7 @@ class SupabaseCardRepository(
             regulationMark = this.regulationMark,
             currentPrice = this.currentPrice,
             lastPriceUpdate = this.lastPriceUpdate,
+            selectedPriceSource = this.selectedPriceSource,
             variantsJson = null, // Nicht im PokemonCard Modell enthalten
             abilitiesJson = jsonParser.encodeToString(ListSerializer(Ability.serializer()), this.abilities),
             attacksJson = jsonParser.encodeToString(ListSerializer(Attack.serializer()), this.attacks),
@@ -68,6 +70,7 @@ class SupabaseCardRepository(
             localId = this.localId,
             currentPrice = this.currentPrice,
             lastPriceUpdate = this.lastPriceUpdate,
+            selectedPriceSource = this.selectedPriceSource,
             rarity = this.rarity,
             hp = this.hp,
             types = this.types?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList(),
@@ -126,6 +129,7 @@ class SupabaseCardRepository(
                 localId = data.localId,
                 currentPrice = data.currentPrice,
                 lastPriceUpdate = data.lastPriceUpdate,
+                selectedPriceSource = data.selectedPriceSource,
                 rarity = data.rarity,
                 hp = data.hp,
                 types = data.types?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList(),
@@ -154,12 +158,20 @@ class SupabaseCardRepository(
         postgrest.from(cardsTable).insert(supabaseCard)
     }
 
-    override suspend fun updateCardUserData(cardId: Long, ownedCopies: Int, notes: String?, currentPrice: Double?, lastPriceUpdate: String?) {
+    override suspend fun updateCardUserData(
+        cardId: Long,
+        ownedCopies: Int,
+        notes: String?,
+        currentPrice: Double?,
+        lastPriceUpdate: String?,
+        selectedPriceSource: String?,
+    ) {
         postgrest.from(cardsTable).update({
             set("ownedCopies", ownedCopies)
             set("notes", notes)
             set("currentPrice", currentPrice)
             set("lastPriceUpdate", lastPriceUpdate)
+            set("selectedPriceSource", selectedPriceSource)
         }) {
             filter { eq("id", cardId) }
         }

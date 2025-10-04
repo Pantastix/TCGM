@@ -125,7 +125,7 @@ fun DesktopApp(
                             EditCardScreen(
                                 card = uiState.selectedCardDetails!!,
                                 onSave = { id, copies, notes, price ->
-                                    viewModel.updateCard(id, copies, notes, price)
+                                    viewModel.updateCard(id, copies, notes, price, null)//TODO: Add price source
                                     isEditing = false // Nach dem Speichern zurück in den Ansichtsmodus
                                 },
                                 onCancel = { isEditing = false } // Zurück in den Ansichtsmodus

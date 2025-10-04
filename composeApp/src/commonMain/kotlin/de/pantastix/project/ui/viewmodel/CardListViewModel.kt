@@ -498,7 +498,8 @@ class CardListViewModel(
         price: Double?,
         cardMarketLink: String,
         ownedCopies: Int,
-        notes: String?
+        notes: String?,
+        selectedPriceSource: String?
     ) {
         viewModelScope.launch {
             setLoading(true)
@@ -517,7 +518,8 @@ class CardListViewModel(
                     ownedCopies = existingCard.ownedCopies + ownedCopies,
                     notes = notes,
                     currentPrice = price ?: existingCard.currentPrice,
-                    lastPriceUpdate = if (price != null) Clock.System.now().toString() else null
+                    lastPriceUpdate = if (price != null) Clock.System.now().toString() else null,
+                    selectedPriceSource = selectedPriceSource
                 )
             } else {
                 saveNewCard(
@@ -528,7 +530,8 @@ class CardListViewModel(
                     languageCode,
                     cardMarketLink,
                     ownedCopies,
-                    notes
+                    notes,
+                    selectedPriceSource
                 )
             }
 
@@ -595,7 +598,8 @@ class CardListViewModel(
         cardId: Long,
         ownedCopies: Int,
         notes: String?,
-        currentPrice: Double?
+        currentPrice: Double?,
+        selectedPriceSource: String?
     ) {
         viewModelScope.launch {
             setLoading(true)
@@ -604,7 +608,8 @@ class CardListViewModel(
                 ownedCopies = ownedCopies,
                 notes = notes,
                 currentPrice = currentPrice,
-                lastPriceUpdate = if (currentPrice != null) Clock.System.now().toString() else null
+                lastPriceUpdate = if (currentPrice != null) Clock.System.now().toString() else null,
+                selectedPriceSource = selectedPriceSource
             )
             // Lade die Kartendetails neu, um die Änderungen in der UI anzuzeigen
             loadCardInfos()
@@ -621,7 +626,8 @@ class CardListViewModel(
         languageCode: String,
         marketLink: String,
         ownedCopies: Int,
-        notes: String?
+        notes: String?,
+        selectedPriceSource: String?
     ) {
         val completeImageUrl = localCardDetails.image?.let { "$it/high.jpg" }
 
@@ -639,6 +645,7 @@ class CardListViewModel(
             localId = "${localCardDetails.localId} / ${localCardDetails.set.cardCount?.official ?: '?'}",
             currentPrice = price,
             lastPriceUpdate = if (price != null) Clock.System.now().toString() else null,
+            selectedPriceSource = selectedPriceSource,
             rarity = localCardDetails.rarity,
             hp = localCardDetails.hp,
             types = localCardDetails.types ?: emptyList(),

@@ -41,7 +41,7 @@ fun EditCardFlow(
                         EditCardScreen(
                             card = cardToEdit,
                             onSave = { id, copies, notes, price ->
-                                viewModel.updateCard(id, copies, notes, price)
+                                viewModel.updateCard(id, copies, notes, price, null) //TODO: Add Price Source
                                 onDismiss()
                             },
                             onCancel = onDismiss
@@ -54,7 +54,7 @@ fun EditCardFlow(
                     EditCardScreen(
                         card = cardToEdit,
                         onSave = { id, copies, notes, price ->
-                            viewModel.updateCard(id, copies, notes, price)
+                            viewModel.updateCard(id, copies, notes, price, null) //TODO: Add Price Source
                             onDismiss()
                         },
                         onCancel = onDismiss

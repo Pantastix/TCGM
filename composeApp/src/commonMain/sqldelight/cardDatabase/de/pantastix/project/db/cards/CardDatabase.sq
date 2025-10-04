@@ -40,6 +40,7 @@ CREATE TABLE PokemonCardEntity (
     -- HIER SIND DIE PREIS-FELDER:
     currentPrice REAL,
     lastPriceUpdate TEXT,
+    selectedPriceSource TEXT,
 
     -- Komplexe Daten als JSON-Strings
     variantsJson TEXT,
@@ -87,9 +88,9 @@ insertCard:
 INSERT INTO PokemonCardEntity (
     setId, tcgDexCardId, nameLocal, nameEn, language, localId, imageUrl, cardMarketLink,
     ownedCopies, notes, rarity, hp, types, illustrator, stage, retreatCost,
-    regulationMark, currentPrice, lastPriceUpdate, variantsJson,
+    regulationMark, currentPrice, lastPriceUpdate, selectedPriceSource, variantsJson,
     abilitiesJson, attacksJson, legalJson
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 
 selectAllCardInfos:
@@ -131,7 +132,8 @@ UPDATE PokemonCardEntity
 SET ownedCopies = :ownedCopies,
     notes = :notes,
     currentPrice = :currentPrice,
-    lastPriceUpdate = :lastPriceUpdate
+    lastPriceUpdate = :lastPriceUpdate,
+    selectedPriceSource = :selectedPriceSource
 WHERE id = :id;
 
 

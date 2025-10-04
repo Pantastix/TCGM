@@ -44,7 +44,8 @@ fun FinalAddCardScreen(
         price: Double?,
         marketLink: String,
         quantity: Int,
-        notes: String?
+        notes: String?,
+        selectedPriceSource: String?,
     ) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -199,7 +200,10 @@ fun FinalAddCardScreen(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = priceInput,
-                onValueChange = { priceInput = it },
+                onValueChange = {
+                    priceInput = it
+                    selectedPriceSchema = null
+                },
                 label = { Text(stringResource(MR.strings.final_add_card_purchase_price_label)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.weight(1f)
@@ -369,6 +373,16 @@ fun FinalAddCardScreen(
                     Button(
                         onClick = {
                             val quantity = quantityInput.toIntOrNull() ?: 1
+
+                            val priceSource = when {
+                                selectedPriceSchema != null -> {
+                                    val baseName = selectedPriceSchema!!.name.lowercase()
+                                    if (isHolo) "${baseName}-holo" else baseName
+                                }
+                                priceInput.isNotBlank() -> "CUSTOM"
+                                else -> null
+                            }
+
                             onConfirm(
                                 cardDetails,
                                 nameInput,
@@ -376,7 +390,8 @@ fun FinalAddCardScreen(
                                 priceInput.replace(",", ".").toDoubleOrNull(),
                                 linkInput,
                                 quantity,
-                                notesInput.ifBlank { null }
+                                notesInput.ifBlank { null },
+                                priceSource,
                             )
                         },
                         modifier = Modifier.weight(1f)
