@@ -105,6 +105,7 @@
     <string name="collection_add_card_button_desc">Add a new card to the collection</string>
     <string name="filter">Filter</string>
     <string name="sort">Sort</string>
+    <string name="collection_reload_prices_button">Update all Prices</string>
 
     <!-- Sort/Filter Options -->
     <string name="filter">Filter</string>

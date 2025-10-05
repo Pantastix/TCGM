@@ -101,6 +101,7 @@
     <string name="collection_add_card_button_desc">Eine neue Karte zur Sammlung hinzufügen</string>
     <string name="filter">Filter</string>
     <string name="sort">Sortieren</string>
+    <string name="collection_reload_prices_button">alle Preise aktualisieren</string>
 
     <!-- Sort/Filter Options -->
     <string name="filter">Filter</string>
