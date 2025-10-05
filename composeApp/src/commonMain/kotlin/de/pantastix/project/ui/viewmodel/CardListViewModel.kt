@@ -14,11 +14,13 @@ import de.pantastix.project.repository.SettingsRepository
 import de.pantastix.project.repository.SupabaseCardRepository
 import de.pantastix.project.service.TcgApiService
 import de.pantastix.project.service.UpdateChecker
+import de.pantastix.project.ui.screens.PriceSchema
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlin.time.Clock as KotlinClock
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
 import io.github.jan.supabase.createSupabaseClient
@@ -457,6 +459,75 @@ class CardListViewModel(
                         isLoading = false
                     )
                 }
+            }
+        }
+    }
+
+    /**
+     * Ruft den Preis für eine spezifische Karte basierend auf ihrer gespeicherten
+     * Preisquelle erneut von der API ab und aktualisiert den Datenbankeintrag.
+     */
+    fun refreshCardPrice(card: PokemonCard) {
+        viewModelScope.launch {
+            val priceSource = card.selectedPriceSource
+            if (priceSource.isNullOrBlank() || priceSource == "CUSTOM") {
+                return@launch // Nichts tun, wenn keine Quelle gespeichert ist
+            }
+
+            _uiState.update { it.copy(isLoading = true) }
+
+            val localId = card.localId.split(" / ").firstOrNull()?.trim()
+            if (localId.isNullOrBlank()) {
+                _uiState.update { it.copy(isLoading = false, error = "Konnte Karten-ID nicht extrahieren.") }
+                return@launch
+            }
+
+            val apiDetails = apiService.getCardDetails(card.setId, localId, card.language)
+            val newPrice = apiDetails?.let { extractPriceFromDetails(it, priceSource) }
+
+            if (newPrice != null) {
+                activeCardRepository.updateCardUserData(
+                    cardId = card.id!!,
+                    ownedCopies = card.ownedCopies,
+                    notes = card.notes,
+                    currentPrice = newPrice,
+                    lastPriceUpdate = KotlinClock.System.now().toString(),
+                    selectedPriceSource = card.selectedPriceSource // Die Quelle bleibt gleich
+                )
+                // Lade die Details neu, um die UI zu aktualisieren
+                selectCard(card.id)
+            } else {
+                _uiState.update { it.copy(error = "Preis konnte nicht aktualisiert werden.") }
+            }
+
+            _uiState.update { it.copy(isLoading = false) }
+        }
+    }
+
+    /**
+     * Hilfsfunktion, um den korrekten Preis aus den API-Details zu extrahieren.
+     */
+    private fun extractPriceFromDetails(details: TcgDexCardResponse, source: String): Double? {
+        val pricing = details.pricing?.cardmarket ?: return null
+        val isHolo = source.endsWith("-holo")
+        val schemaName = source.removeSuffix("-holo").uppercase()
+        val schema = PriceSchema.entries.find { it.name == schemaName } ?: return null
+
+        return if (isHolo) {
+            when (schema) {
+                PriceSchema.TREND -> pricing.`trend-holo`
+                PriceSchema.AVG1 -> pricing.`avg1-holo`
+                PriceSchema.AVG7 -> pricing.`avg7-holo`
+                PriceSchema.AVG30 -> pricing.`avg30-holo`
+                PriceSchema.LOW -> pricing.`low-holo`
+            }
+        } else {
+            when (schema) {
+                PriceSchema.TREND -> pricing.trend
+                PriceSchema.AVG1 -> pricing.avg1
+                PriceSchema.AVG7 -> pricing.avg7
+                PriceSchema.AVG30 -> pricing.avg30
+                PriceSchema.LOW -> pricing.low
             }
         }
     }

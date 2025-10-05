@@ -46,6 +46,8 @@
     <string name="card_details_back_button_desc">Zurück</string>
     <string name="card_details_loading_error">Karte konnte nicht geladen werden.</string>
     <string name="card_details_no_notes">Keine Notizen vorhanden.</string>
+    <string name="last_price_update">letztes Preis-Update</string>
+    <string name="card_details_update_price_button_desc">Kartenwert Updaten</string>
 
     <!-- AddCardScreen -->
     <string name="add_card_title">Neue Karte hinzufügen</string>

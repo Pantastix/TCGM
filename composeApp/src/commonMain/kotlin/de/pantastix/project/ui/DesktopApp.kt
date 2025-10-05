@@ -140,7 +140,8 @@ fun DesktopApp(
                                 isLoading = uiState.isLoading,
                                 onBack = { viewModel.clearSelectedCard() },
                                 onEdit = { isEditing = true }, // Wechselt in den Bearbeitungsmodus
-                                onDelete = { viewModel.deleteSelectedCard() } // Ruft die neue Löschfunktion auf
+                                onDelete = { viewModel.deleteSelectedCard() }, // Ruft die neue Löschfunktion auf
+                                onRefreshPrice = { cardToRefresh -> viewModel.refreshCardPrice(cardToRefresh) }
                             )
                         }
                     }
