@@ -141,15 +141,6 @@ class TcgDexApiService(
         }
     }
 
-//    override suspend fun getCardDetails(setId: String, localId: String, languageCode: String): TcgDexCardResponse? {
-//        return try {
-//            client.get("$baseUrl/$languageCode/sets/$setId/$localId").body<TcgDexCardResponse>()
-//        } catch (e: Exception) {
-//            println("Fehler bei getCardDetails für $languageCode/$setId/$localId: ${e.message}")
-//            null
-//        }
-//    }
-
     override suspend fun getCardDetails(setId: String, localId: String, languageCode: String): TcgDexCardResponse? {
         // Schritt 1: Rufe die primären Kartendetails ab.
         val cardDetails = fetchPrimaryCardDetails(setId, localId, languageCode) ?: return null

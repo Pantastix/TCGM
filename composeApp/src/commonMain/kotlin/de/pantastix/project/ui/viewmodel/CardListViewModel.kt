@@ -87,7 +87,9 @@ data class UiState(
     val updateInfo: UpdateInfo? = null,
     val setsUpdateWarning: String? = null,
     val filters: List<FilterCondition> = emptyList(),
-    val sort: Sort = Sort("nameLocal", true)
+    val sort: Sort = Sort("nameLocal", true),
+    val editingCardApiDetails: TcgDexCardResponse? = null,
+    val isEditingDetailsLoading: Boolean = false
 )
 
 @OptIn(ExperimentalTime::class)
@@ -157,6 +159,33 @@ class CardListViewModel(
                 _uiState.update { it.copy(isLoading = false, loadingMessage = null) }
             }
         }
+    }
+
+    /**
+     * Lädt die neuesten API-Daten für eine bestimmte Karte, um aktuelle Preise anzuzeigen.
+     */
+    fun fetchPriceDetailsForEditing(card: PokemonCard) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isEditingDetailsLoading = true, editingCardApiDetails = null) }
+
+            val localId = card.localId.split(" / ").firstOrNull()?.trim()
+            if (localId.isNullOrBlank()) {
+                _uiState.update { it.copy(isEditingDetailsLoading = false, error = "Konnte Karten-ID nicht extrahieren.") }
+                return@launch
+            }
+
+            val details = apiService.getCardDetails(card.setId, localId, card.language)
+            _uiState.update {
+                it.copy(isEditingDetailsLoading = false, editingCardApiDetails = details)
+            }
+        }
+    }
+
+    /**
+     * Setzt die API-Details für die Bearbeitung zurück, wenn der Dialog geschlossen wird.
+     */
+    fun clearEditingDetails() {
+        _uiState.update { it.copy(editingCardApiDetails = null, isEditingDetailsLoading = false) }
     }
 
     /**

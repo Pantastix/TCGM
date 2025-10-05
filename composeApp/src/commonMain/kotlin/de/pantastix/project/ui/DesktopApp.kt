@@ -124,11 +124,15 @@ fun DesktopApp(
                         if (isEditing) {
                             EditCardScreen(
                                 card = uiState.selectedCardDetails!!,
-                                onSave = { id, copies, notes, price ->
-                                    viewModel.updateCard(id, copies, notes, price, null)//TODO: Add price source
+                                isLoading = uiState.isEditingDetailsLoading,
+                                apiDetails = uiState.editingCardApiDetails,
+                                onSave = { id, copies, notes, price, priceSource ->
+                                    viewModel.updateCard(id, copies, notes, price, priceSource)
                                     isEditing = false // Nach dem Speichern zurück in den Ansichtsmodus
+                                    viewModel.clearEditingDetails() // Zustand aufräumen
                                 },
-                                onCancel = { isEditing = false } // Zurück in den Ansichtsmodus
+                                onCancel = { isEditing = false }, // Zurück in den Ansichtsmodus
+                                onLoadPrices = viewModel::fetchPriceDetailsForEditing
                             )
                         } else {
                             CardDetailScreen(
