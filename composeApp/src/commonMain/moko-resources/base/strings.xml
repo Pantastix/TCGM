@@ -106,6 +106,9 @@
     <string name="filter">Filter</string>
     <string name="sort">Sort</string>
     <string name="collection_reload_prices_button">Update all Prices</string>
+    <string name="collection_reload_prices_button_title">Update prices</string>
+    <string name="collection_reload_prices_button_desc">Would you like to update the prices for all cards with API integration? This process may take some time depending on the size of your collection and cannot be cancelled.</string>
+
 
     <!-- Sort/Filter Options -->
     <string name="filter">Filter</string>

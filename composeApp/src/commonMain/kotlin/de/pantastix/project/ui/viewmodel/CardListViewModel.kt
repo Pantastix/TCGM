@@ -69,6 +69,20 @@ enum class ComparisonType { EQUAL, GREATER_THAN, LESS_THAN }
 
 data class Sort(val sortBy: String, val ascending: Boolean)
 
+/**
+ * Hält den Zustand des Massen-Preisupdates.
+ * @param inProgress Ob der Prozess gerade läuft.
+ * @param processed Wie viele Karten bereits verarbeitet wurden.
+ * @param total Wie viele Karten insgesamt verarbeitet werden müssen.
+ * @param currentStepMessage Die aktuelle Statusmeldung für die UI.
+ */
+data class BulkUpdateProgress(
+    val inProgress: Boolean = false,
+    val processed: Int = 0,
+    val total: Int = 0,
+    val currentStepMessage: String? = null // NEU
+)
+
 data class UiState(
     val isInitialized: Boolean = false,
     val cardInfos: List<PokemonCardInfo> = emptyList(),
@@ -91,7 +105,9 @@ data class UiState(
     val filters: List<FilterCondition> = emptyList(),
     val sort: Sort = Sort("nameLocal", true),
     val editingCardApiDetails: TcgDexCardResponse? = null,
-    val isEditingDetailsLoading: Boolean = false
+    val isEditingDetailsLoading: Boolean = false,
+    val bulkUpdateProgress: BulkUpdateProgress = BulkUpdateProgress(),
+    val canBulkUpdatePrices: Boolean = false
 )
 
 @OptIn(ExperimentalTime::class)
@@ -147,6 +163,7 @@ class CardListViewModel(
             if (success) {
                 _uiState.update { it.copy(loadingMessage = "Lade Kartensammlung...") }
                 startBackgroundDataListeners()
+                checkBulkUpdateEligibility()
                 val update = UpdateChecker.checkForUpdate()
                 _uiState.update {
                     it.copy(
@@ -162,6 +179,122 @@ class CardListViewModel(
             }
         }
     }
+
+    /**
+     * Prüft die Sammlung und setzt den State, ob der Massen-Update-Button angezeigt werden soll.
+     * HINWEIS: Holt sich einmalig alle Karten, da PokemonCardInfo die Preisquelle nicht enthält.
+     */
+    private fun checkBulkUpdateEligibility() {
+        viewModelScope.launch {
+            val allCards = activeCardRepository.getCardInfos().first()
+            val hasUpdatableCards = allCards.any { cardInfo ->
+                val fullCard = activeCardRepository.getFullCardDetails(cardInfo.id)
+                !fullCard?.selectedPriceSource.isNullOrBlank() && fullCard?.selectedPriceSource != "CUSTOM"
+            }
+            _uiState.update { it.copy(canBulkUpdatePrices = hasUpdatableCards) }
+        }
+    }
+
+    /**
+     * Startet den Prozess zur Aktualisierung aller Kartenpreise mit API-Anbindung.
+     */
+    fun startBulkPriceUpdate() {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isLoading = true, // Deaktiviert die Navi-Leiste
+                    bulkUpdateProgress = BulkUpdateProgress(
+                        inProgress = true,
+                        total = 0, // 0 signalisiert "Vorbereitung"
+                        processed = 0,
+                        currentStepMessage = "Lade Kartendaten..." // NEU: Statusmeldung
+                    )
+                )
+            }
+
+            // 2. Alle relevanten Karten aus der DB holen (dies kann dauern)
+            val allFullCards = activeCardRepository.getCardInfos().first()
+                .mapNotNull { activeCardRepository.getFullCardDetails(it.id) }
+
+            val cardsToUpdate = allFullCards.filter {
+                !it.selectedPriceSource.isNullOrBlank() && it.selectedPriceSource != "CUSTOM"
+            }
+
+            if (cardsToUpdate.isEmpty()) {
+                // Wenn nichts zu tun ist, Prozess sofort beenden
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        bulkUpdateProgress = BulkUpdateProgress(inProgress = false)
+                    )
+                }
+                return@launch
+            }
+
+            // 3. Den Ladezustand mit der korrekten Anzahl an Karten aktualisieren
+            _uiState.update {
+                it.copy(
+                    bulkUpdateProgress = it.bulkUpdateProgress.copy(
+                        total = cardsToUpdate.size
+                    )
+                )
+            }
+
+
+            // 4. Jede Karte einzeln aktualisieren
+            cardsToUpdate.forEachIndexed { index, card ->
+                // NEU: Statusmeldung vor der Verarbeitung setzen
+                _uiState.update {
+                    it.copy(
+                        bulkUpdateProgress = it.bulkUpdateProgress.copy(
+                            currentStepMessage = "Aktualisiere: ${card.nameLocal}"
+                        )
+                    )
+                }
+
+                refreshSingleCardPrice(card)
+                // Fortschritt nach jeder Karte aktualisieren
+                _uiState.update {
+                    it.copy(bulkUpdateProgress = it.bulkUpdateProgress.copy(processed = index + 1))
+                }
+            }
+
+            // 5. Prozess abschließen und UI zurücksetzen
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    bulkUpdateProgress = BulkUpdateProgress(inProgress = false)
+                )
+            }
+            checkBulkUpdateEligibility() // Neubewertung nach dem Update
+        }
+    }
+
+    /**
+     * Interne Hilfsfunktion: Aktualisiert eine einzelne Karte ohne UI-Feedback.
+     */
+    private suspend fun refreshSingleCardPrice(card: PokemonCard) {
+        val priceSource = card.selectedPriceSource ?: return
+        val localId = card.localId.split(" / ").firstOrNull()?.trim() ?: return
+
+        val apiDetails = apiService.getCardDetails(card.setId, localId, card.language)
+        val newPrice = apiDetails?.let { extractPriceFromDetails(it, priceSource) }
+
+        if (newPrice != null) {
+            activeCardRepository.updateCardUserData(
+                cardId = card.id!!,
+                ownedCopies = card.ownedCopies,
+                notes = card.notes,
+                currentPrice = newPrice,
+                lastPriceUpdate = Clock.System.now().toString(),
+                selectedPriceSource = card.selectedPriceSource
+            )
+        }
+        // Kurze Pause, um die API nicht zu überlasten
+        delay(200)
+    }
+
+
 
     /**
      * Lädt die neuesten API-Daten für eine bestimmte Karte, um aktuelle Preise anzuzeigen.

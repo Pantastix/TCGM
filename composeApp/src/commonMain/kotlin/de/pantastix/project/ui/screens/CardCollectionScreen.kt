@@ -28,6 +28,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.filled.Cached
 
 import de.pantastix.project.ui.components.ErrorDialog
@@ -36,6 +37,7 @@ import de.pantastix.project.ui.components.WarningDialog
 import de.pantastix.project.ui.viewmodel.CardListViewModel
 import androidx.compose.runtime.setValue
 import de.pantastix.project.ui.components.AddFilterDialog
+import de.pantastix.project.ui.components.BulkUpdateProgressDialog
 import de.pantastix.project.ui.components.FilterAndSortChips
 import de.pantastix.project.ui.components.FilterAndSortControls
 import de.pantastix.project.ui.viewmodel.Sort
@@ -79,6 +81,7 @@ fun getLanguageDisplayName(code: String): String {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CardCollectionScreen(
     viewModel: CardListViewModel,
@@ -90,6 +93,7 @@ fun CardCollectionScreen(
     val uiState by viewModel.uiState.collectAsState()
     val availableLanguages by viewModel.availableLanguages.collectAsState()
     var showAddFilterDialog by remember { mutableStateOf(false) }
+    var showConfirmUpdateCardsDialog by remember { mutableStateOf(false) }
 
     val shouldShowChips = uiState.filters.isNotEmpty() || uiState.sort.sortBy != "nameLocal"
 
@@ -112,18 +116,15 @@ fun CardCollectionScreen(
                     Text(stringResource(MR.strings.collection_add_card_button))
                 }
                 Spacer(modifier = Modifier.width(8.dp))
-                //TODO: Karten werte neu Laden
-                //TODO: Nur wenn auch mindestens eine Karte mit api quelle vorhanden ist
-                Button(onClick = {
-                    //TODO: implement
-                    }) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                if (uiState.canBulkUpdatePrices) {
+                    Button(onClick = { showConfirmUpdateCardsDialog = true }) {
                         Icon(
                             Icons.Filled.Cached,
                             contentDescription = stringResource(MR.strings.collection_reload_prices_button)
                         )
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(MR.strings.collection_reload_prices_button))
                     }
-                    Text(stringResource(MR.strings.collection_reload_prices_button))
                 }
             }
             // Fill entwire Space between items
@@ -218,6 +219,31 @@ fun CardCollectionScreen(
                 showAddFilterDialog = false
             }
         )
+    }
+
+    if (showConfirmUpdateCardsDialog) {
+        AlertDialog(
+            modifier = Modifier.border(4.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.large),
+            onDismissRequest = { showConfirmUpdateCardsDialog = false },
+            title = { Text(stringResource(MR.strings.warning)) },
+            text = { Text(stringResource(MR.strings.collection_reload_prices_button_desc)) },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.startBulkPriceUpdate()
+                    showConfirmUpdateCardsDialog = false
+                }) { Text(stringResource(MR.strings.ok)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmUpdateCardsDialog = false }) {
+                    Text("Abbrechen")
+                }
+            }
+        )
+    }
+
+    // NEU: Anzeige des Fortschrittsdialogs
+    if (uiState.bulkUpdateProgress.inProgress) {
+        BulkUpdateProgressDialog(progress = uiState.bulkUpdateProgress)
     }
 }
 

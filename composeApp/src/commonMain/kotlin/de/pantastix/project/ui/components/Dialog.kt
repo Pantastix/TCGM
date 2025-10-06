@@ -1,5 +1,11 @@
 package de.pantastix.project.ui.components
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.AlertDialog
@@ -16,18 +22,28 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import de.pantastix.project.ui.viewmodel.BulkUpdateProgress
 import de.pantastix.project.ui.viewmodel.ComparisonType
 import de.pantastix.project.ui.viewmodel.FilterCondition
 import de.pantastix.project.ui.viewmodel.NumericAttribute
@@ -41,7 +57,7 @@ fun WarningDialog(message: String, onDismiss: () -> Unit) {
         title = { Text(stringResource(MR.strings.warning)) },
         text = { Text(message) },
         confirmButton = {
-            Button(onClick = onDismiss) { Text(stringResource(MR.strings.ok)) }
+            Button(onClick = onDismiss ) { Text(stringResource(MR.strings.ok)) }
         }
     )
 }
@@ -57,6 +73,87 @@ fun ErrorDialog(message: String, onDismiss: () -> Unit) {
             Button(onClick = onDismiss) { Text(stringResource(MR.strings.settings_ok_button)) }
         }
     )
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun BulkUpdateProgressDialog(
+    progress: BulkUpdateProgress
+) {
+    Dialog(
+        onDismissRequest = { /* Nicht schließbar durch den Nutzer */ },
+        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .border(4.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.large)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Preise werden aktualisiert...",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+
+                if (progress.total > 0) {
+                    // Bestimmter Fortschritt (wenn die Gesamtzahl bekannt ist)
+                    val progressValue = progress.processed.toFloat() / progress.total.toFloat()
+
+                    val animatedProgress by animateFloatAsState(
+                        targetValue = progressValue,
+                        animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
+                        label = "progressAnimation"
+                    )
+
+                    LinearWavyProgressIndicator(
+                        progress = { animatedProgress },
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    // Unbestimmter Fortschritt (während die Daten vorbereitet werden)
+                    LinearWavyProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                // Dieser Block zeigt die animierte Statusmeldung und den Zähler an
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.height(48.dp), // Feste Höhe, um Sprünge zu vermeiden
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    AnimatedContent(
+                        targetState = progress.currentStepMessage,
+                        transitionSpec = {
+                            fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+                        },
+                        label = "StatusMessageAnimation"
+                    ) { message ->
+                        Text(
+                            text = message ?: "...",
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    if (progress.total > 0) {
+                        Text(
+                            text = "${progress.processed} / ${progress.total}",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 

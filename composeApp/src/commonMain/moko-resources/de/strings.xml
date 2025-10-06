@@ -102,6 +102,9 @@
     <string name="filter">Filter</string>
     <string name="sort">Sortieren</string>
     <string name="collection_reload_prices_button">alle Preise aktualisieren</string>
+    <string name="collection_reload_prices_button_title">Preise aktualisieren</string>
+    <string name="collection_reload_prices_button_desc">Möchten Sie die Preise für alle Karten mit API-Anbindung aktualisieren? Dieser Vorgang kann je nach Sammlungsgröße einige Zeit dauern und kann nicht abgebrochen werden.</string>
+
 
     <!-- Sort/Filter Options -->
     <string name="filter">Filter</string>
