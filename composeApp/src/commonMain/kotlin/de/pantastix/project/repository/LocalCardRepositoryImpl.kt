@@ -104,7 +104,9 @@ class LocalCardRepositoryImpl(
                         setName = result.setName,
                         imageUrl = result.imageUrl,
                         ownedCopies = result.ownedCopies.toInt(),
-                        currentPrice = result.currentPrice
+                        currentPrice = result.currentPrice,
+                        selectedPriceSource = result.selectedPriceSource,
+                        lastPriceUpdate = result.lastPriceUpdate
                     )
                 }
             }
@@ -158,7 +160,9 @@ class LocalCardRepositoryImpl(
                     setName = "", // Nicht relevant für diesen Check
                     imageUrl = entity.imageUrl,
                     ownedCopies = entity.ownedCopies.toInt(),
-                    currentPrice = entity.currentPrice
+                    currentPrice = entity.currentPrice,
+                    selectedPriceSource = entity.selectedPriceSource,
+                    lastPriceUpdate = entity.lastPriceUpdate
                 )
             }
         }
@@ -207,7 +211,9 @@ class LocalCardRepositoryImpl(
                     setName = "", // Nicht nötig für diesen Check
                     imageUrl = entity.imageUrl,
                     ownedCopies = entity.ownedCopies.toInt(),
-                    currentPrice = entity.currentPrice
+                    currentPrice = entity.currentPrice,
+                    selectedPriceSource = entity.selectedPriceSource,
+                    lastPriceUpdate = entity.lastPriceUpdate
                 )
             }
         }

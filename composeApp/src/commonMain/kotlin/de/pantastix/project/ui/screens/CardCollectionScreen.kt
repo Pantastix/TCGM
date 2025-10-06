@@ -28,7 +28,9 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.Cached
 
 import de.pantastix.project.ui.components.ErrorDialog
@@ -106,7 +108,26 @@ fun CardCollectionScreen(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row() {
-                Button(onClick = onAddCardClick) {
+                val largeCorner = 50
+                val smallCorner = 10
+                val leftButtonShape = RoundedCornerShape(
+                    topStartPercent = largeCorner,
+                    bottomStartPercent = largeCorner,
+                    topEndPercent = smallCorner,
+                    bottomEndPercent = smallCorner
+                )
+                val rightButtonShape = RoundedCornerShape(
+                    topStartPercent = smallCorner,
+                    bottomStartPercent = smallCorner,
+                    topEndPercent = largeCorner,
+                    bottomEndPercent = largeCorner
+                )
+
+                Button(
+                    onClick = onAddCardClick,
+                    shape = leftButtonShape,
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Filled.Add,
@@ -115,17 +136,29 @@ fun CardCollectionScreen(
                     }
                     Text(stringResource(MR.strings.collection_add_card_button))
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                if (uiState.canBulkUpdatePrices) {
-                    Button(onClick = { showConfirmUpdateCardsDialog = true }) {
-                        Icon(
-                            Icons.Filled.Cached,
-                            contentDescription = stringResource(MR.strings.collection_reload_prices_button)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(MR.strings.collection_reload_prices_button))
+                Spacer(modifier = Modifier.width(4.dp))
+//                if (uiState.canBulkUpdatePrices) {
+
+                Button(
+                    onClick = { showConfirmUpdateCardsDialog = true },
+                    enabled = uiState.canBulkUpdatePrices,
+                    shape = rightButtonShape,
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    modifier = Modifier.offset(x = (-1).dp),
+                    border = if (!uiState.canBulkUpdatePrices) {
+                        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                    } else {
+                        null
                     }
+                ) {
+                    Icon(
+                        Icons.Filled.Cached,
+                        contentDescription = stringResource(MR.strings.collection_reload_prices_button)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(MR.strings.collection_reload_prices_button))
                 }
+//                }
             }
             // Fill entwire Space between items
 

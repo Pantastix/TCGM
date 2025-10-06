@@ -102,6 +102,8 @@ SELECT
     PokemonCardEntity.imageUrl,
     PokemonCardEntity.ownedCopies,
     PokemonCardEntity.currentPrice,
+    PokemonCardEntity.selectedPriceSource,
+    PokemonCardEntity.lastPriceUpdate,
     SetEntity.nameLocal AS setName
 FROM PokemonCardEntity
 JOIN SetEntity ON PokemonCardEntity.setId = SetEntity.setId

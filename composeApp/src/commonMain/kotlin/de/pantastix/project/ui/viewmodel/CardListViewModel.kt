@@ -31,6 +31,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import java.io.File
+import java.time.LocalDate
+import java.time.ZonedDateTime
+import java.time.format.DateTimeParseException
 import kotlin.system.exitProcess
 import kotlin.time.ExperimentalTime
 
@@ -121,7 +124,6 @@ class CardListViewModel(
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     private var remoteCardRepository: CardRepository? = null // Für die Supabase-Implementierung
-
     private var cardInfosCollectionJob: Job? = null
     private var setsCollectionJob: Job? = null
 
@@ -186,10 +188,12 @@ class CardListViewModel(
      */
     private fun checkBulkUpdateEligibility() {
         viewModelScope.launch {
-            val allCards = activeCardRepository.getCardInfos().first()
-            val hasUpdatableCards = allCards.any { cardInfo ->
-                val fullCard = activeCardRepository.getFullCardDetails(cardInfo.id)
-                !fullCard?.selectedPriceSource.isNullOrBlank() && fullCard?.selectedPriceSource != "CUSTOM"
+            val allCardInfos = activeCardRepository.getCardInfos().first()
+
+            val hasUpdatableCards = allCardInfos.any { cardInfo ->
+                !cardInfo.selectedPriceSource.isNullOrBlank() &&
+                        cardInfo.selectedPriceSource != "CUSTOM" &&
+                        !isUpdatedToday(cardInfo.lastPriceUpdate) // NEUE BEDINGUNG
             }
             _uiState.update { it.copy(canBulkUpdatePrices = hasUpdatableCards) }
         }
@@ -200,27 +204,29 @@ class CardListViewModel(
      */
     fun startBulkPriceUpdate() {
         viewModelScope.launch {
+            // 1. SOFORT den Ladezustand aktivieren und Statusmeldung setzen
             _uiState.update {
                 it.copy(
-                    isLoading = true, // Deaktiviert die Navi-Leiste
+                    isLoading = true,
                     bulkUpdateProgress = BulkUpdateProgress(
                         inProgress = true,
-                        total = 0, // 0 signalisiert "Vorbereitung"
+                        total = 0,
                         processed = 0,
-                        currentStepMessage = "Lade Kartendaten..." // NEU: Statusmeldung
+                        currentStepMessage = "Prüfe Sammlung..."
                     )
                 )
             }
 
-            // 2. Alle relevanten Karten aus der DB holen (dies kann dauern)
-            val allFullCards = activeCardRepository.getCardInfos().first()
-                .mapNotNull { activeCardRepository.getFullCardDetails(it.id) }
+            // 2. OPTIMIERT: Zuerst die schnellen Infos holen und filtern
+            val allCardInfos = activeCardRepository.getCardInfos().first()
 
-            val cardsToUpdate = allFullCards.filter {
-                !it.selectedPriceSource.isNullOrBlank() && it.selectedPriceSource != "CUSTOM"
+            val infosToUpdate = allCardInfos.filter {
+                !it.selectedPriceSource.isNullOrBlank() &&
+                        it.selectedPriceSource != "CUSTOM" &&
+                        !isUpdatedToday(it.lastPriceUpdate) // NEUE BEDINGUNG
             }
 
-            if (cardsToUpdate.isEmpty()) {
+            if (infosToUpdate.isEmpty()) {
                 // Wenn nichts zu tun ist, Prozess sofort beenden
                 _uiState.update {
                     it.copy(
@@ -231,19 +237,23 @@ class CardListViewModel(
                 return@launch
             }
 
-            // 3. Den Ladezustand mit der korrekten Anzahl an Karten aktualisieren
+            // 3. Ladezustand mit der korrekten Anzahl und neuer Statusmeldung aktualisieren
             _uiState.update {
                 it.copy(
                     bulkUpdateProgress = it.bulkUpdateProgress.copy(
-                        total = cardsToUpdate.size
+                        total = infosToUpdate.size,
+                        currentStepMessage = "Lade Details für ${infosToUpdate.size} Karten..."
                     )
                 )
             }
 
+            // 4. OPTIMIERT: Lade die schweren Details NUR für die gefilterten Karten
+            val cardsToUpdate = infosToUpdate.mapNotNull { info ->
+                activeCardRepository.getFullCardDetails(info.id)
+            }
 
-            // 4. Jede Karte einzeln aktualisieren
+            // 5. Jede Karte einzeln aktualisieren
             cardsToUpdate.forEachIndexed { index, card ->
-                // NEU: Statusmeldung vor der Verarbeitung setzen
                 _uiState.update {
                     it.copy(
                         bulkUpdateProgress = it.bulkUpdateProgress.copy(
@@ -253,20 +263,35 @@ class CardListViewModel(
                 }
 
                 refreshSingleCardPrice(card)
-                // Fortschritt nach jeder Karte aktualisieren
                 _uiState.update {
                     it.copy(bulkUpdateProgress = it.bulkUpdateProgress.copy(processed = index + 1))
                 }
             }
 
-            // 5. Prozess abschließen und UI zurücksetzen
+            delay(500L)
+
+            // 6. Prozess abschließen und UI zurücksetzen
             _uiState.update {
                 it.copy(
                     isLoading = false,
                     bulkUpdateProgress = BulkUpdateProgress(inProgress = false)
                 )
             }
-            checkBulkUpdateEligibility() // Neubewertung nach dem Update
+            checkBulkUpdateEligibility()
+        }
+    }
+
+    private fun isUpdatedToday(timestamp: String?): Boolean {
+        if (timestamp == null) return false
+        return try {
+            // Parse den Timestamp und konvertiere ihn in ein lokales Datum
+            val updateDate = ZonedDateTime.parse(timestamp).toLocalDate()
+            val today = LocalDate.now()
+            // Vergleiche, ob die Daten identisch sind
+            updateDate.isEqual(today)
+        } catch (e: DateTimeParseException) {
+            // Wenn der String kein gültiges Datum ist, behandeln wir es als "nicht heute"
+            false
         }
     }
 

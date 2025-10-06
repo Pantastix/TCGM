@@ -80,6 +80,8 @@ fun SupabaseGuideScreen(onBack: () -> Unit) {
             P."imageUrl",
             P."ownedCopies",
             P."currentPrice"
+            P."selectedPriceSource",
+            P."lastPriceUpdate" 
         FROM
             public."PokemonCardEntity" AS P
         JOIN

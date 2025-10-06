@@ -1,5 +1,6 @@
 package de.pantastix.project.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -54,12 +55,19 @@ fun FilterChip(
             Icon(
                 Icons.Default.Close,
                 contentDescription = "Remove filter",
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(InputChipDefaults.IconSize)
             )
-        }
+        },
+        colors = InputChipDefaults.inputChipColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            labelColor = MaterialTheme.colorScheme.primary,
+            trailingIconColor = MaterialTheme.colorScheme.primary
+        ),
+        border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SortChip(
     sort: Sort,
@@ -75,7 +83,13 @@ fun SortChip(
                 if (sort.ascending) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
                 contentDescription = "Sort direction"
             )
-        }
+        },
+        colors = InputChipDefaults.inputChipColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            labelColor = MaterialTheme.colorScheme.primary,
+            leadingIconColor = MaterialTheme.colorScheme.primary
+        ),
+        border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
     )
 }
 
@@ -86,7 +100,7 @@ fun FilterAndSortChips(
     onRemoveFilter: (FilterCondition) -> Unit,
     onResetSort: () -> Unit
 ){
-    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
+    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 0.dp)) {
         LazyRow(
             modifier = Modifier.weight(1f),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
