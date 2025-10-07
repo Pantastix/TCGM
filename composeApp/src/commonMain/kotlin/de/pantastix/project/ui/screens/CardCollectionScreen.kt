@@ -83,7 +83,7 @@ fun getLanguageDisplayName(code: String): String {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CardCollectionScreen(
     viewModel: CardListViewModel,
@@ -203,7 +203,7 @@ fun CardCollectionScreen(
         if (uiState.isLoading && uiState.cardInfos.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator()
+                    LoadingIndicator()
                     if (uiState.loadingMessage != null) {
                         Text(
                             text = uiState.loadingMessage!!,

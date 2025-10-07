@@ -9,7 +9,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,6 +24,7 @@ import de.pantastix.project.ui.viewmodel.CardListViewModel
 import dev.icerock.moko.resources.compose.stringResource
 import org.koin.compose.koinInject
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LoadingScreen(viewModel: CardListViewModel = koinInject()) {
     // Der `getValue`-Delegat wird durch die `runtime` imports bereitgestellt
@@ -33,7 +35,7 @@ fun LoadingScreen(viewModel: CardListViewModel = koinInject()) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        CircularProgressIndicator()
+        LoadingIndicator()
         Spacer(Modifier.height(16.dp))
 
         // Animiert den Textwechsel für einen weicheren Übergang

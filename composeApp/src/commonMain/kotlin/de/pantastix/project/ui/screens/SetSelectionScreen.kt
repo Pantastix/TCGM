@@ -64,7 +64,7 @@ fun SetSelectionScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SearchBySet(viewModel: CardListViewModel) {
     val uiState by viewModel.uiState.collectAsState()
@@ -119,7 +119,7 @@ private fun SearchBySet(viewModel: CardListViewModel) {
         Spacer(Modifier.height(16.dp))
         // Such-Button
         if (uiState.isLoading) {
-            CircularProgressIndicator()
+            LoadingIndicator()
         } else {
             Button(
                 onClick = {
@@ -133,7 +133,7 @@ private fun SearchBySet(viewModel: CardListViewModel) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SearchByNameAndNumber(viewModel: CardListViewModel) {
     val uiState by viewModel.uiState.collectAsState()
@@ -177,7 +177,7 @@ private fun SearchByNameAndNumber(viewModel: CardListViewModel) {
         Spacer(Modifier.height(16.dp))
         // Such-Button
         if (uiState.isLoading) {
-            CircularProgressIndicator()
+            LoadingIndicator()
         } else {
             Button(
                 onClick = {

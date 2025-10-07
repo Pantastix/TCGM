@@ -20,7 +20,7 @@ import de.pantastix.project.ui.viewmodel.CardListViewModel
 import dev.icerock.moko.resources.compose.stringResource
 import org.koin.compose.koinInject
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuide: () -> Unit) {
     val uiState by viewModel.uiState.collectAsState()
@@ -173,7 +173,7 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator()
+                    LoadingIndicator()
                     Spacer(Modifier.height(16.dp))
                     uiState.loadingMessage?.let {
                         Text(

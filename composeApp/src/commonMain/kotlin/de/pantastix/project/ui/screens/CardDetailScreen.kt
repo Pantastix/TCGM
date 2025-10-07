@@ -33,6 +33,7 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CardDetailScreen(
     card: PokemonCard?,
@@ -53,7 +54,7 @@ fun CardDetailScreen(
 
         Box(modifier = Modifier.fillMaxSize()) {
             if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                LoadingIndicator(modifier = Modifier.align(Alignment.Center))
             } else if (card == null) {
                 Text(stringResource(MR.strings.card_details_loading_error), modifier = Modifier.align(Alignment.Center))
             } else {
