@@ -7,10 +7,13 @@ import de.pantastix.project.model.supabase.SupabasePokemonCard
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+
 
 class SupabaseCardRepository(
     private val postgrest: Postgrest
@@ -20,6 +23,7 @@ class SupabaseCardRepository(
     private val cardsTable = "PokemonCardEntity" // Name deiner Tabelle in Supabase
     private val setsTable = "SetEntity"
     private val pokemonCardInfoView = "PokemonCardInfoView"
+    private val _setsFlow = MutableStateFlow<List<SetInfo>>(emptyList())
 
     private fun PokemonCard.toSupabasePokemonCard(): SupabasePokemonCard {
         return SupabasePokemonCard(
@@ -43,6 +47,7 @@ class SupabaseCardRepository(
             regulationMark = this.regulationMark,
             currentPrice = this.currentPrice,
             lastPriceUpdate = this.lastPriceUpdate,
+            selectedPriceSource = this.selectedPriceSource,
             variantsJson = null, // Nicht im PokemonCard Modell enthalten
             abilitiesJson = jsonParser.encodeToString(ListSerializer(Ability.serializer()), this.abilities),
             attacksJson = jsonParser.encodeToString(ListSerializer(Attack.serializer()), this.attacks),
@@ -65,6 +70,7 @@ class SupabaseCardRepository(
             localId = this.localId,
             currentPrice = this.currentPrice,
             lastPriceUpdate = this.lastPriceUpdate,
+            selectedPriceSource = this.selectedPriceSource,
             rarity = this.rarity,
             hp = this.hp,
             types = this.types?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList(),
@@ -123,6 +129,7 @@ class SupabaseCardRepository(
                 localId = data.localId,
                 currentPrice = data.currentPrice,
                 lastPriceUpdate = data.lastPriceUpdate,
+                selectedPriceSource = data.selectedPriceSource,
                 rarity = data.rarity,
                 hp = data.hp,
                 types = data.types?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList(),
@@ -151,12 +158,20 @@ class SupabaseCardRepository(
         postgrest.from(cardsTable).insert(supabaseCard)
     }
 
-    override suspend fun updateCardUserData(cardId: Long, ownedCopies: Int, notes: String?, currentPrice: Double?, lastPriceUpdate: String?) {
+    override suspend fun updateCardUserData(
+        cardId: Long,
+        ownedCopies: Int,
+        notes: String?,
+        currentPrice: Double?,
+        lastPriceUpdate: String?,
+        selectedPriceSource: String?,
+    ) {
         postgrest.from(cardsTable).update({
             set("ownedCopies", ownedCopies)
             set("notes", notes)
             set("currentPrice", currentPrice)
             set("lastPriceUpdate", lastPriceUpdate)
+            set("selectedPriceSource", selectedPriceSource)
         }) {
             filter { eq("id", cardId) }
         }
@@ -171,10 +186,11 @@ class SupabaseCardRepository(
     }
 
     // --- SET-OPERATIONEN---
-    override fun getAllSets(): Flow<List<SetInfo>> = flow {
-        val data = postgrest.from(setsTable).select().decodeList<SetInfo>()
-        emit(data)
-    }
+//    override fun getAllSets(): Flow<List<SetInfo>> = flow {
+//        val data = postgrest.from(setsTable).select().decodeList<SetInfo>()
+//        emit(data)
+//    }
+    override fun getAllSets(): Flow<List<SetInfo>> = _setsFlow.asStateFlow()
 
 //    override suspend fun syncSets(sets: List<SetInfo>) {
 //        sets.forEach { setInfo ->
@@ -185,10 +201,37 @@ class SupabaseCardRepository(
 //        }
 //    }
 
+    private suspend fun refreshSets() {
+        val data = postgrest.from(setsTable).select().decodeList<SetInfo>()
+        _setsFlow.value = data
+    }
+
     override suspend fun syncSets(sets: List<SetInfo>) {
-        postgrest.from(setsTable).upsert(sets) {
+        val oldSetsMap = postgrest.from(setsTable).select().decodeList<SetInfo>().associateBy { it.setId }
+
+        val setsToSave = sets.map { newSet ->
+            val existingAbbreviation = oldSetsMap[newSet.setId]?.abbreviation
+            if (!existingAbbreviation.isNullOrBlank()) {
+                // Wenn eine Abkürzung existiert, behalte sie.
+                newSet.copy(abbreviation = existingAbbreviation)
+            } else {
+                newSet
+            }
+        }
+
+        postgrest.from(setsTable).upsert(setsToSave) {
             onConflict = "setId"
         }
+
+        refreshSets()
+    }
+
+    override suspend fun getSetsByOfficialCount(count: Int): List<SetInfo> {
+        return postgrest.from(setsTable).select {
+            filter {
+                eq("cardCountOfficial", count)
+            }
+        }.decodeList<SetInfo>()
     }
 
     override suspend fun updateSetAbbreviation(setId: String, abbreviation: String) {
@@ -197,6 +240,7 @@ class SupabaseCardRepository(
         }) {
             filter { eq("setId", setId) }
         }
+        refreshSets()
     }
 
     override suspend fun findExistingCard(setId: String, localId: String, language: String): PokemonCardInfo? = null

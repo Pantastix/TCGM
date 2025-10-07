@@ -14,6 +14,7 @@ interface CardRepository {
     // --- Set-Operationen ---
     fun getAllSets(): Flow<List<SetInfo>>
     suspend fun syncSets(sets: List<SetInfo>)
+    suspend fun getSetsByOfficialCount(count: Int): List<SetInfo>
 
 
     // --- Pokémon-Karten-Operationen ---
@@ -38,7 +39,8 @@ interface CardRepository {
         ownedCopies: Int,
         notes: String?,
         currentPrice: Double?,
-        lastPriceUpdate: String?
+        lastPriceUpdate: String?,
+        selectedPriceSource: String?,
     )
 
     suspend fun findExistingCard(setId: String, localId: String, language: String): PokemonCardInfo?

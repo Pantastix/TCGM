@@ -1,6 +1,6 @@
 package de.pantastix.project.ui.screens
 
-import androidx.compose.foundation.border
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -11,6 +11,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -20,12 +22,68 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import de.pantastix.project.model.PokemonCardInfo
 import de.pantastix.project.shared.resources.MR
+import dev.icerock.moko.resources.compose.stringResource
+
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Cached
+
 import de.pantastix.project.ui.components.ErrorDialog
 import de.pantastix.project.ui.util.formatPrice
 import de.pantastix.project.ui.components.WarningDialog
 import de.pantastix.project.ui.viewmodel.CardListViewModel
-import dev.icerock.moko.resources.compose.stringResource
+import androidx.compose.runtime.setValue
+import de.pantastix.project.ui.components.AddFilterDialog
+import de.pantastix.project.ui.components.BulkUpdateProgressDialog
+import de.pantastix.project.ui.components.FilterAndSortChips
+import de.pantastix.project.ui.components.FilterAndSortControls
+import de.pantastix.project.ui.viewmodel.Sort
 
+// Hilfsfunktionen für Übersetzungen
+@Composable
+fun getFilterDisplayName(attribute: String): String {
+    return when (attribute) {
+        "nameLocal" -> stringResource(MR.strings.filter_name)
+        "setName" -> stringResource(MR.strings.filter_set)
+        "language" -> stringResource(MR.strings.filter_language)
+        "currentPrice" -> stringResource(MR.strings.filter_price)
+        "ownedCopies" -> stringResource(MR.strings.filter_copies)
+        else -> attribute
+    }
+}
+
+@Composable
+fun getSortDisplayName(attribute: String): String {
+    return when (attribute) {
+        "nameLocal" -> stringResource(MR.strings.sort_name)
+        "setName" -> stringResource(MR.strings.sort_set)
+        "language" -> stringResource(MR.strings.sort_language)
+        "currentPrice" -> stringResource(MR.strings.sort_price)
+        "ownedCopies" -> stringResource(MR.strings.sort_copies)
+        else -> attribute
+    }
+}
+
+@Composable
+fun getLanguageDisplayName(code: String): String {
+    return when (code) {
+        "de" -> stringResource(MR.strings.language_german)
+        "en" -> stringResource(MR.strings.language_english)
+        "fr" -> stringResource(MR.strings.language_french)
+        "es" -> stringResource(MR.strings.language_spanish)
+        "it" -> stringResource(MR.strings.language_italian)
+        "pt" -> stringResource(MR.strings.language_portuguese)
+        "jp" -> stringResource(MR.strings.language_japanese)
+        else -> code
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CardCollectionScreen(
     viewModel: CardListViewModel,
@@ -33,7 +91,13 @@ fun CardCollectionScreen(
     onCardClick: (Long) -> Unit
 ) {
 
+    val maxFilterAmount = 3
     val uiState by viewModel.uiState.collectAsState()
+    val availableLanguages by viewModel.availableLanguages.collectAsState()
+    var showAddFilterDialog by remember { mutableStateOf(false) }
+    var showConfirmUpdateCardsDialog by remember { mutableStateOf(false) }
+
+    val shouldShowChips = uiState.filters.isNotEmpty() || uiState.sort.sortBy != "nameLocal"
 
     println("UI: Card Infos size: ${uiState.cardInfos.size}, isSupabaseConnected: ${uiState.isSupabaseConnected}")
 
@@ -43,17 +107,95 @@ fun CardCollectionScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Button(onClick = onAddCardClick) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Add, contentDescription = stringResource(MR.strings.collection_add_card_button_desc))
+            Row() {
+                val largeCorner = 50
+                val smallCorner = 10
+                val leftButtonShape = RoundedCornerShape(
+                    topStartPercent = largeCorner,
+                    bottomStartPercent = largeCorner,
+                    topEndPercent = smallCorner,
+                    bottomEndPercent = smallCorner
+                )
+                val rightButtonShape = RoundedCornerShape(
+                    topStartPercent = smallCorner,
+                    bottomStartPercent = smallCorner,
+                    topEndPercent = largeCorner,
+                    bottomEndPercent = largeCorner
+                )
+
+                Button(
+                    onClick = onAddCardClick,
+                    shape = leftButtonShape,
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Filled.Add,
+                            contentDescription = stringResource(MR.strings.collection_add_card_button_desc)
+                        )
+                    }
+                    Text(stringResource(MR.strings.collection_add_card_button))
                 }
-                Text(stringResource(MR.strings.collection_add_card_button))
+                Spacer(modifier = Modifier.width(4.dp))
+//                if (uiState.canBulkUpdatePrices) {
+
+                Button(
+                    onClick = { showConfirmUpdateCardsDialog = true },
+                    enabled = uiState.canBulkUpdatePrices,
+                    shape = rightButtonShape,
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    modifier = Modifier.offset(x = (-1).dp),
+                    border = if (!uiState.canBulkUpdatePrices) {
+                        BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                    } else {
+                        null
+                    }
+                ) {
+                    Icon(
+                        Icons.Filled.Cached,
+                        contentDescription = stringResource(MR.strings.collection_reload_prices_button)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(MR.strings.collection_reload_prices_button))
+                }
+//                }
             }
-            // TODO: Hier später weitere Filter-Elemente hinzufügen
+            // Fill entwire Space between items
+
+
+            FilterAndSortControls(
+                sort = uiState.sort,
+                isAddFilterEnabled = uiState.filters.size < maxFilterAmount, // Button deaktivieren, wenn 3 Filter aktiv sind
+                onAddFilter = { showAddFilterDialog = true },
+                onUpdateSort = { viewModel.updateSort(it) },
+            )
+        }
+
+        AnimatedVisibility(
+            visible = shouldShowChips,
+            enter = expandVertically(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            ),
+            exit = shrinkVertically(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            )
+        ) {
+            FilterAndSortChips(
+                filters = uiState.filters,
+                sort = uiState.sort,
+                onRemoveFilter = { viewModel.removeFilter(it) },
+                onResetSort = { viewModel.updateSort(Sort("nameLocal", true)) }
+            )
         }
 
         HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 16.dp),
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
             thickness = 4.dp,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
         )
@@ -61,7 +203,7 @@ fun CardCollectionScreen(
         if (uiState.isLoading && uiState.cardInfos.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator()
+                    LoadingIndicator()
                     if (uiState.loadingMessage != null) {
                         Text(
                             text = uiState.loadingMessage!!,
@@ -99,6 +241,42 @@ fun CardCollectionScreen(
             message = message,
             onDismiss = { viewModel.dismissSetsUpdateWarning() }
         )
+    }
+
+    if (showAddFilterDialog) {
+        AddFilterDialog(
+            availableLanguages = availableLanguages,
+            onDismiss = { showAddFilterDialog = false },
+            onAddFilter = { filter ->
+                viewModel.addFilter(filter)
+                showAddFilterDialog = false
+            }
+        )
+    }
+
+    if (showConfirmUpdateCardsDialog) {
+        AlertDialog(
+            modifier = Modifier.border(4.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.large),
+            onDismissRequest = { showConfirmUpdateCardsDialog = false },
+            title = { Text(stringResource(MR.strings.warning)) },
+            text = { Text(stringResource(MR.strings.collection_reload_prices_button_desc)) },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.startBulkPriceUpdate()
+                    showConfirmUpdateCardsDialog = false
+                }) { Text(stringResource(MR.strings.ok)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmUpdateCardsDialog = false }) {
+                    Text("Abbrechen")
+                }
+            }
+        )
+    }
+
+    // NEU: Anzeige des Fortschrittsdialogs
+    if (uiState.bulkUpdateProgress.inProgress) {
+        BulkUpdateProgressDialog(progress = uiState.bulkUpdateProgress)
     }
 }
 

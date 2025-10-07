@@ -2,6 +2,7 @@ package de.pantastix.project.service
 
 import de.pantastix.project.model.SetInfo
 import de.pantastix.project.model.api.TcgDexCardResponse
+import de.pantastix.project.model.api.TcgDexCardSearchResult
 import de.pantastix.project.model.api.TcgDexSet
 import io.ktor.client.*
 import io.ktor.client.call.*
@@ -141,6 +142,41 @@ class TcgDexApiService(
     }
 
     override suspend fun getCardDetails(setId: String, localId: String, languageCode: String): TcgDexCardResponse? {
+        // Schritt 1: Rufe die primären Kartendetails ab.
+        val cardDetails = fetchPrimaryCardDetails(setId, localId, languageCode) ?: return null
+
+        try {
+            // Schritt 2: Rufe alle Karten mit demselben Namen ab, um die Version zu ermitteln.
+            val allVersions = client.get("$baseUrl/$languageCode/cards") {
+                parameter("name", cardDetails.name)
+            }.body<List<TcgDexCardSearchResult>>()
+
+            // Filtere die Ergebnisse, um nur Karten aus demselben Set zu behalten.
+            val versionsInSameSet = allVersions.filter { it.id.startsWith("$setId-") }
+
+            // Finde den Index (die Position) unserer spezifischen Karte in dieser gefilterten Liste.
+            val versionIndex = versionsInSameSet.indexOfFirst { it.id == cardDetails.id }
+
+            // Die Version ist der Index + 1 (da Zählung bei 1 beginnt).
+            // Wenn die Karte nicht gefunden wird, bleibt die Version null.
+            if (versionIndex != -1) {
+                cardDetails.cardmarketVersion = versionIndex + 1
+                cardDetails.totalCardmarketVersions = versionsInSameSet.size
+                println("Cardmarket-Version für '${cardDetails.name}' (${cardDetails.id}) ermittelt: ${cardDetails.cardmarketVersion}")
+            }
+
+        } catch (e: Exception) {
+            println("Fehler beim Ermitteln der Cardmarket-Version für ${cardDetails.id}: ${e.message}")
+            // Fehler hier ist nicht kritisch, wir geben trotzdem die Basiskarte zurück.
+        }
+
+        return cardDetails
+    }
+
+    /**
+     * Private Hilfsfunktion, die nur die Basis-Kartendetails von der API abruft.
+     */
+    private suspend fun fetchPrimaryCardDetails(setId: String, localId: String, languageCode: String): TcgDexCardResponse? {
         return try {
             client.get("$baseUrl/$languageCode/sets/$setId/$localId").body<TcgDexCardResponse>()
         } catch (e: Exception) {

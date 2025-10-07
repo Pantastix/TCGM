@@ -21,14 +21,19 @@ import coil3.compose.AsyncImage
 import de.pantastix.project.model.Attack
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cached
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextAlign
 import de.pantastix.project.model.Ability
 import de.pantastix.project.shared.resources.MR
 import dev.icerock.moko.resources.compose.stringResource
 import java.text.NumberFormat
+import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CardDetailScreen(
     card: PokemonCard?,
@@ -36,6 +41,7 @@ fun CardDetailScreen(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onRefreshPrice: (PokemonCard) -> Unit
 ) {
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
@@ -48,7 +54,7 @@ fun CardDetailScreen(
 
         Box(modifier = Modifier.fillMaxSize()) {
             if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                LoadingIndicator(modifier = Modifier.align(Alignment.Center))
             } else if (card == null) {
                 Text(stringResource(MR.strings.card_details_loading_error), modifier = Modifier.align(Alignment.Center))
             } else {
@@ -64,11 +70,17 @@ fun CardDetailScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(MR.strings.card_details_back_button_desc))
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(MR.strings.card_details_back_button_desc)
+                            )
                         }
                         Row {
                             IconButton(onClick = onEdit) {
-                                Icon(Icons.Default.Edit, contentDescription = stringResource(MR.strings.card_details_edit_button_desc))
+                                Icon(
+                                    Icons.Default.Edit,
+                                    contentDescription = stringResource(MR.strings.card_details_edit_button_desc)
+                                )
                             }
                             IconButton(onClick = { showDeleteConfirmDialog = true }) {
                                 Icon(
@@ -85,9 +97,12 @@ fun CardDetailScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Text(card.nameLocal, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+                        Text(
+                            card.nameLocal,
+                            style = MaterialTheme.typography.headlineSmall,
+                            textAlign = TextAlign.Center
+                        )
 
-                        // KORRIGIERT: Bild verkleinert
                         AsyncImage(
                             model = card.imageUrl,
                             contentDescription = card.nameLocal,
@@ -97,7 +112,11 @@ fun CardDetailScreen(
                         )
 
                         // Primary Info
-                        Text("${card.setName} - ${card.localId}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "${card.setName} - ${card.localId}",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
 
                         // Combat Info
                         Row(
@@ -112,7 +131,7 @@ fun CardDetailScreen(
                         HorizontalDivider()
 
                         // Collection Info Section
-                        CollectionInfoSection(card)
+                        CollectionInfoSection(card, onRefreshPrice)
 
                         // Abilities Section
                         if (card.abilities.isNotEmpty()) {
@@ -130,9 +149,18 @@ fun CardDetailScreen(
 
                         // Further Details Section
                         Section(title = stringResource(MR.strings.card_details_other_details)) {
-                            DetailRow(label = stringResource(MR.strings.card_details_retreat_cost), value = card.retreatCost?.toString() ?: "N/A")
-                            DetailRow(label = stringResource(MR.strings.card_details_illustrator), value = card.illustrator ?: "N/A")
-                            DetailRow(label = stringResource(MR.strings.card_details_regulation_mark), value = card.regulationMark ?: "N/A")
+                            DetailRow(
+                                label = stringResource(MR.strings.card_details_retreat_cost),
+                                value = card.retreatCost?.toString() ?: "N/A"
+                            )
+                            DetailRow(
+                                label = stringResource(MR.strings.card_details_illustrator),
+                                value = card.illustrator ?: "N/A"
+                            )
+                            DetailRow(
+                                label = stringResource(MR.strings.card_details_regulation_mark),
+                                value = card.regulationMark ?: "N/A"
+                            )
                         }
 
                         // KORRIGIERT: Padding am Ende der Seite
@@ -181,14 +209,62 @@ private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) 
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun CollectionInfoSection(card: PokemonCard) {
+private fun CollectionInfoSection(
+    card: PokemonCard,
+    onRefreshPrice: (PokemonCard) -> Unit
+) {
     val uriHandler = LocalUriHandler.current
     val currencyFormat = NumberFormat.getCurrencyInstance(Locale.GERMANY)
+    val showRefreshButton = !card.selectedPriceSource.isNullOrBlank() &&
+            card.selectedPriceSource != "CUSTOM" &&
+            !isPriceUpdatedToday(card.lastPriceUpdate)
 
     Section(title = stringResource(MR.strings.card_details_collection_info)) {
         DetailRow(label = stringResource(MR.strings.card_details_owned_copies), value = card.ownedCopies.toString())
-        DetailRow(label = stringResource(MR.strings.card_details_current_price), value = card.currentPrice?.let { currencyFormat.format(it) } ?: "-")
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(stringResource(MR.strings.card_details_current_price), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = card.currentPrice?.let { currencyFormat.format(it) } ?: "-",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                // Der Button wird nur angezeigt, wenn die Bedingungen erfüllt sind.
+                if (showRefreshButton) {
+                    IconButton(
+                        onClick = { onRefreshPrice(card) },
+                        modifier = Modifier.size(24.dp) // Macht den Button kleiner und kompakter
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Cached,
+                            contentDescription = stringResource(MR.strings.card_details_update_price_button_desc),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
+
+        val formattedDate = card.lastPriceUpdate?.let { dateString ->
+            try {
+                val instant = java.time.Instant.parse(dateString)
+                val localDate = instant.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+                val formatter = java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")
+                localDate.format(formatter)
+            } catch (e: Exception) {
+                "-"
+            }
+        } ?: "-"
+        DetailRow(label = stringResource(MR.strings.last_price_update), value = formattedDate, small = true)
+
+
         Text(stringResource(MR.strings.card_details_notes), style = MaterialTheme.typography.titleSmall)
         Text(
             text = if (card.notes.isNullOrBlank()) stringResource(MR.strings.card_details_no_notes) else card.notes!!,
@@ -221,9 +297,18 @@ private fun AbilityView(ability: Ability) {
 @Composable
 private fun AttackView(attack: Attack) {
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(attack.name, style = MaterialTheme.typography.titleMedium)
-            Text(attack.damage ?: "", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text(
+                attack.damage ?: "",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
         // TODO: Hier könnten die Energiekosten (`attack.cost`) als Symbole dargestellt werden.
         attack.effect?.let {
@@ -233,13 +318,18 @@ private fun AttackView(attack: Attack) {
 }
 
 @Composable
-private fun DetailRow(label: String, value: String) {
+private fun DetailRow(label: String, value: String, small: Boolean = false) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+        if (small) {
+            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+        } else {
+            Text(label, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+        }
     }
 }
 
@@ -248,5 +338,17 @@ private fun InfoChip(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+private fun isPriceUpdatedToday(dateString: String?): Boolean {
+    if (dateString.isNullOrBlank()) return false
+    return try {
+        val updateDate = OffsetDateTime.parse(dateString)
+            .atZoneSameInstant(ZoneId.systemDefault())
+            .toLocalDate()
+        updateDate.isEqual(LocalDate.now(ZoneId.systemDefault()))
+    } catch (e: Exception) {
+        false
     }
 }

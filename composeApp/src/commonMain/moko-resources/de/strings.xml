@@ -15,6 +15,7 @@
     <string name="nav_collection">Sammlung</string>
     <string name="nav_value">Wert</string>
     <string name="nav_settings">Einstellungen</string>
+    <string name="nav_export">Exportieren</string>
 
     <!-- Settings -->
     <string name="settings_title">Einstellungen</string>
@@ -45,6 +46,8 @@
     <string name="card_details_back_button_desc">Zurück</string>
     <string name="card_details_loading_error">Karte konnte nicht geladen werden.</string>
     <string name="card_details_no_notes">Keine Notizen vorhanden.</string>
+    <string name="last_price_update">letztes Preis-Update</string>
+    <string name="card_details_update_price_button_desc">Kartenwert Updaten</string>
 
     <!-- AddCardScreen -->
     <string name="add_card_title">Neue Karte hinzufügen</string>
@@ -81,6 +84,7 @@
     <string name="final_add_card_notes_label">Notizen (optional)</string>
     <string name="final_add_card_cancel_button">Abbrechen</string>
     <string name="final_add_card_save_button">Speichern</string>
+    <string name="final_add_card_pricing_warning">Hinweiß: Die Preisfunktionalität ist noch in Entwicklung durch TCGdex und kann daher falsche Informationen beinhalten.</string>
 
     <!-- SetSelectionScreen -->
     <string name="set_selection_add_card_title">Karte hinzufügen</string>
@@ -95,6 +99,22 @@
     <!-- CardCollectionScreen -->
     <string name="collection_add_card_button">Karte hinzufügen</string>
     <string name="collection_add_card_button_desc">Eine neue Karte zur Sammlung hinzufügen</string>
+    <string name="filter">Filter</string>
+    <string name="sort">Sortieren</string>
+    <string name="collection_reload_prices_button">alle Preise aktualisieren</string>
+    <string name="collection_reload_prices_button_title">Preise aktualisieren</string>
+    <string name="collection_reload_prices_button_desc">Möchten Sie die Preise für alle Karten mit API-Anbindung aktualisieren? Dieser Vorgang kann je nach Sammlungsgröße einige Zeit dauern und kann nicht abgebrochen werden.</string>
+
+
+    <!-- Sort/Filter Options -->
+    <string name="filter">Filter</string>
+    <string name="sort">Sortieren</string>
+    <string name="attribute_name">Name</string>
+    <string name="attribute_set">Set</string>
+    <string name="attribute_price">Preis</string>
+    <string name="attribute_owned">Anzahl</string>
+    <string name="attribute_language">Sprache</string>
+    <string name="unknown_attribute">-</string>
 
     <!-- AddCardScreen -->
     <string name="add_card_title">Neue Karte hinzufügen</string>
@@ -136,11 +156,15 @@
     <string name="set_selection_add_card_title">Karte hinzufügen</string>
     <string name="set_selection_error_dialog_title">Fehler</string>
     <string name="set_selection_ok_button">OK</string>
+    <string name="set_selection_tab_by_name">Nach Name</string>
+    <string name="set_selection_tab_by_set">Nach Set</string>
     <string name="set_selection_language_label">Kartensprache</string>
     <string name="set_selection_set_label">Set</string>
     <string name="set_selection_set_placeholder">Set auswählen...</string>
     <string name="set_selection_card_number_label">Kartennummer (z.B. 051)</string>
     <string name="set_selection_search_button">Karte suchen</string>
+    <string name="set_selection_card_name_label">Kartenname</string>
+    <string name="set_selection_card_number_count_label">Kartennummer (z.B. 161/086)</string>
 
     <!-- SettingsScreen -->
     <string name="settings_title">Einstellungen</string>
@@ -179,5 +203,32 @@
     <string name="guide_step3_desc">Navigieren Sie in den Projekt-Einstellungen zum Reiter 'API'. Dort finden Sie zwei wichtige Informationen, die Sie für die App benötigen:\n\n1. Die Projekt-URL.\n2. Den 'public anon' API-Schlüssel (unter 'Project API Keys'). Kopieren Sie beide Werte.</string>
     <string name="guide_step4_title">Schlüssel in die App eintragen</string>
     <string name="guide_step4_desc">Kehren Sie zur Einstellungsseite dieser App zurück. Fügen Sie die kopierte URL und den 'anon' Schlüssel in die entsprechenden Felder ein und klicken Sie auf 'Verbinden &amp; Prüfen'.</string>
-
+    <string name="filter_name">Name</string>
+    <string name="filter_set">Set</string>
+    <string name="filter_language">Sprache</string>
+    <string name="filter_price">Preis</string>
+    <string name="filter_copies">Kopien</string>
+    <string name="sort_name">Name</string>
+    <string name="sort_set">Set</string>
+    <string name="sort_language">Sprache</string>
+    <string name="sort_price">Preis</string>
+    <string name="sort_copies">Kopien</string>
+    <string name="filter_price_under">unter</string>
+    <string name="filter_price_over">über</string>
+    <string name="filter_copies_min">mindestens</string>
+    <string name="filter_copies_max">bis zu</string>
+    <string name="filter_button_text">Filtern</string>
+    <string name="filter_button_desc">Filterdialog öffnen</string>
+    <string name="sort_button_text">Sortieren</string>
+    <string name="sort_button_desc">Sortierdialog öffnen</string>
+    <string name="filter_dialog_title">Filter hinzufügen</string>
+    <string name="filter_dialog_confirm">Hinzufügen</string>
+    <string name="filter_dialog_cancel">Abbrechen</string>
+    <string name="language_german">Deutsch</string>
+    <string name="language_english">Englisch</string>
+    <string name="language_french">Französisch</string>
+    <string name="language_spanish">Spanisch</string>
+    <string name="language_italian">Italienisch</string>
+    <string name="language_portuguese">Portugiesisch</string>
+    <string name="language_japanese">Japanisch</string>
 </resources>

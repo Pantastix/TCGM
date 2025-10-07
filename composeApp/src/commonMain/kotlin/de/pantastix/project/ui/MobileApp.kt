@@ -50,6 +50,7 @@ fun MobileApp(viewModel: CardListViewModel) {
             }
         }
     ) { innerPadding ->
+        //TODO: verbinden mit dem Desktop screen?
         Box(modifier = Modifier.padding(innerPadding)) {
             when (currentScreen) {
                 MainScreen.COLLECTION -> CardCollectionScreen(
@@ -65,6 +66,7 @@ fun MobileApp(viewModel: CardListViewModel) {
                 MainScreen.SUPABASE_GUIDE -> SupabaseGuideScreen(
                     onBack = { currentScreen = MainScreen.SETTINGS }
                 )
+                MainScreen.EXPORT -> ExportScreen(viewModel = viewModel)
             }
         }
         if (showAddCardDialog) {

@@ -61,6 +61,7 @@ fun SupabaseGuideScreen(onBack: () -> Unit) {
             "regulationMark" TEXT,
             "currentPrice" DOUBLE PRECISION,
             "lastPriceUpdate" TEXT,
+            "selectedPriceSource" TEXT,
             "variantsJson" TEXT,
             "abilitiesJson" TEXT,
             "attacksJson" TEXT,
@@ -79,6 +80,8 @@ fun SupabaseGuideScreen(onBack: () -> Unit) {
             P."imageUrl",
             P."ownedCopies",
             P."currentPrice"
+            P."selectedPriceSource",
+            P."lastPriceUpdate" 
         FROM
             public."PokemonCardEntity" AS P
         JOIN

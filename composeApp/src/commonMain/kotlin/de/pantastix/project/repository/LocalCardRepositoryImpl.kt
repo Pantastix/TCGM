@@ -70,6 +70,24 @@ class LocalCardRepositoryImpl(
         }
     }
 
+    override suspend fun getSetsByOfficialCount(count: Int): List<SetInfo> {
+        return withContext(ioDispatcher) {
+            queries.selectSetsByOfficialCount(count.toLong()).executeAsList().map { entity ->
+                SetInfo(
+                    id = entity.id.toInt(),
+                    setId = entity.setId,
+                    abbreviation = entity.abbreviation,
+                    nameLocal = entity.nameLocal,
+                    nameEn = entity.nameEn,
+                    logoUrl = entity.logoUrl,
+                    cardCountOfficial = entity.cardCountOfficial.toInt(),
+                    cardCountTotal = entity.cardCountTotal.toInt(),
+                    releaseDate = entity.releaseDate
+                )
+            }
+        }
+    }
+
     // --- Pokémon-Karten-Implementierungen ---
 
     override fun getCardInfos(): Flow<List<PokemonCardInfo>> {
@@ -86,7 +104,9 @@ class LocalCardRepositoryImpl(
                         setName = result.setName,
                         imageUrl = result.imageUrl,
                         ownedCopies = result.ownedCopies.toInt(),
-                        currentPrice = result.currentPrice
+                        currentPrice = result.currentPrice,
+                        selectedPriceSource = result.selectedPriceSource,
+                        lastPriceUpdate = result.lastPriceUpdate
                     )
                 }
             }
@@ -110,6 +130,7 @@ class LocalCardRepositoryImpl(
                     notes = it.notes,
                     currentPrice = it.currentPrice,
                     lastPriceUpdate = it.lastPriceUpdate,
+                    selectedPriceSource = it.selectedPriceSource,
                     setId = it.setId,
                     setName = it.setName,
                     localId = "${it.localId} / ${it.cardCountTotal}",
@@ -139,7 +160,9 @@ class LocalCardRepositoryImpl(
                     setName = "", // Nicht relevant für diesen Check
                     imageUrl = entity.imageUrl,
                     ownedCopies = entity.ownedCopies.toInt(),
-                    currentPrice = entity.currentPrice
+                    currentPrice = entity.currentPrice,
+                    selectedPriceSource = entity.selectedPriceSource,
+                    lastPriceUpdate = entity.lastPriceUpdate
                 )
             }
         }
@@ -167,6 +190,7 @@ class LocalCardRepositoryImpl(
                 regulationMark = card.regulationMark,
                 currentPrice = card.currentPrice,
                 lastPriceUpdate = card.lastPriceUpdate,
+                selectedPriceSource = card.selectedPriceSource,
                 variantsJson = card.variantsJson, // Muss aus einem passenden Feld im Modell kommen
                 abilitiesJson = Json.encodeToString(ListSerializer(Ability.serializer()), card.abilities),
                 attacksJson = Json.encodeToString(ListSerializer(Attack.serializer()), card.attacks),
@@ -187,19 +211,30 @@ class LocalCardRepositoryImpl(
                     setName = "", // Nicht nötig für diesen Check
                     imageUrl = entity.imageUrl,
                     ownedCopies = entity.ownedCopies.toInt(),
-                    currentPrice = entity.currentPrice
+                    currentPrice = entity.currentPrice,
+                    selectedPriceSource = entity.selectedPriceSource,
+                    lastPriceUpdate = entity.lastPriceUpdate
                 )
             }
         }
     }
 
     override suspend fun updateCardUserData(
-        cardId: Long, ownedCopies: Int, notes: String?, currentPrice: Double?, lastPriceUpdate: String?
+        cardId: Long,
+        ownedCopies: Int,
+        notes: String?,
+        currentPrice: Double?,
+        lastPriceUpdate: String?,
+        selectedPriceSource: String?,
     ) {
         withContext(ioDispatcher) {
             queries.updateCardUserData(
-                id = cardId, ownedCopies = ownedCopies.toLong(), notes = notes,
-                currentPrice = currentPrice, lastPriceUpdate = lastPriceUpdate
+                id = cardId,
+                ownedCopies = ownedCopies.toLong(),
+                notes = notes,
+                currentPrice = currentPrice,
+                lastPriceUpdate = lastPriceUpdate,
+                selectedPriceSource = selectedPriceSource
             )
         }
     }

@@ -40,6 +40,7 @@ CREATE TABLE PokemonCardEntity (
     -- HIER SIND DIE PREIS-FELDER:
     currentPrice REAL,
     lastPriceUpdate TEXT,
+    selectedPriceSource TEXT,
 
     -- Komplexe Daten als JSON-Strings
     variantsJson TEXT,
@@ -69,6 +70,12 @@ SELECT * FROM SetEntity ORDER BY releaseDate ASC;
 selectSetById:
 SELECT * FROM SetEntity WHERE setId = ?;
 
+deleteSetById:
+DELETE FROM SetEntity WHERE setId = ?;
+
+selectSetsByOfficialCount:
+SELECT * FROM SetEntity WHERE cardCountOfficial = ?;
+
 clearAllSets:
 DELETE FROM SetEntity;
 
@@ -81,9 +88,9 @@ insertCard:
 INSERT INTO PokemonCardEntity (
     setId, tcgDexCardId, nameLocal, nameEn, language, localId, imageUrl, cardMarketLink,
     ownedCopies, notes, rarity, hp, types, illustrator, stage, retreatCost,
-    regulationMark, currentPrice, lastPriceUpdate, variantsJson,
+    regulationMark, currentPrice, lastPriceUpdate, selectedPriceSource, variantsJson,
     abilitiesJson, attacksJson, legalJson
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 
 selectAllCardInfos:
@@ -95,6 +102,8 @@ SELECT
     PokemonCardEntity.imageUrl,
     PokemonCardEntity.ownedCopies,
     PokemonCardEntity.currentPrice,
+    PokemonCardEntity.selectedPriceSource,
+    PokemonCardEntity.lastPriceUpdate,
     SetEntity.nameLocal AS setName
 FROM PokemonCardEntity
 JOIN SetEntity ON PokemonCardEntity.setId = SetEntity.setId
@@ -125,7 +134,8 @@ UPDATE PokemonCardEntity
 SET ownedCopies = :ownedCopies,
     notes = :notes,
     currentPrice = :currentPrice,
-    lastPriceUpdate = :lastPriceUpdate
+    lastPriceUpdate = :lastPriceUpdate,
+    selectedPriceSource = :selectedPriceSource
 WHERE id = :id;
 
 

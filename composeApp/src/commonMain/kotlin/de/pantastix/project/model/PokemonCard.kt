@@ -37,6 +37,7 @@ data class PokemonCard(
     // Preisinformationen
     var currentPrice: Double?,
     var lastPriceUpdate: String?,
+    var selectedPriceSource: String?,
 
     // Detail-Informationen
     val rarity: String?,

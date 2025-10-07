@@ -2,7 +2,6 @@ package de.pantastix.project.ui.screens
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -12,21 +11,26 @@ import androidx.compose.ui.unit.dp
 import de.pantastix.project.model.api.TcgDexCardResponse
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.withStyle
 import coil3.compose.AsyncImage
 import de.pantastix.project.model.SetInfo
 import de.pantastix.project.shared.resources.MR
+import de.pantastix.project.ui.components.PriceSelectionPanel
 import dev.icerock.moko.resources.compose.stringResource
-import jdk.internal.org.jline.utils.AttributedStringBuilder.append
-import org.jetbrains.compose.ui.tooling.preview.Preview
 
+enum class PriceSchema {
+    TREND,
+    AVG1,
+    AVG7,
+    AVG30,
+    LOW
+}
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun FinalAddCardScreen(
     cardDetails: TcgDexCardResponse,
+    englishCardDetails: TcgDexCardResponse?,
     setInfo: SetInfo?,
     isLoading: Boolean,
     onConfirm: (
@@ -36,7 +40,8 @@ fun FinalAddCardScreen(
         price: Double?,
         marketLink: String,
         quantity: Int,
-        notes: String?
+        notes: String?,
+        selectedPriceSource: String?,
     ) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -47,13 +52,79 @@ fun FinalAddCardScreen(
     var linkInput by remember { mutableStateOf("") }
     var userHasEditedLink by remember { mutableStateOf(false) }
 
-    LaunchedEffect(abbreviationInput, cardDetails, setInfo) {
+    var selectedPriceSchema by remember { mutableStateOf<PriceSchema?>(null) }
+    var isHolo by remember { mutableStateOf(false) }
+
+    fun updatePrice(priceSchema: PriceSchema? = selectedPriceSchema, isHoloCard: Boolean = isHolo) {
+        val pricing = cardDetails.pricing?.cardmarket
+        if (pricing != null) {
+            val priceToSet = if (isHoloCard) {
+                when (priceSchema) {
+                    PriceSchema.TREND -> pricing.`trend-holo`
+                    PriceSchema.AVG1 -> pricing.`avg1-holo`
+                    PriceSchema.AVG7 -> pricing.`avg7-holo`
+                    PriceSchema.AVG30 -> pricing.`avg30-holo`
+                    PriceSchema.LOW -> pricing.`low-holo`
+                    else -> null
+                }
+            } else {
+                when (priceSchema) {
+                    PriceSchema.TREND -> pricing.trend
+                    PriceSchema.AVG1 -> pricing.avg1
+                    PriceSchema.AVG7 -> pricing.avg7
+                    PriceSchema.AVG30 -> pricing.avg30
+                    PriceSchema.LOW -> pricing.low
+                    else -> null
+                }
+            }
+            if (priceToSet != null) {
+                priceInput = String.format("%.2f", priceToSet)
+            } else {
+                priceInput = "" // Setze leer, wenn kein Preis verfügbar ist
+            }
+        } else {
+            priceInput = ""
+        }
+    }
+
+    LaunchedEffect(cardDetails) {
+        val pricing = cardDetails.pricing?.cardmarket
+        val trendPrice = if (isHolo) pricing?.`trend-holo` else pricing?.trend
+        if (trendPrice != null) {
+            priceInput = String.format("%.2f", trendPrice)
+            selectedPriceSchema = PriceSchema.TREND
+        }
+    }
+
+    LaunchedEffect(abbreviationInput, cardDetails, englishCardDetails, setInfo) {
         if (!userHasEditedLink) {
-            fun slugify(input: String) = input.replace("'", "").replace(" ", "-").replace(":", "")
-            val finalAbbreviation = if (abbreviationInput.isNotBlank()) abbreviationInput.uppercase() else cardDetails.set.id.uppercase()
+            fun slugify(input: String) = input.replace("'", "")
+                .replace(" ", "-")
+                .replace(":", "")
+                .replace("&", "")
+                .replace(Regex("--+"), "-")
+
+            val versionSuffix = cardDetails.cardmarketVersion?.let { version ->
+                // Annahme: cardDetails hat jetzt ein Feld `totalCardmarketVersions`
+                val totalVersions = cardDetails.totalCardmarketVersions ?: 1
+                if (totalVersions > 1) {
+                    "-V$version"
+                } else {
+                    "" // Kein Suffix, wenn es nur eine Version gibt.
+                }
+            } ?: ""
+
+            // Fügt den Suffix zum slugifizierten Kartennamen hinzu.
+            val cardNameToUse = englishCardDetails?.name ?: cardDetails.name
+            val slugifiedCardNameWithVersion = "${slugify(cardNameToUse)}${versionSuffix}"
+
+            val finalAbbreviation =
+                if (abbreviationInput.isNotBlank()) abbreviationInput.uppercase() else cardDetails.set.id.uppercase()
+
             val autoGeneratedLink = "https://www.cardmarket.com/de/Pokemon/Products/Singles/" +
                     "${slugify(setInfo?.nameEn ?: cardDetails.set.name)}/" +
-                    "${slugify(cardDetails.name)}-${finalAbbreviation}${cardDetails.localId}"
+                    "${slugifiedCardNameWithVersion}-${finalAbbreviation}${cardDetails.localId}"
+
             linkInput = autoGeneratedLink
         }
     }
@@ -67,7 +138,7 @@ fun FinalAddCardScreen(
             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
         )
         Text(
-            "${cardDetails.set.name} (${cardDetails.localId})",
+            "${cardDetails.set.name} (${cardDetails.localId}/${setInfo?.cardCountOfficial})",
             style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
         )
@@ -124,7 +195,10 @@ fun FinalAddCardScreen(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(
                 value = priceInput,
-                onValueChange = { priceInput = it },
+                onValueChange = {
+                    priceInput = it
+                    selectedPriceSchema = null
+                },
                 label = { Text(stringResource(MR.strings.final_add_card_purchase_price_label)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.weight(1f)
@@ -138,6 +212,34 @@ fun FinalAddCardScreen(
             )
         }
 
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            text = stringResource(MR.strings.final_add_card_pricing_warning),
+            modifier = Modifier.padding(bottom = 8.dp),
+            //color grey
+            style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+        )
+        // Preis-Schema-Buttons
+        val hasPricingData = cardDetails.pricing?.cardmarket != null
+        if (hasPricingData) {
+
+            PriceSelectionPanel(
+                cardDetails = cardDetails,
+                initialSelectedSchema = selectedPriceSchema,
+                initialIsHolo = isHolo,
+                onSelectionChange = { price, source, holo ->
+                    priceInput = price
+                    selectedPriceSchema = source
+                    isHolo = holo
+                }
+            )
+        }
+
+        HorizontalDivider(
+            modifier = Modifier.padding(vertical = 8.dp),
+        )
+
         OutlinedTextField(
             value = notesInput,
             onValueChange = { notesInput = it },
@@ -149,13 +251,27 @@ fun FinalAddCardScreen(
 
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
             if (isLoading) {
-                CircularProgressIndicator()
+                LoadingIndicator()
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text(stringResource(MR.strings.final_add_card_cancel_button)) }
+                    OutlinedButton(
+                        onClick = onCancel,
+                        modifier = Modifier.weight(1f)
+                    ) { Text(stringResource(MR.strings.final_add_card_cancel_button)) }
                     Button(
                         onClick = {
                             val quantity = quantityInput.toIntOrNull() ?: 1
+
+                            val priceSource = when {
+                                selectedPriceSchema != null -> {
+                                    val baseName = selectedPriceSchema!!.name.lowercase()
+                                    if (isHolo) "${baseName}-holo" else baseName
+                                }
+
+                                priceInput.isNotBlank() -> "CUSTOM"
+                                else -> null
+                            }
+
                             onConfirm(
                                 cardDetails,
                                 nameInput,
@@ -163,7 +279,8 @@ fun FinalAddCardScreen(
                                 priceInput.replace(",", ".").toDoubleOrNull(),
                                 linkInput,
                                 quantity,
-                                notesInput.ifBlank { null }
+                                notesInput.ifBlank { null },
+                                priceSource,
                             )
                         },
                         modifier = Modifier.weight(1f)

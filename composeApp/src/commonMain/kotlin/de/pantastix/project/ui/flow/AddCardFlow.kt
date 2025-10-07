@@ -68,9 +68,10 @@ fun AddCardContent(
         val setInfo = uiState.sets.find { it.setId == uiState.apiCardDetails!!.set.id }
         FinalAddCardScreen(
             cardDetails = uiState.apiCardDetails!!,
+            englishCardDetails = uiState.englishApiCardDetails,
             setInfo = setInfo,
             isLoading = uiState.isLoading,
-            onConfirm = { details, name, abbreviation, price, marketLink, quantity, notes ->
+            onConfirm = { details, name, abbreviation, price, marketLink, quantity, notes, selectedPriceSource ->
                 viewModel.confirmAndSaveCard(
                     cardDetails = details.copy(name = name),
                     languageCode = uiState.searchedCardLanguage!!.code,
@@ -78,7 +79,8 @@ fun AddCardContent(
                     price = price,
                     cardMarketLink = marketLink,
                     ownedCopies = quantity,
-                    notes = notes
+                    notes = notes,
+                    selectedPriceSource = selectedPriceSource
                 )
                 onCardAdded()
             },

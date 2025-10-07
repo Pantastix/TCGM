@@ -12,5 +12,7 @@ data class PokemonCardInfo(
     val setName: String,
     val imageUrl: String?,
     val ownedCopies: Int,
-    val currentPrice: Double?
+    val currentPrice: Double?,
+    val selectedPriceSource: String?,
+    val lastPriceUpdate: String?
 )

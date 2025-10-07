@@ -24,6 +24,7 @@ data class SupabasePokemonCard(
     val regulationMark: String? = null,
     val currentPrice: Double? = null,
     val lastPriceUpdate: String? = null,
+    val selectedPriceSource: String? = null,
     val variantsJson: String? = null,
     val abilitiesJson: String? = null,
     val attacksJson: String? = null,
