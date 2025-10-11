@@ -6,7 +6,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.toSize
+import androidx.compose.ui.window.PopupProperties
 import de.pantastix.project.model.SetInfo
 import de.pantastix.project.shared.resources.MR
 import de.pantastix.project.ui.viewmodel.CardLanguage
@@ -74,6 +81,20 @@ private fun SearchBySet(viewModel: CardListViewModel) {
     var selectedLanguage by remember { mutableStateOf(CardLanguage.GERMAN) }
     var isLangDropdownExpanded by remember { mutableStateOf(false) }
 
+//    var setQuery by remember { mutableStateOf("") }
+    var setText by remember { mutableStateOf("") }
+    val focusManager = LocalFocusManager.current
+
+    val filteredSets = remember(setText, uiState.sets) {
+        if (setText.isBlank()) {
+            uiState.sets // Zeige alle Sets an, wenn das Suchfeld leer ist
+        } else {
+            uiState.sets.filter {
+                it.nameLocal.contains(setText, ignoreCase = true)
+            }
+        }
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         // Sprachauswahl
         ExposedDropdownMenuBox(expanded = isLangDropdownExpanded, onExpandedChange = { isLangDropdownExpanded = it }) {
@@ -93,22 +114,77 @@ private fun SearchBySet(viewModel: CardListViewModel) {
             }
         }
         // Set-Auswahl
-        ExposedDropdownMenuBox(expanded = isSetDropdownExpanded, onExpandedChange = { isSetDropdownExpanded = it }) {
+//        ExposedDropdownMenuBox(expanded = isSetDropdownExpanded, onExpandedChange = { isSetDropdownExpanded = it }) {
+//            OutlinedTextField(
+//                value = selectedSet?.nameLocal ?: stringResource(MR.strings.set_selection_set_placeholder),
+//                onValueChange = {}, readOnly = true, label = { Text(stringResource(MR.strings.set_selection_set_label)) },
+//                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isSetDropdownExpanded) },
+//                modifier = Modifier.menuAnchor().fillMaxWidth()
+//            )
+//            ExposedDropdownMenu(expanded = isSetDropdownExpanded, onDismissRequest = { isSetDropdownExpanded = false }) {
+//                uiState.sets.forEach { set ->
+//                    DropdownMenuItem(text = { Text(set.nameLocal) }, onClick = {
+//                        selectedSet = set
+//                        isSetDropdownExpanded = false
+//                    })
+//                }
+//            }
+//        }
+
+        Box(modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
-                value = selectedSet?.nameLocal ?: stringResource(MR.strings.set_selection_set_placeholder),
-                onValueChange = {}, readOnly = true, label = { Text(stringResource(MR.strings.set_selection_set_label)) },
+                value = setText,
+                onValueChange = {
+                    setText = it
+                    selectedSet = null // Auswahl zurücksetzen, während der Nutzer tippt
+                    isSetDropdownExpanded = true // Menü offen halten während des Tippens
+                },
+                label = { Text(stringResource(MR.strings.set_selection_set_label)) },
+                placeholder = { Text(stringResource(MR.strings.set_selection_set_placeholder)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isSetDropdownExpanded) },
-                modifier = Modifier.menuAnchor().fillMaxWidth()
+                modifier = Modifier.fillMaxWidth()
             )
-            ExposedDropdownMenu(expanded = isSetDropdownExpanded, onDismissRequest = { isSetDropdownExpanded = false }) {
-                uiState.sets.forEach { set ->
-                    DropdownMenuItem(text = { Text(set.nameLocal) }, onClick = {
-                        selectedSet = set
-                        isSetDropdownExpanded = false
-                    })
+
+            DropdownMenu(
+                expanded = isSetDropdownExpanded,
+                onDismissRequest = { isSetDropdownExpanded = false },
+                // Diese Zeile ist die Lösung für das Fokus-Problem in einem Dialog
+                properties = PopupProperties(focusable = false),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                filteredSets.forEach { set ->
+                    DropdownMenuItem(
+                        text = { Text(set.nameLocal) },
+                        onClick = {
+                            selectedSet = set // Das ausgewählte Set speichern
+                            setText = set.nameLocal // Textfeld mit dem vollen Namen aktualisieren
+                            isSetDropdownExpanded = false // Menü schließen
+                            focusManager.clearFocus() // Fokus vom Textfeld entfernen
+                        }
+                    )
                 }
             }
+
+//            if (filteredSets.isNotEmpty()) {
+//                ExposedDropdownMenu(
+//                    expanded = isSetDropdownExpanded,
+//                    onDismissRequest = { isSetDropdownExpanded = false }
+//                ) {
+//                    filteredSets.forEach { set ->
+//                        DropdownMenuItem(
+//                            text = { Text(set.nameLocal) },
+//                            onClick = {
+//                                selectedSet = set // Das ausgewählte Set speichern
+//                                setText = set.nameLocal // Textfeld mit dem vollen Namen aktualisieren
+//                                isSetDropdownExpanded = false // Menü schließen
+//                                focusManager.clearFocus() // Fokus vom Textfeld entfernen
+//                            }
+//                        )
+//                    }
+//                }
+//            }
         }
+
         // Kartennummer
         OutlinedTextField(
             value = selectedCardNumber,
