@@ -85,6 +85,8 @@ private fun SearchBySet(viewModel: CardListViewModel) {
     var setText by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
 
+    var textFieldSize by remember { mutableStateOf(Size.Zero) }
+
     val filteredSets = remember(setText, uiState.sets) {
         if (setText.isBlank()) {
             uiState.sets // Zeige alle Sets an, wenn das Suchfeld leer ist
@@ -100,11 +102,15 @@ private fun SearchBySet(viewModel: CardListViewModel) {
         ExposedDropdownMenuBox(expanded = isLangDropdownExpanded, onExpandedChange = { isLangDropdownExpanded = it }) {
             OutlinedTextField(
                 value = selectedLanguage.displayName,
-                onValueChange = {}, readOnly = true, label = { Text(stringResource(MR.strings.set_selection_language_label)) },
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(stringResource(MR.strings.set_selection_language_label)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isLangDropdownExpanded) },
                 modifier = Modifier.menuAnchor().fillMaxWidth()
             )
-            ExposedDropdownMenu(expanded = isLangDropdownExpanded, onDismissRequest = { isLangDropdownExpanded = false }) {
+            ExposedDropdownMenu(
+                expanded = isLangDropdownExpanded,
+                onDismissRequest = { isLangDropdownExpanded = false }) {
                 CardLanguage.entries.forEach { lang ->
                     DropdownMenuItem(text = { Text(lang.displayName) }, onClick = {
                         selectedLanguage = lang
@@ -142,7 +148,11 @@ private fun SearchBySet(viewModel: CardListViewModel) {
                 label = { Text(stringResource(MR.strings.set_selection_set_label)) },
                 placeholder = { Text(stringResource(MR.strings.set_selection_set_placeholder)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isSetDropdownExpanded) },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onGloballyPositioned { coordinates ->
+                        textFieldSize = coordinates.size.toSize()
+                    }
             )
 
             DropdownMenu(
@@ -150,7 +160,8 @@ private fun SearchBySet(viewModel: CardListViewModel) {
                 onDismissRequest = { isSetDropdownExpanded = false },
                 // Diese Zeile ist die Lösung für das Fokus-Problem in einem Dialog
                 properties = PopupProperties(focusable = false),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .width(with(LocalDensity.current) { textFieldSize.width.toDp() })
             ) {
                 filteredSets.forEach { set ->
                     DropdownMenuItem(
@@ -223,11 +234,15 @@ private fun SearchByNameAndNumber(viewModel: CardListViewModel) {
         ExposedDropdownMenuBox(expanded = isLangDropdownExpanded, onExpandedChange = { isLangDropdownExpanded = it }) {
             OutlinedTextField(
                 value = selectedLanguage.displayName,
-                onValueChange = {}, readOnly = true, label = { Text(stringResource(MR.strings.set_selection_language_label)) },
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(stringResource(MR.strings.set_selection_language_label)) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isLangDropdownExpanded) },
                 modifier = Modifier.menuAnchor().fillMaxWidth()
             )
-            ExposedDropdownMenu(expanded = isLangDropdownExpanded, onDismissRequest = { isLangDropdownExpanded = false }) {
+            ExposedDropdownMenu(
+                expanded = isLangDropdownExpanded,
+                onDismissRequest = { isLangDropdownExpanded = false }) {
                 CardLanguage.entries.forEach { lang ->
                     DropdownMenuItem(text = { Text(lang.displayName) }, onClick = {
                         selectedLanguage = lang
