@@ -95,6 +95,7 @@
     <string name="set_selection_set_placeholder">Set auswählen...</string>
     <string name="set_selection_card_number_label">Kartennummer (z.B. 051)</string>
     <string name="set_selection_search_button">Karte suchen</string>
+    <string name="set_selection_error_invalid_set">Ungültiges Set</string>
 
     <!-- CardCollectionScreen -->
     <string name="collection_add_card_button">Karte hinzufügen</string>

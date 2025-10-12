@@ -84,8 +84,8 @@ private fun SearchBySet(viewModel: CardListViewModel) {
 //    var setQuery by remember { mutableStateOf("") }
     var setText by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
-
     var textFieldSize by remember { mutableStateOf(Size.Zero) }
+    var isError by remember { mutableStateOf(false) }
 
     val filteredSets = remember(setText, uiState.sets) {
         if (setText.isBlank()) {
@@ -119,6 +119,7 @@ private fun SearchBySet(viewModel: CardListViewModel) {
                 }
             }
         }
+//        Spacer(Modifier.height(4.dp))
         // Set-Auswahl
 //        ExposedDropdownMenuBox(expanded = isSetDropdownExpanded, onExpandedChange = { isSetDropdownExpanded = it }) {
 //            OutlinedTextField(
@@ -136,45 +137,58 @@ private fun SearchBySet(viewModel: CardListViewModel) {
 //                }
 //            }
 //        }
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Box(modifier = Modifier.fillMaxWidth().padding(vertical = 0.dp)) {
+                OutlinedTextField(
+                    value = setText,
+                    onValueChange = {
+                        setText = it
+                        selectedSet = null // Auswahl zurücksetzen, während der Nutzer tippt
+                        isSetDropdownExpanded = true // Menü offen halten während des Tippens
+                        isError = false
+                    },
+                    label = { Text(stringResource(MR.strings.set_selection_set_label)) },
+                    placeholder = { Text(stringResource(MR.strings.set_selection_set_placeholder)) },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isSetDropdownExpanded) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onGloballyPositioned { coordinates ->
+                            textFieldSize = coordinates.size.toSize()
+                        }.onFocusChanged { focusState ->
+                            if (focusState.isFocused) {
+                                isSetDropdownExpanded = true
+                            }
+                        },
+                    isError = isError,
+                )
 
-        Box(modifier = Modifier.fillMaxWidth()) {
-            OutlinedTextField(
-                value = setText,
-                onValueChange = {
-                    setText = it
-                    selectedSet = null // Auswahl zurücksetzen, während der Nutzer tippt
-                    isSetDropdownExpanded = true // Menü offen halten während des Tippens
-                },
-                label = { Text(stringResource(MR.strings.set_selection_set_label)) },
-                placeholder = { Text(stringResource(MR.strings.set_selection_set_placeholder)) },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isSetDropdownExpanded) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .onGloballyPositioned { coordinates ->
-                        textFieldSize = coordinates.size.toSize()
-                    }
-            )
-
-            DropdownMenu(
-                expanded = isSetDropdownExpanded,
-                onDismissRequest = { isSetDropdownExpanded = false },
-                // Diese Zeile ist die Lösung für das Fokus-Problem in einem Dialog
-                properties = PopupProperties(focusable = false),
-                modifier = Modifier
-                    .width(with(LocalDensity.current) { textFieldSize.width.toDp() })
-            ) {
-                filteredSets.forEach { set ->
-                    DropdownMenuItem(
-                        text = { Text(set.nameLocal) },
-                        onClick = {
-                            selectedSet = set // Das ausgewählte Set speichern
-                            setText = set.nameLocal // Textfeld mit dem vollen Namen aktualisieren
-                            isSetDropdownExpanded = false // Menü schließen
-                            focusManager.clearFocus() // Fokus vom Textfeld entfernen
+                DropdownMenu(
+                    expanded = isSetDropdownExpanded,
+                    onDismissRequest = { isSetDropdownExpanded = false },
+                    // Diese Zeile ist die Lösung für das Fokus-Problem in einem Dialog
+                    properties = PopupProperties(focusable = false),
+                    modifier = Modifier
+                        .width(with(LocalDensity.current) { textFieldSize.width.toDp() })
+                        .heightIn(max = 200.dp)
+                        .onFocusChanged { focusState ->
+                            if (focusState.isFocused) {
+                                // Menü öffnen, wenn das Feld den Fokus bekommt.
+                                isSetDropdownExpanded = true
+                            } else {}
                         }
-                    )
+                ) {
+                    filteredSets.forEach { set ->
+                        DropdownMenuItem(
+                            text = { Text(set.nameLocal) },
+                            onClick = {
+                                selectedSet = set
+                                setText = set.nameLocal
+                                isSetDropdownExpanded = false
+                                focusManager.clearFocus()
+                            }
+                        )
+                    }
                 }
-            }
 
 //            if (filteredSets.isNotEmpty()) {
 //                ExposedDropdownMenu(
@@ -194,6 +208,17 @@ private fun SearchBySet(viewModel: CardListViewModel) {
 //                    }
 //                }
 //            }
+            }
+            if (isError) {
+                Text(
+                    text = stringResource(MR.strings.set_selection_error_invalid_set), // "Kein gültiges Set gefunden"
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall, // Stil für Konsistenz
+                    modifier = Modifier
+                        .padding(start = 16.dp, top = 4.dp) // Simuliert das Standard-Padding
+                        .fillMaxWidth() // Sorgt für korrekte Ausrichtung
+                )
+            }
         }
 
         // Kartennummer
@@ -209,12 +234,26 @@ private fun SearchBySet(viewModel: CardListViewModel) {
             LoadingIndicator()
         } else {
             Button(
+//                onClick = {
+//                    selectedSet?.let {
+//                        viewModel.fetchCardDetailsFromApi(it.setId, selectedCardNumber, selectedLanguage)
+//                    }
+//                },
                 onClick = {
-                    selectedSet?.let {
-                        viewModel.fetchCardDetailsFromApi(it.setId, selectedCardNumber, selectedLanguage)
+                    // 1. Finde das Set basierend auf der exakten Texteingabe
+                    val foundSet = uiState.sets.find { it.nameLocal.equals(setText, ignoreCase = true) }
+
+                    // 2. Prüfe, ob das Set gültig ist
+                    if (foundSet != null) {
+                        // Gültig: Fehlerstatus zurücksetzen und Suche starten
+                        isError = false
+                        viewModel.fetchCardDetailsFromApi(foundSet.setId, selectedCardNumber, selectedLanguage)
+                    } else {
+                        // Ungültig: Fehlerstatus setzen
+                        isError = true
                     }
                 },
-                enabled = selectedSet != null && selectedCardNumber.isNotBlank()
+                enabled = setText.isNotBlank() && selectedCardNumber.isNotBlank()
             ) { Text(stringResource(MR.strings.set_selection_search_button)) }
         }
     }
