@@ -154,7 +154,9 @@ class CardListViewModel(
             // Diese Funktion wartet jetzt, bis die Verbindung steht.
             initializeSupabaseConnection()
 
-            val isFirstLaunch = activeCardRepository.getAllSets().first().isEmpty()
+            val isFirstLaunch = activeCardRepository.isSetStorageEmpty()
+//            val isFirstLaunch = activeCardRepository.getAllSets().first().isEmpty()
+            println(isFirstLaunch)
 
             val success = if (isFirstLaunch) {
                 handleFirstLaunchSetLoading()
@@ -367,10 +369,12 @@ class CardListViewModel(
                 return true // Erfolg!
             }
 
+            print(attempt)
             if (attempt < 3) {
                 _uiState.update { it.copy(loadingMessage = "Fehler beim Laden. Nächster Versuch in 5 Sekunden...") }
                 delay(5000)
             } else {
+                print("error")
                 // Nach 3 Fehlversuchen wird ein permanenter Fehler angezeigt.
                 _uiState.update { it.copy(error = "Konnte Set-Informationen nach 3 Versuchen nicht laden. Bitte prüfe deine Internetverbindung und starte die App neu.") }
                 return false // Endgültiger Fehlschlag.

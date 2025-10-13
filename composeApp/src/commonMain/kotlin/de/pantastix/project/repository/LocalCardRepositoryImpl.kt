@@ -42,6 +42,10 @@ class LocalCardRepositoryImpl(
             }
     }
 
+    override suspend fun isSetStorageEmpty(): Boolean {
+        return queries.selectAllSets().executeAsList().isEmpty()
+    }
+
     override suspend fun syncSets(sets: List<SetInfo>) {
         withContext(ioDispatcher) {
             queries.transaction {

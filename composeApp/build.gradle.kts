@@ -170,12 +170,12 @@ compose.desktop {
 sqldelight {
     databases {
         create("CardDatabase") {
-            // The package for the generated Kotlin API
             packageName.set("de.pantastix.project.db.cards")
 
             // Point to the dedicated source root for this database.
             // SQLDelight will look for .sq files inside this folder.
             srcDirs.setFrom("src/commonMain/sqldelight/cardDatabase")
+            version = 1
         }
         create("SettingsDatabase") {
             // The package for the generated Kotlin API
@@ -183,6 +183,7 @@ sqldelight {
 
             // Point to the dedicated source root for this database.
             srcDirs.setFrom("src/commonMain/sqldelight/settingsDatabase")
+            version = 1
         }
     }
 }

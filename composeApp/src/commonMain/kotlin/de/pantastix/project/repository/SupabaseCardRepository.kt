@@ -6,6 +6,7 @@ import de.pantastix.project.model.supabase.FullPokemonCardResponse
 import de.pantastix.project.model.supabase.SupabasePokemonCard
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Columns
+import io.github.jan.supabase.postgrest.query.Count
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -191,6 +192,22 @@ class SupabaseCardRepository(
 //        emit(data)
 //    }
     override fun getAllSets(): Flow<List<SetInfo>> = _setsFlow.asStateFlow()
+
+    override suspend fun isSetStorageEmpty(): Boolean {
+        return try {
+            val result = postgrest.from(setsTable).select {
+                count(Count.EXACT)
+            }
+
+            // Die countOrNull()-Erweiterungsfunktion liest das Ergebnis korrekt aus.
+            val count = result.countOrNull()
+            return count == 0L
+        } catch (e: Exception) {
+            // Bei einem Fehler gehen wir sicherheitshalber davon aus, dass sie nicht leer ist.
+            println("Fehler bei der Prüfung, ob die Set-Tabelle leer ist: ${e.message}")
+            false
+        }
+    }
 
 //    override suspend fun syncSets(sets: List<SetInfo>) {
 //        sets.forEach { setInfo ->

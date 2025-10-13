@@ -232,4 +232,7 @@
     <string name="language_italian">Italian</string>
     <string name="language_portuguese">Portuguese</string>
     <string name="language_japanese">Japanese</string>
+
+    <!-- WIP Screen -->
+    <string name="wip_description">This area is still under construction. Check back soon!</string>
 </resources>

@@ -86,6 +86,23 @@ fun SupabaseGuideScreen(onBack: () -> Unit) {
             public."PokemonCardEntity" AS P
         JOIN
             public."SetEntity" AS S ON P."setId" = S."setId";
+            
+        CREATE TABLE public.schema_version (
+            id INT PRIMARY KEY DEFAULT 1,
+            version INT NOT NULL,
+            CONSTRAINT one_row CHECK (id = 1)
+        );
+
+        INSERT INTO public.schema_version (id, version) VALUES (1, 1);
+        
+        CREATE OR REPLACE FUNCTION public.execute_migration(sql_command TEXT)
+        RETURNS void AS $$
+        BEGIN
+            EXECUTE sql_command;
+        END;
+        $$ LANGUAGE plpgsql SECURITY DEFINER;
+        
+        GRANT EXECUTE ON FUNCTION public.execute_migration(TEXT) TO postgres;
     """.trimIndent()
 
     Scaffold(
@@ -142,7 +159,11 @@ fun SupabaseGuideScreen(onBack: () -> Unit) {
                             },
                             modifier = Modifier.align(Alignment.CenterEnd)
                         ) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = stringResource(MR.strings.guide_copy_sql_button_desc), modifier = Modifier.size(18.dp))
+                            Icon(
+                                Icons.Default.ContentCopy,
+                                contentDescription = stringResource(MR.strings.guide_copy_sql_button_desc),
+                                modifier = Modifier.size(18.dp)
+                            )
                             Spacer(Modifier.width(8.dp))
                             Text(stringResource(MR.strings.guide_copy_sql_button))
                         }

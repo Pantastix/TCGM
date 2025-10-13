@@ -6,17 +6,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.text.font.FontWeight
+import de.pantastix.project.ui.components.WorkInProgressScreen
 import de.pantastix.project.ui.viewmodel.CardListViewModel
 
 @Composable
 fun ExportScreen (
     viewModel: CardListViewModel,
 ){
-    val uiState by viewModel.uiState.collectAsState()
-
-    Column {
-
-        Text("Export Screen", fontWeight = FontWeight.Bold)
-
-    }
+    WorkInProgressScreen()
 }
