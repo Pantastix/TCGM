@@ -1036,7 +1036,9 @@ class CardListViewModel(
 
             if (migrateData && remoteCardRepository != null) {
                 setLoading(true, "Migriere Daten von Cloud zu Lokal...")
-                val setsToMigrate = remoteCardRepository!!.getAllSets().first()
+
+                val setsToMigrate = remoteCardRepository!!.fetchAllSetsOnce()
+                println(setsToMigrate.size)
                 val cardsToMigrate = remoteCardRepository!!.getCardInfos().first().mapNotNull {
                     remoteCardRepository!!.getFullCardDetails(it.id)
                 }

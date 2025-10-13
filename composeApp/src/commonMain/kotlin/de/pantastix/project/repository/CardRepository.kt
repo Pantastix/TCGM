@@ -13,6 +13,7 @@ interface CardRepository {
 
     // --- Set-Operationen ---
     fun getAllSets(): Flow<List<SetInfo>>
+    suspend fun fetchAllSetsOnce(): List<SetInfo>
     suspend fun isSetStorageEmpty(): Boolean
     suspend fun syncSets(sets: List<SetInfo>)
     suspend fun getSetsByOfficialCount(count: Int): List<SetInfo>

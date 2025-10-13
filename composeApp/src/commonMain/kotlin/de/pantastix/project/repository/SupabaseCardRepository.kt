@@ -193,6 +193,11 @@ class SupabaseCardRepository(
 //    }
     override fun getAllSets(): Flow<List<SetInfo>> = _setsFlow.asStateFlow()
 
+    override suspend fun fetchAllSetsOnce(): List<SetInfo> {
+        println("Fetching all sets directly from Supabase for migration...")
+        return postgrest.from(setsTable).select().decodeList<SetInfo>()
+    }
+
     override suspend fun isSetStorageEmpty(): Boolean {
         return try {
             val result = postgrest.from(setsTable).select {

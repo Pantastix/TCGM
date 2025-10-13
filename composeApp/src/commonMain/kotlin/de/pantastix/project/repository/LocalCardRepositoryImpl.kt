@@ -42,6 +42,24 @@ class LocalCardRepositoryImpl(
             }
     }
 
+    override suspend fun fetchAllSetsOnce(): List<SetInfo> {
+        return withContext(ioDispatcher) {
+            queries.selectAllSets().executeAsList().map { entity ->
+                SetInfo(
+                    id = entity.id.toInt(),
+                    setId = entity.setId,
+                    abbreviation = entity.abbreviation,
+                    nameLocal = entity.nameLocal,
+                    nameEn = entity.nameEn,
+                    logoUrl = entity.logoUrl,
+                    cardCountOfficial = entity.cardCountOfficial.toInt(),
+                    cardCountTotal = entity.cardCountTotal.toInt(),
+                    releaseDate = entity.releaseDate
+                )
+            }
+        }
+    }
+
     override suspend fun isSetStorageEmpty(): Boolean {
         return queries.selectAllSets().executeAsList().isEmpty()
     }
