@@ -43,6 +43,7 @@ import de.pantastix.project.ui.components.BulkUpdateProgressDialog
 import de.pantastix.project.ui.components.FilterAndSortChips
 import de.pantastix.project.ui.components.FilterAndSortControls
 import de.pantastix.project.ui.viewmodel.Sort
+import org.jetbrains.compose.ui.tooling.preview.Preview
 
 // Hilfsfunktionen für Übersetzungen
 @Composable
@@ -83,6 +84,7 @@ fun getLanguageDisplayName(code: String): String {
     }
 }
 
+@Preview
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CardCollectionScreen(
@@ -107,7 +109,7 @@ fun CardCollectionScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row() {
+            Row {
                 val largeCorner = 50
                 val smallCorner = 10
                 val leftButtonShape = RoundedCornerShape(
@@ -163,36 +165,36 @@ fun CardCollectionScreen(
             // Fill entwire Space between items
 
 
-            FilterAndSortControls(
-                sort = uiState.sort,
-                isAddFilterEnabled = uiState.filters.size < maxFilterAmount, // Button deaktivieren, wenn 3 Filter aktiv sind
-                onAddFilter = { showAddFilterDialog = true },
-                onUpdateSort = { viewModel.updateSort(it) },
-            )
+//            FilterAndSortControls(
+//                sort = uiState.sort,
+//                isAddFilterEnabled = uiState.filters.size < maxFilterAmount, // Button deaktivieren, wenn 3 Filter aktiv sind
+//                onAddFilter = { showAddFilterDialog = true },
+//                onUpdateSort = { viewModel.updateSort(it) },
+//            )
         }
 
-        AnimatedVisibility(
-            visible = shouldShowChips,
-            enter = expandVertically(
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessLow
-                )
-            ),
-            exit = shrinkVertically(
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessLow
-                )
-            )
-        ) {
-            FilterAndSortChips(
-                filters = uiState.filters,
-                sort = uiState.sort,
-                onRemoveFilter = { viewModel.removeFilter(it) },
-                onResetSort = { viewModel.updateSort(Sort("nameLocal", true)) }
-            )
-        }
+//        AnimatedVisibility(
+//            visible = shouldShowChips,
+//            enter = expandVertically(
+//                animationSpec = spring(
+//                    dampingRatio = Spring.DampingRatioMediumBouncy,
+//                    stiffness = Spring.StiffnessLow
+//                )
+//            ),
+//            exit = shrinkVertically(
+//                animationSpec = spring(
+//                    dampingRatio = Spring.DampingRatioMediumBouncy,
+//                    stiffness = Spring.StiffnessLow
+//                )
+//            )
+//        ) {
+//            FilterAndSortChips(
+//                filters = uiState.filters,
+//                sort = uiState.sort,
+//                onRemoveFilter = { viewModel.removeFilter(it) },
+//                onResetSort = { viewModel.updateSort(Sort("nameLocal", true)) }
+//            )
+//        }
 
         HorizontalDivider(
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
