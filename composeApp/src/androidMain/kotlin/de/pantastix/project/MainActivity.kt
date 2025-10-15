@@ -16,18 +16,6 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        onBackPressedDispatcher.addCallback(this) {
-            val viewModel: CardListViewModel = getViewModel()
-            if (viewModel.uiState.value.apiCardDetails != null) {
-                viewModel.resetApiCardDetails()
-            } else {
-                if (isEnabled) {
-                    isEnabled = false
-                    onBackPressed()
-                }
-            }
-        }
-
         setContent {
             App()
         }

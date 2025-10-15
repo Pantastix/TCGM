@@ -38,6 +38,8 @@ import de.pantastix.project.ui.util.formatPrice
 import de.pantastix.project.ui.components.WarningDialog
 import de.pantastix.project.ui.viewmodel.CardListViewModel
 import androidx.compose.runtime.setValue
+import de.pantastix.project.platform.Platform
+import de.pantastix.project.platform.getPlatform
 import de.pantastix.project.ui.components.AddFilterDialog
 import de.pantastix.project.ui.components.BulkUpdateProgressDialog
 import de.pantastix.project.ui.components.FilterAndSortChips
@@ -165,36 +167,42 @@ fun CardCollectionScreen(
             // Fill entwire Space between items
 
 
-//            FilterAndSortControls(
-//                sort = uiState.sort,
-//                isAddFilterEnabled = uiState.filters.size < maxFilterAmount, // Button deaktivieren, wenn 3 Filter aktiv sind
-//                onAddFilter = { showAddFilterDialog = true },
-//                onUpdateSort = { viewModel.updateSort(it) },
-//            )
+            if(getPlatform() != Platform.Android) {
+                FilterAndSortControls(
+                    sort = uiState.sort,
+                    isAddFilterEnabled = uiState.filters.size < maxFilterAmount, // Button deaktivieren, wenn 3 Filter aktiv sind
+                    onAddFilter = { showAddFilterDialog = true },
+                    onUpdateSort = { viewModel.updateSort(it) },
+                )
+            }
         }
 
-//        AnimatedVisibility(
-//            visible = shouldShowChips,
-//            enter = expandVertically(
-//                animationSpec = spring(
-//                    dampingRatio = Spring.DampingRatioMediumBouncy,
-//                    stiffness = Spring.StiffnessLow
-//                )
-//            ),
-//            exit = shrinkVertically(
-//                animationSpec = spring(
-//                    dampingRatio = Spring.DampingRatioMediumBouncy,
-//                    stiffness = Spring.StiffnessLow
-//                )
-//            )
-//        ) {
-//            FilterAndSortChips(
-//                filters = uiState.filters,
-//                sort = uiState.sort,
-//                onRemoveFilter = { viewModel.removeFilter(it) },
-//                onResetSort = { viewModel.updateSort(Sort("nameLocal", true)) }
-//            )
-//        }
+        //TODO Für Android anpassen (Fab für hinzufügen verwenden)
+        if(getPlatform() != Platform.Android) {
+
+            AnimatedVisibility(
+                visible = shouldShowChips,
+                enter = expandVertically(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
+                    )
+                ),
+                exit = shrinkVertically(
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
+                    )
+                )
+            ) {
+                FilterAndSortChips(
+                    filters = uiState.filters,
+                    sort = uiState.sort,
+                    onRemoveFilter = { viewModel.removeFilter(it) },
+                    onResetSort = { viewModel.updateSort(Sort("nameLocal", true)) }
+                )
+            }
+        }
 
         HorizontalDivider(
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp),

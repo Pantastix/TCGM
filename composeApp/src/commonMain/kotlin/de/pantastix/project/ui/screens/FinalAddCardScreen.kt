@@ -14,6 +14,8 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.KeyboardType
 import coil3.compose.AsyncImage
 import de.pantastix.project.model.SetInfo
+import de.pantastix.project.platform.Platform
+import de.pantastix.project.platform.getPlatform
 import de.pantastix.project.shared.resources.MR
 import de.pantastix.project.ui.components.PriceSelectionPanel
 import dev.icerock.moko.resources.compose.stringResource
@@ -289,6 +291,11 @@ fun FinalAddCardScreen(
                     }
                 }
             }
+        }
+
+        //TODO: Remove
+        if(getPlatform() == Platform.Android) {
+            Spacer(Modifier.height(64.dp))
         }
     }
 }
