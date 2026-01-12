@@ -9,14 +9,16 @@ import kotlinx.serialization.json.putJsonArray
 
 class SearchCardsTool(private val repository: CardRepository) : AgentTool {
     override val name = "search_cards"
-    override val description = "Sucht Karten im Inventar des Users."
+    override val description = "Sucht Karten, deren Name den Suchbegriff enthält (teilweise Übereinstimmung möglich)."
     override val parameterSchemaJson = "{ \"query\": \"String (Name)\" }"
 
     override suspend fun execute(parameters: Map<String, Any?>): String {
         val query = parameters["query"] as? String ?: return "{ \"error\": \"No query provided\" }"
+        println("AI Tool [search_cards] (Repo: ${repository::class.simpleName}) searching for: $query")
         val filtered = repository.searchCards(query).take(10)
+        println("AI Tool [search_cards] Repository returned ${filtered.size} items")
 
-        return buildJsonObject {
+        val result = buildJsonObject {
             putJsonArray("cards") {
                 filtered.forEach {
                     add(buildJsonObject {
@@ -29,6 +31,9 @@ class SearchCardsTool(private val repository: CardRepository) : AgentTool {
             }
             put("count", filtered.size)
         }.toString()
+
+        println("AI Tool [search_cards] result: $result")
+        return result
     }
 }
 

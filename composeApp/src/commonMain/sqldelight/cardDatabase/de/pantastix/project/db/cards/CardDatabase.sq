@@ -149,7 +149,7 @@ SELECT
     SetEntity.nameLocal AS setName
 FROM PokemonCardEntity
 JOIN SetEntity ON PokemonCardEntity.setId = SetEntity.setId
-WHERE PokemonCardEntity.nameLocal LIKE '%' || :searchText || '%' OR PokemonCardEntity.nameEn LIKE '%' || :searchText || '%'
+WHERE lower(PokemonCardEntity.nameLocal) LIKE '%' || lower(:searchText) || '%' OR lower(PokemonCardEntity.nameEn) LIKE '%' || lower(:searchText) || '%'
 ORDER BY SetEntity.releaseDate DESC, PokemonCardEntity.localId;
 
 

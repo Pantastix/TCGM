@@ -242,8 +242,9 @@ class LocalCardRepositoryImpl(
     }
 
     override suspend fun searchCards(query: String): List<PokemonCardInfo> {
+        println("LocalCardRepository: Searching for '$query'")
         return withContext(ioDispatcher) {
-            queries.searchCardsByName(query).executeAsList().map { result ->
+            val results = queries.searchCardsByName(query).executeAsList().map { result ->
                 PokemonCardInfo(
                     id = result.id,
                     tcgDexCardId = "", // Nicht im Suchergebnis enthalten, aber auch nicht zwingend nötig für Anzeige
@@ -257,6 +258,8 @@ class LocalCardRepositoryImpl(
                     lastPriceUpdate = null
                 )
             }
+            println("LocalCardRepository: Found ${results.size} cards")
+            results
         }
     }
 

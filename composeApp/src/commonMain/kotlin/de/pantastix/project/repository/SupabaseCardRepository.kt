@@ -14,6 +14,12 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.contentOrNull
 
 
 class SupabaseCardRepository(
@@ -268,15 +274,67 @@ class SupabaseCardRepository(
     override suspend fun findExistingCard(setId: String, localId: String, language: String): PokemonCardInfo? = null
 
     override suspend fun searchCards(query: String): List<PokemonCardInfo> {
-        // Search in nameLocal OR nameEn
-        // Supabase syntax for OR: or=(column1.ilike.*query*,column2.ilike.*query*)
-        return postgrest.from(pokemonCardInfoView).select {
-            filter {
-                or {
-                    ilike("nameLocal", "%$query%")
-                    ilike("nameEn", "%$query%")
+        println("SupabaseCardRepository: Searching for '$query' in $cardsTable")
+        try {
+            // Search in nameLocal OR nameEn directly in the Table, joining Set for the setName
+            val result = postgrest.from(cardsTable).select(
+                columns = Columns.list(
+                    "id",
+                    "tcgDexCardId",
+                    "language",
+                    "nameLocal",
+                    "nameEn",
+                    "imageUrl",
+                    "ownedCopies",
+                    "currentPrice",
+                    "selectedPriceSource",
+                    "lastPriceUpdate",
+                    "SetEntity(nameLocal)"
+                )
+            ) {
+                filter {
+                    or {
+                        ilike("nameLocal", "*$query*")
+                        ilike("nameEn", "*$query*")
+                    }
                 }
+                limit(20) // Limit results for performance
             }
-        }.decodeList<PokemonCardInfo>()
+            
+            println("SupabaseCardRepository: Raw result data: ${result.data}")
+
+            // We need a custom serializer or helper to handle the nested SetEntity(nameLocal)
+            // But wait, decodeList<PokemonCardInfo> won't work automatically because of the nested SetEntity object
+            // and missing 'setName' field in the flat JSON.
+            // PostgREST returns: { ..., "SetEntity": { "nameLocal": "..." } }
+            
+            // Let's decode to a temporary class or JsonElement and map manually.
+            val jsonElements = result.decodeList<JsonObject>()
+            
+            val mapped = jsonElements.map { json ->
+                val setObj = json["SetEntity"] as? JsonObject
+                val setName = setObj?.get("nameLocal")?.jsonPrimitive?.content ?: "Unknown"
+                
+                PokemonCardInfo(
+                    id = json["id"]!!.jsonPrimitive.long,
+                    tcgDexCardId = json["tcgDexCardId"]!!.jsonPrimitive.content,
+                    language = json["language"]!!.jsonPrimitive.content,
+                    nameLocal = json["nameLocal"]!!.jsonPrimitive.content,
+                    setName = setName,
+                    imageUrl = json["imageUrl"]?.jsonPrimitive?.contentOrNull,
+                    ownedCopies = json["ownedCopies"]!!.jsonPrimitive.int,
+                    currentPrice = json["currentPrice"]?.jsonPrimitive?.doubleOrNull,
+                    selectedPriceSource = json["selectedPriceSource"]?.jsonPrimitive?.contentOrNull,
+                    lastPriceUpdate = json["lastPriceUpdate"]?.jsonPrimitive?.contentOrNull
+                )
+            }
+
+            println("SupabaseCardRepository: Found ${mapped.size} cards")
+            return mapped
+        } catch (e: Exception) {
+            println("SupabaseCardRepository: Error searching cards: ${e.message}")
+            e.printStackTrace()
+            return emptyList()
+        }
     }
 }
