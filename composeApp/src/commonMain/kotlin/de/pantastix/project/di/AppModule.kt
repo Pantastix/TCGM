@@ -1,6 +1,8 @@
 package de.pantastix.project.di
 
 import de.pantastix.project.data.local.DatabaseDriverFactory
+import de.pantastix.project.ai.provider.GeminiCloudService
+import de.pantastix.project.ai.provider.OllamaService
 import de.pantastix.project.repository.LocalCardRepositoryImpl
 import de.pantastix.project.db.cards.CardDatabase
 import de.pantastix.project.db.cards.CardDatabaseQueries
@@ -9,6 +11,7 @@ import de.pantastix.project.repository.CardRepository
 import de.pantastix.project.repository.SettingsRepository
 import de.pantastix.project.repository.SettingsRepositoryImpl
 import de.pantastix.project.service.CombinedTcgApiService
+import de.pantastix.project.service.GeminiService
 import de.pantastix.project.service.TcgApiService
 import de.pantastix.project.service.TcgDexApiService
 import de.pantastix.project.service.TcgIoApiService
@@ -55,6 +58,9 @@ val commonModule = module {
     // Diese werden intern von CombinedTcgApiService verwendet
     single { TcgDexApiService(client = get()) }
     single { TcgIoApiService(client = get()) }
+    single { GeminiService(client = get()) }
+    single { GeminiCloudService(client = get()) }
+    single { OllamaService(client = get()) }
 
     // Der Haupt-API-Service, der an andere Komponenten injiziert wird.
     // Er kombiniert die Funktionalität der beiden anderen Services.
@@ -71,7 +77,10 @@ val commonModule = module {
         CardListViewModel(
             localCardRepository = get(),
             settingsRepository = get(), // Das neue Repository wird hier injiziert
-            apiService = get()
+            apiService = get(),
+            geminiService = get(),
+            geminiCloudService = get(),
+            ollamaService = get()
         )
     }
 }

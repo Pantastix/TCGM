@@ -15,7 +15,12 @@
     <string name="nav_collection">Sammlung</string>
     <string name="nav_value">Wert</string>
     <string name="nav_settings">Einstellungen</string>
-    <string name="nav_export">Exportieren</string>
+    <string name="nav_export">Export</string>
+    <string name="nav_chat">Chat</string>
+    <string name="chat_subtitle">Dein intelligenter Karten-Assistent</string>
+    <string name="chat_input_placeholder">Frage etwas über deine Karten...</string>
+
+    <!-- Collection Screen -->
 
     <!-- Settings -->
     <string name="settings_title">Einstellungen</string>
@@ -174,6 +179,9 @@
     <string name="settings_cloud_sync_description">Verbinde deine eigene, kostenlose Supabase-Datenbank, um deine Sammlung auf mehreren Geräten zu synchronisieren.</string>
     <string name="settings_supabase_url_label">Supabase URL</string>
     <string name="settings_supabase_anon_key_label">Supabase Anon Key</string>
+    <string name="settings_gemini_api_key_label">Gemini API Key</string>
+    <string name="settings_gemini_model_label">KI Modell</string>
+    <string name="settings_ai_assistant">KI-Assistent (Gemini)</string>
     <string name="settings_connect_button">Verbinden &amp; Prüfen</string>
     <string name="settings_disconnect_button">Verbindung trennen</string>
     <string name="settings_guide_button">Anleitung</string>

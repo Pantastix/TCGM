@@ -11,6 +11,7 @@ import de.pantastix.project.ui.screens.LoadingScreen
 enum class MainScreen {
     COLLECTION,
     VALUE,
+    CHAT,
     SETTINGS,
     SUPABASE_GUIDE,
     EXPORT

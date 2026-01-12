@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.Settings
@@ -112,6 +113,7 @@ fun DesktopApp(
                         ) else Color.Transparent
                     )
                 )
+
                 NavigationRailItem(
                     icon = {
                         Icon(
@@ -133,6 +135,32 @@ fun DesktopApp(
                     onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.EXPORT) },
                     colors = NavigationRailItemDefaults.colors(
                         indicatorColor = if (currentScreen == MainScreen.EXPORT) MaterialTheme.colorScheme.primary.copy(
+                            alpha = 0.1f
+                        ) else Color.Transparent
+                    )
+                )
+
+                NavigationRailItem(
+                    icon = {
+                        Icon(
+                            Icons.Default.Chat,
+                            contentDescription = stringResource(MR.strings.nav_chat),
+                        )
+                    },
+                    label = {
+                        Text(
+                            stringResource(MR.strings.nav_chat),
+                            color = if (currentScreen == MainScreen.CHAT) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                Color.Unspecified
+                            }
+                        )
+                    },
+                    selected = currentScreen == MainScreen.CHAT,
+                    onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.CHAT) },
+                    colors = NavigationRailItemDefaults.colors(
+                        indicatorColor = if (currentScreen == MainScreen.CHAT) MaterialTheme.colorScheme.primary.copy(
                             alpha = 0.1f
                         ) else Color.Transparent
                     )
@@ -194,6 +222,7 @@ fun DesktopApp(
                     )
 
                     MainScreen.EXPORT -> ExportScreen(viewModel = viewModel)
+                    MainScreen.CHAT -> ChatScreen()
                 }
             }
 

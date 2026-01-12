@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import de.pantastix.project.ai.AiProviderType
 import de.pantastix.project.shared.resources.MR
 import de.pantastix.project.ui.components.ErrorDialog
 import de.pantastix.project.ui.viewmodel.AppLanguage
@@ -27,6 +28,8 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
     var supabaseUrl by remember(uiState.supabaseUrl) { mutableStateOf(uiState.supabaseUrl) }
     var supabaseKey by remember(uiState.supabaseKey) { mutableStateOf(uiState.supabaseKey) }
     var languageDropdownExpanded by remember { mutableStateOf(false) }
+    var geminiModelDropdownExpanded by remember { mutableStateOf(false) }
+    var ollamaModelDropdownExpanded by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -64,6 +67,105 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
                                 onClick = {
                                     viewModel.setAppLanguage(lang)
                                     languageDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+            Text(stringResource(MR.strings.settings_ai_assistant), style = MaterialTheme.typography.titleLarge)
+
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                SegmentedButton(
+                    selected = uiState.selectedAiProvider == AiProviderType.GEMINI_CLOUD,
+                    onClick = { viewModel.setAiProvider(AiProviderType.GEMINI_CLOUD) },
+                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+                ) {
+                    Text("Gemini Cloud")
+                }
+                SegmentedButton(
+                    selected = uiState.selectedAiProvider == AiProviderType.OLLAMA_LOCAL,
+                    onClick = { viewModel.setAiProvider(AiProviderType.OLLAMA_LOCAL) },
+                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
+                ) {
+                    Text("Ollama Local")
+                }
+            }
+
+            if (uiState.selectedAiProvider == AiProviderType.GEMINI_CLOUD) {
+                OutlinedTextField(
+                    value = uiState.geminiApiKey,
+                    onValueChange = { viewModel.saveGeminiApiKey(it) },
+                    label = { Text(stringResource(MR.strings.settings_gemini_api_key_label)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isLoading,
+                    singleLine = true
+                )
+
+                ExposedDropdownMenuBox(
+                    expanded = geminiModelDropdownExpanded && !uiState.isLoading,
+                    onExpandedChange = { if (!uiState.isLoading) geminiModelDropdownExpanded = !geminiModelDropdownExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = uiState.selectedGeminiModel,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(stringResource(MR.strings.settings_gemini_model_label)) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = geminiModelDropdownExpanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                        enabled = !uiState.isLoading && uiState.availableGeminiModels.isNotEmpty()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = geminiModelDropdownExpanded,
+                        onDismissRequest = { geminiModelDropdownExpanded = false }
+                    ) {
+                        uiState.availableGeminiModels.forEach { model ->
+                            DropdownMenuItem(
+                                text = { Text(model) },
+                                onClick = {
+                                    viewModel.selectGeminiModel(model)
+                                    geminiModelDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            } else {
+                OutlinedTextField(
+                    value = uiState.ollamaHostUrl,
+                    onValueChange = { viewModel.saveOllamaHost(it) },
+                    label = { Text("Ollama Host URL") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isLoading,
+                    singleLine = true
+                )
+
+                ExposedDropdownMenuBox(
+                    expanded = ollamaModelDropdownExpanded && !uiState.isLoading,
+                    onExpandedChange = { if (!uiState.isLoading) ollamaModelDropdownExpanded = !ollamaModelDropdownExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = uiState.selectedOllamaModel,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Ollama Model") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = ollamaModelDropdownExpanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                        enabled = !uiState.isLoading && uiState.availableOllamaModels.isNotEmpty()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = ollamaModelDropdownExpanded,
+                        onDismissRequest = { ollamaModelDropdownExpanded = false }
+                    ) {
+                        uiState.availableOllamaModels.forEach { model ->
+                            DropdownMenuItem(
+                                text = { Text(model) },
+                                onClick = {
+                                    viewModel.selectOllamaModel(model)
+                                    ollamaModelDropdownExpanded = false
                                 }
                             )
                         }

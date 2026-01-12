@@ -40,6 +40,12 @@ fun MobileApp(viewModel: CardListViewModel) {
                     selected = currentScreen == MainScreen.SETTINGS,
                     onClick = { if (!uiState.isLoading) currentScreen = MainScreen.SETTINGS }
                 )
+                NavigationBarItem(
+                    icon = { Icon(Icons.Default.Chat, stringResource(MR.strings.nav_chat)) },
+                    label = { Text(stringResource(MR.strings.nav_chat)) },
+                    selected = currentScreen == MainScreen.CHAT,
+                    onClick = { if (!uiState.isLoading) currentScreen = MainScreen.CHAT }
+                )
             }
         },
         floatingActionButton = {
@@ -67,6 +73,7 @@ fun MobileApp(viewModel: CardListViewModel) {
                     onBack = { currentScreen = MainScreen.SETTINGS }
                 )
                 MainScreen.EXPORT -> ExportScreen(viewModel = viewModel)
+                MainScreen.CHAT -> ChatScreen()
             }
         }
         if (showAddCardDialog) {
