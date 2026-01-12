@@ -51,7 +51,7 @@ class Gemma3ReasoningStrategy : AiWorkflowStrategy {
             $toolsDescription
             
             INSTRUCTIONS:
-            1. First, you MUST think step-by-step about the user's request. Output your thoughts in a <thought>...</thought> block.
+            1. First, you MUST think step-by-step about the user's request. Output your thoughts in a <think>...</think> block.
             2. Analyze if you need to use a tool to answer the request.
             3. If you need a tool, output a JSON block in the format:
             ```json
@@ -62,10 +62,10 @@ class Gemma3ReasoningStrategy : AiWorkflowStrategy {
             Example:
             User: "How much is Charizard worth?"
             Model:
-            <thought>
+            <think>
             The user is asking for the value of a card. I should check the inventory database for 'Charizard' to find its price.
             The 'search_cards' tool seems appropriate for this.
-            </thought>
+            </think>
             ```json
             { "tool": "search_cards", "parameters": { "query": "Charizard" } }
             ```
@@ -75,17 +75,19 @@ class Gemma3ReasoningStrategy : AiWorkflowStrategy {
     override fun parseResponse(response: OllamaChatResponse): AiResponse {
         val content = response.message?.content ?: return AiResponse.Text("")
         
-        // We might want to strip the <thought> block for the final text response if it's not a tool call,
-        // OR keep it to show the user the reasoning. For now, we pass everything.
-        // But if it is a tool call, we extract the JSON.
+        // Extract <think> block
+        val thinkRegex = """<think>(.*?)</think>""".toRegex(RegexOption.DOT_MATCHES_ALL)
+        val thinkMatch = thinkRegex.find(content)
+        val thought = thinkMatch?.groupValues?.get(1)?.trim()
         
-        val toolCall = parseToolCall(content)
+        // Remove <think> block from content for further processing
+        val contentWithoutThought = content.replace(thinkRegex, "").trim()
+        
+        val toolCall = parseToolCall(contentWithoutThought)
         return if (toolCall != null) {
-            AiResponse.ToolCall(toolCall.first, toolCall.second)
+            AiResponse.ToolCall(toolCall.first, toolCall.second, thought)
         } else {
-            // Optional: Clean up <thought> tags if we don't want to show them as raw text, 
-            // but the user might appreciate seeing the reasoning.
-            AiResponse.Text(content)
+            AiResponse.Text(contentWithoutThought, thought)
         }
     }
 

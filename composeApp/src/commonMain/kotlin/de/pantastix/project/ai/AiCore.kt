@@ -20,8 +20,8 @@ enum class AiCapability {
 }
 
 sealed class AiResponse {
-    data class Text(val content: String) : AiResponse()
-    data class ToolCall(val toolName: String, val parameters: Map<String, Any?>) : AiResponse()
+    data class Text(val content: String, val thought: String? = null) : AiResponse()
+    data class ToolCall(val toolName: String, val parameters: Map<String, Any?>, val thought: String? = null) : AiResponse()
     data class Error(val message: String) : AiResponse()
 }
 

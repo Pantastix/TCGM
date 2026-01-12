@@ -266,4 +266,17 @@ class SupabaseCardRepository(
     }
 
     override suspend fun findExistingCard(setId: String, localId: String, language: String): PokemonCardInfo? = null
+
+    override suspend fun searchCards(query: String): List<PokemonCardInfo> {
+        // Search in nameLocal OR nameEn
+        // Supabase syntax for OR: or=(column1.ilike.*query*,column2.ilike.*query*)
+        return postgrest.from(pokemonCardInfoView).select {
+            filter {
+                or {
+                    ilike("nameLocal", "%$query%")
+                    ilike("nameEn", "%$query%")
+                }
+            }
+        }.decodeList<PokemonCardInfo>()
+    }
 }

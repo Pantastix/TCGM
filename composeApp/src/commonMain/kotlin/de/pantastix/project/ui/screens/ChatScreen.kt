@@ -2,6 +2,7 @@ package de.pantastix.project.ui.screens
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,15 +11,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -52,12 +51,16 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
     val modelFamilies = remember(uiState.availableGeminiModels, uiState.availableOllamaModels) {
         val families = mutableMapOf<String, MutableList<String>>() // Family Name -> List of Model IDs
 
-        // 1. Gemini Filtering (Strict)
+        // 1. Gemini Filtering
         val geminiRegex = Regex("""^(models/)?(gemini-[23]\.0-flash)$""", RegexOption.IGNORE_CASE)
+        val gemmaApiRegex = Regex("""^(models/)?(gemma-3-.*)$""", RegexOption.IGNORE_CASE)
+
         uiState.availableGeminiModels.forEach { model ->
             val pureName = model.substringAfter("models/")
             if (geminiRegex.matches(pureName)) {
                 families.getOrPut(pureName) { mutableListOf() }.add(model)
+            } else if (gemmaApiRegex.matches(pureName)) {
+                families.getOrPut("Gemma 3 (Cloud)") { mutableListOf() }.add(model)
             }
         }
 
@@ -74,7 +77,7 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                 val size = gemmaMatch.groupValues[1]
                 // Filter out 'e' prefix manually if regex missed it (though \d handles it)
                 if (!name.contains("e${size}b")) {
-                    families.getOrPut("Gemma 3") { mutableListOf() }.add(model)
+                    families.getOrPut("Gemma 3 (Local)") { mutableListOf() }.add(model)
                 }
             } else if (gptOssRegex.matches(name)) {
                 families.getOrPut("GPT-OSS") { mutableListOf() }.add(model)
@@ -129,7 +132,7 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                     ) {
                         Icon(Icons.Filled.SmartToy, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = currentFamilyName)
+                        Text(text = currentFamilyName.replace(" (Cloud)", "").replace(" (Local)", ""))
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(Icons.Filled.ArrowDropDown, contentDescription = "Select Model")
                     }
@@ -139,13 +142,13 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                         onDismissRequest = { modelDropdownExpanded = false }
                     ) {
                         modelFamilies.keys.forEach { familyName ->
-                            val isGemini = familyName.startsWith("gemini")
+                            val isCloud = familyName.contains("(Cloud)") || familyName.startsWith("gemini", ignoreCase = true)
                             DropdownMenuItem(
                                 text = { 
                                     Column {
-                                        Text(familyName)
+                                        Text(familyName.replace(" (Cloud)", "").replace(" (Local)", ""))
                                         Text(
-                                            if (isGemini) "Cloud (Gemini)" else "Local (Ollama)",
+                                            if (isCloud) "Cloud (Gemini)" else "Local (Ollama)",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                                         )
@@ -199,21 +202,60 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                     )
                 }
             } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(uiState.chatMessages) { message ->
-                        if (message.role != "system" && message.role != "function") {
-                             val isUser = message.role == "user"
-                             ChatMessageItem(message, isUser)
+                Box(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(uiState.chatMessages) { message ->
+                            if (message.role != "system" && message.role != "function") {
+                                 val isUser = message.role == "user"
+                                 ChatMessageItem(message, isUser)
+                            }
+                        }
+                        if (uiState.isChatLoading) {
+                            item {
+                                ChatLoadingIndicator()
+                            }
                         }
                     }
-                    if (uiState.isChatLoading) {
-                        item {
-                            ChatLoadingIndicator()
+                    
+                    // Error Display Overlay
+                    if (uiState.error != null) {
+                        Surface(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(16.dp)
+                                .fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = RoundedCornerShape(8.dp),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Warning,
+                                    contentDescription = "Error",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = uiState.error ?: "",
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(onClick = { viewModel.clearError() }) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Close",
+                                        tint = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -306,7 +348,8 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
 @Composable
 fun ChatMessageItem(message: Content, isUser: Boolean) {
     val text = message.parts.firstOrNull { it.text != null }?.text ?: ""
-    if (text.isBlank()) return
+    // Allow empty text if there is a thought (e.g. intermediate reasoning step)
+    if (text.isBlank() && message.thought == null) return
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -323,12 +366,70 @@ fun ChatMessageItem(message: Content, isUser: Boolean) {
             ),
             modifier = Modifier.widthIn(max = 600.dp)
         ) {
-            Text(
-                text = text,
-                modifier = Modifier.padding(12.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (isUser) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSecondaryContainer
-            )
+            Column(modifier = Modifier.padding(12.dp)) {
+                // Thought Process Section
+                if (message.thought != null) {
+                    var isThoughtVisible by remember { mutableStateOf(false) }
+                    
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { isThoughtVisible = !isThoughtVisible }
+                                .padding(bottom = if (isThoughtVisible) 8.dp else 0.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (isThoughtVisible) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                                contentDescription = "Toggle Thought",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                text = "Gedankengang",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
+                            )
+                        }
+                        
+                        androidx.compose.animation.AnimatedVisibility(visible = isThoughtVisible) {
+                            Text(
+                                text = message.thought,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
+                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                                modifier = Modifier
+                                    .padding(start = 8.dp, bottom = 8.dp)
+                                    .drawBehind {
+                                        drawLine(
+                                            color = Color.Gray.copy(alpha = 0.3f),
+                                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                                            end = androidx.compose.ui.geometry.Offset(0f, size.height),
+                                            strokeWidth = 2.dp.toPx()
+                                        )
+                                    }
+                                    .padding(start = 8.dp)
+                            )
+                        }
+                        
+                        if (text.isNotBlank()) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 8.dp),
+                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.1f)
+                            )
+                        }
+                    }
+                }
+
+                if (text.isNotBlank()) {
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (isUser) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
+            }
         }
         Text(
             text = if (isUser) "Du" else "Poké-Agent",

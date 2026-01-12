@@ -33,6 +33,11 @@ val commonModule = module {
                     isLenient = true
                 })
             }
+            install(io.ktor.client.plugins.HttpTimeout) {
+                requestTimeoutMillis = 120_000 // 2 minutes
+                socketTimeoutMillis = 120_000
+                connectTimeoutMillis = 30_000
+            }
         }
     }
 

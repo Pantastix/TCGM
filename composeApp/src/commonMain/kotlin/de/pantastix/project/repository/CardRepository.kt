@@ -47,6 +47,8 @@ interface CardRepository {
 
     suspend fun findExistingCard(setId: String, localId: String, language: String): PokemonCardInfo?
 
+    suspend fun searchCards(query: String): List<PokemonCardInfo>
+
     /** Löscht eine Karte anhand ihrer Sammlungs-ID. */
     suspend fun deleteCardById(cardId: Long)
 

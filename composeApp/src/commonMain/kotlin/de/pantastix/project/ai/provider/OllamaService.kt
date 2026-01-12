@@ -57,7 +57,7 @@ class OllamaService(private val client: HttpClient) : AiService {
             ollamaMessages.add(OllamaChatMessage(it.role.name.lowercase(), it.content))
         }
         
-        // Add new prompt if provided
+        // Add new prompt if provided and not blank
         if (prompt.isNotBlank()) {
             ollamaMessages.add(OllamaChatMessage("user", prompt))
         }
@@ -70,6 +70,8 @@ class OllamaService(private val client: HttpClient) : AiService {
                 contentType(ContentType.Application.Json)
                 setBody(request)
             }.body()
+
+            println("--- RAW OLLAMA OUTPUT ---\n${response.message?.content}\n-------------------------")
 
             strategy.parseResponse(response)
         } catch (e: Exception) {

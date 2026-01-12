@@ -241,6 +241,25 @@ class LocalCardRepositoryImpl(
         }
     }
 
+    override suspend fun searchCards(query: String): List<PokemonCardInfo> {
+        return withContext(ioDispatcher) {
+            queries.searchCardsByName(query).executeAsList().map { result ->
+                PokemonCardInfo(
+                    id = result.id,
+                    tcgDexCardId = "", // Nicht im Suchergebnis enthalten, aber auch nicht zwingend nötig für Anzeige
+                    language = "",     // s.o.
+                    nameLocal = result.nameLocal,
+                    setName = result.setName,
+                    imageUrl = result.imageUrl,
+                    ownedCopies = result.ownedCopies.toInt(),
+                    currentPrice = result.currentPrice,
+                    selectedPriceSource = null,
+                    lastPriceUpdate = null
+                )
+            }
+        }
+    }
+
     override suspend fun updateCardUserData(
         cardId: Long,
         ownedCopies: Int,

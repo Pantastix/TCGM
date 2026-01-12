@@ -1,0 +1,27 @@
+--- RAW MODEL OUTPUT ---
+<think>The user is asking if they own a Charizard. I need to search the user's inventory for cards matching "Charizard" to determine if they have one. I will use the `search_cards` tool for this.</think>
+```json
+{ "tool": "search_cards", "parameters": { "query": "Charizard" } }
+```
+------------------------
+--- RAW MODEL OUTPUT ---
+
+<think>The user is asking if they own a Charizard. To answer this, I need to search the user's inventory for cards with the name "Charizard". I will use the `search_cards` tool for this.</think>
+```json
+{ "tool": "search_cards", "parameters": { "query": "Charizard" } }
+```
+------------------------
+--- RAW MODEL OUTPUT ---
+
+<think>The user is asking if they own a Charizard. I need to use the `search_cards` tool to check their inventory for any cards named "Charizard" (Glurak in German). I will then analyze the response to determine if they own one.</think>
+```json
+{ "tool": "search_cards", "parameters": { "query": "Glurak" } }
+```
+------------------------
+--- RAW MODEL OUTPUT ---
+
+<think>The user is asking if they own a Charizard. I need to use the `search_cards` tool to check their inventory for any cards named "Charizard" (Glurak in German). I will then analyze the response to determine if they own one.</think>
+```json
+{ "tool": "search_cards", "parameters": { "query": "Glurak" } }
+```
+------------------------

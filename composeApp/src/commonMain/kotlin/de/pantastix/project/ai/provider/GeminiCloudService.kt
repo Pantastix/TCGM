@@ -54,35 +54,83 @@ class GeminiCloudService(private val client: HttpClient) : AiService {
     ): AiResponse {
         val apiKey = config.apiKey ?: return AiResponse.Error("API Key missing")
         val modelId = config.selectedModelId ?: "models/gemini-2.0-flash" // Fallback
+        val isGemma3 = modelId.contains("gemma-3", ignoreCase = true)
 
         // 1. Convert ChatHistory to Gemini Content
         val contents = chatHistory.map {
+            val role = when (it.role) {
+                ChatRole.USER -> "user"
+                ChatRole.TOOL -> "user" // Treat tool results as user/system input
+                else -> "model"
+            }
+            
+            val text = if (it.role == ChatRole.TOOL) "Tool Result: ${it.content}" else it.content
+            
             Content(
-                role = if (it.role == ChatRole.USER) "user" else "model",
-                parts = listOf(Part(text = it.content))
+                role = role,
+                parts = listOf(Part(text = text))
             )
         }.toMutableList()
 
-        // Add current prompt
-        contents.add(Content(role = "user", parts = listOf(Part(text = prompt))))
+        // Add current prompt only if not empty (avoids sending empty user message after tool result)
+        if (prompt.isNotBlank()) {
+            contents.add(Content(role = "user", parts = listOf(Part(text = prompt))))
+        }
 
-        // 2. Prepare Tools (Simplified mapping for now)
-        // Gemini requires a strict Schema object. 
-        // Since AgentTool currently provides a JSON string, we would need to parse it.
-        // For this iteration, we will skip sending tools if the schema conversion is complex, 
-        // or we manually define a schema for known tools for testing.
-        // TODO: Implement proper Schema parsing from AgentTool.parameterSchemaJson
+        // 2. Prepare Tools or System Instruction
+        var tools: List<Tool>? = null
+        val systemInstruction: Content? = null // Explicitly null as we inject into contents
 
-        val tools = if (availableTools.isNotEmpty()) {
-             // Placeholder: We need to parse schemaJson to Schema object. 
-             // For now, we will NOT send tools to avoid runtime crashes until Schema parser is ready.
-             // Or we can construct a dummy tool to test connectivity if needed.
-             null 
-        } else null
+        if (isGemma3) {
+            // For Gemma 3, we use the simulated reasoning workflow via System Instruction
+            // Since "Developer instructions" field might not be supported, we inject it as the first User message.
+            val toolsDescription = if (availableTools.isNotEmpty()) {
+                availableTools.joinToString("\n") { "- ${it.name}: ${it.description}. Parameters: ${it.parameterSchemaJson}" }
+            } else "None"
+
+            val instructionText = """
+                You are a helpful assistant for a Pokémon TCG application.
+                
+                AVAILABLE TOOLS:
+                $toolsDescription
+                
+                PROTOCOL:
+                1. THOUGHT PROCESS: Start every response with a <think>...</think> block. Analyze the user's request step-by-step.
+                2. ACTION:
+                   - If you need data (prices, inventory, stats), output a JSON tool call immediately after the </think> tag.
+                   - If you can answer directly, output the final text answer immediately after the </think> tag.
+                
+                FORMATS:
+                
+                [Tool Call]
+                <think>
+                Reasoning here...
+                </think>
+                ```json
+                { "tool": "tool_name", "parameters": { "param": "value" } }
+                ```
+                
+                [Text Response]
+                <think>
+                Reasoning here...
+                </think>
+                Your final answer here.
+            """.trimIndent()
+            
+            // Inject fake dialogue to stabilize the model
+            contents.add(0, Content(role = "user", parts = listOf(Part(text = instructionText))))
+            contents.add(1, Content(role = "model", parts = listOf(Part(text = "Understood. I will always think step-by-step in a <think> block first, and then output either a JSON tool call or a text response."))))
+        } else {
+            // Standard Gemini Native Tool Calling (Placeholder for now as per original code)
+             tools = if (availableTools.isNotEmpty()) {
+                 null 
+            } else null
+        }
 
         val request = GenerateContentRequest(
             contents = contents,
-            tools = tools
+            tools = tools,
+            systemInstruction = systemInstruction
         )
 
         return try {
@@ -95,19 +143,67 @@ class GeminiCloudService(private val client: HttpClient) : AiService {
             }
             
             val responseBody = response.bodyAsText()
+            
+            if (response.status != HttpStatusCode.OK) {
+                println("Gemini API Error: $responseBody")
+                return AiResponse.Error("API Error (${response.status}): $responseBody")
+            }
+            
             val geminiResponse = json.decodeFromString(GenerateContentResponse.serializer(), responseBody)
             
             val candidate = geminiResponse.candidates?.firstOrNull()
             val part = candidate?.content?.parts?.firstOrNull()
+            val textContent = part?.text ?: ""
             
-            if (part?.functionCall != null) {
-                val args = part.functionCall.args?.mapValues { it.value.jsonPrimitive.content } ?: emptyMap()
-                AiResponse.ToolCall(
-                    toolName = part.functionCall.name,
-                    parameters = args
-                )
+            println("--- RAW MODEL OUTPUT ---\n$textContent\n------------------------")
+
+            if (isGemma3) {
+                // Parse Simulated Response for Gemma 3
+                val thinkRegex = """<think>(.*?)</think>""".toRegex(RegexOption.DOT_MATCHES_ALL)
+                val thinkMatch = thinkRegex.find(textContent)
+                val thought = thinkMatch?.groupValues?.get(1)?.trim()
+                
+                val contentWithoutThought = textContent.replace(thinkRegex, "").trim()
+                
+                // Check for JSON tool call (Relaxed Regex: 'json' tag is optional)
+                val codeBlockRegex = """```(?:json)?\s*(\{.*?\})\s*```""".toRegex(RegexOption.DOT_MATCHES_ALL)
+                var jsonMatch = codeBlockRegex.find(contentWithoutThought)
+                
+                // Fallback: Look for raw JSON if no code block found (starts with { and contains "tool")
+                if (jsonMatch == null) {
+                    val rawJsonRegex = """(\{[\s\S]*"tool"[\s\S]*\})""".toRegex()
+                    jsonMatch = rawJsonRegex.find(contentWithoutThought)
+                }
+                
+                if (jsonMatch != null) {
+                    val jsonString = jsonMatch.groupValues[1]
+                    try {
+                        val jsonElement = json.parseToJsonElement(jsonString) as JsonObject
+                        val toolName = jsonElement["tool"]?.jsonPrimitive?.content
+                        val params = jsonElement["parameters"]?.let { it as? JsonObject }?.mapValues { it.value.jsonPrimitive.content } ?: emptyMap()
+                        
+                        if (toolName != null) {
+                             AiResponse.ToolCall(toolName, params, thought)
+                        } else {
+                             AiResponse.Text(contentWithoutThought, thought)
+                        }
+                    } catch (e: Exception) {
+                        AiResponse.Text(contentWithoutThought, thought)
+                    }
+                } else {
+                    AiResponse.Text(contentWithoutThought, thought)
+                }
             } else {
-                AiResponse.Text(part?.text ?: "No response text")
+                // Standard Gemini Response Handling
+                if (part?.functionCall != null) {
+                    val args = part.functionCall.args?.mapValues { it.value.jsonPrimitive.content } ?: emptyMap()
+                    AiResponse.ToolCall(
+                        toolName = part.functionCall.name,
+                        parameters = args
+                    )
+                } else {
+                    AiResponse.Text(textContent)
+                }
             }
             
         } catch (e: Exception) {

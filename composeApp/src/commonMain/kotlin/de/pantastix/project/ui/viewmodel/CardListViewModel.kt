@@ -139,6 +139,9 @@ class CardListViewModel(
 
     val availableLanguages = MutableStateFlow(CardLanguage.entries.map { it.code })
 
+    // Tools Registry
+    private val registeredTools = mutableListOf<de.pantastix.project.ai.tool.AgentTool>()
+
     // Internal Management
     private var remoteCardRepository: CardRepository? = null
     private val activeCardRepository: CardRepository
@@ -214,6 +217,11 @@ class CardListViewModel(
         if (provider == AiProviderType.OLLAMA_LOCAL) {
             refreshOllamaModels()
         }
+
+        // Initialize Tools
+        registeredTools.clear()
+        registeredTools.add(de.pantastix.project.ai.tool.SearchCardsTool(activeCardRepository))
+        registeredTools.add(de.pantastix.project.ai.tool.GetInventoryStatsTool(activeCardRepository))
     }
 
     fun setAiProvider(provider: AiProviderType) {
@@ -316,50 +324,7 @@ class CardListViewModel(
              AiConfig(apiKey = uiState.value.geminiApiKey, selectedModelId = uiState.value.selectedGeminiModel)
         }
 
-        val tools = listOf(
-            object : de.pantastix.project.ai.tool.AgentTool {
-                override val name = "search_cards"
-                override val description = "Sucht Karten im Inventar des Users."
-                override val parameterSchemaJson = "{ \"query\": \"String (Name)\" }" 
-                override suspend fun execute(parameters: Map<String, Any?>): String {
-                    val query = parameters["query"] as? String
-                    val allCards = activeCardRepository.getCardInfos().first()
-                    val filtered = allCards.filter { card ->
-                        (query == null || card.nameLocal.contains(query, ignoreCase = true))
-                    }.take(10)
-                    
-                    return buildJsonObject {
-                        putJsonArray("cards") {
-                            filtered.forEach { card ->
-                                add(buildJsonObject {
-                                    put("name", card.nameLocal)
-                                    put("set", card.setName)
-                                    put("price", card.currentPrice ?: 0.0)
-                                    put("copies", card.ownedCopies)
-                                })
-                            }
-                        }
-                        put("count", filtered.size)
-                    }.toString()
-                }
-            },
-            object : de.pantastix.project.ai.tool.AgentTool {
-                override val name = "get_inventory_stats"
-                override val description = "Gibt Statistiken über die Sammlung."
-                override val parameterSchemaJson = "{}"
-                override suspend fun execute(parameters: Map<String, Any?>): String {
-                     val allCards = activeCardRepository.getCardInfos().first()
-                    val totalValue = allCards.sumOf { (it.currentPrice ?: 0.0) * it.ownedCopies }
-                    val totalCopies = allCards.sumOf { it.ownedCopies }
-
-                    return buildJsonObject {
-                        put("total_cards_types", allCards.size)
-                        put("total_copies", totalCopies)
-                        put("total_market_value", totalValue)
-                    }.toString()
-                }
-            }
-        )
+        val tools = registeredTools.toList()
         
         var currentHistory = uiState.value.chatMessages.map {
              val role = when(it.role) {
@@ -386,13 +351,27 @@ class CardListViewModel(
              
              when (response) {
                  is de.pantastix.project.ai.AiResponse.Text -> {
-                     val newContent = Content(role = "model", parts = listOf(Part(text = response.content)))
+                     val newContent = Content(
+                         role = "model",
+                         parts = listOf(Part(text = response.content)),
+                         thought = response.thought
+                     )
                      _uiState.update { it.copy(chatMessages = it.chatMessages + newContent, isChatLoading = false) }
                      break 
                  }
                  is de.pantastix.project.ai.AiResponse.ToolCall -> {
                      currentHistory = currentHistory + ChatMessage(ChatRole.ASSISTANT, "Calling tool: ${response.toolName}")
                      
+                     // We can optionally visualize the thought before the tool call in the chat
+                     if (response.thought != null) {
+                         val thoughtContent = Content(
+                             role = "model", 
+                             parts = listOf(Part(text = "")), // Empty text, just thought
+                             thought = response.thought
+                         )
+                         _uiState.update { it.copy(chatMessages = it.chatMessages + thoughtContent) }
+                     }
+
                      val tool = tools.find { it.name == response.toolName }
                      if (tool != null) {
                          val result = tool.execute(response.parameters)
