@@ -121,7 +121,8 @@ data class UiState(
     // AI - Chat State
     val chatMessages: List<Content> = emptyList(),
     val chatInput: String = "",
-    val isChatLoading: Boolean = false
+    val isChatLoading: Boolean = false,
+    val currentThought: String? = null
 )
 
 @OptIn(ExperimentalTime::class)
@@ -341,6 +342,7 @@ class CardListViewModel(
 
         var loopCount = 0
         val maxLoops = 5
+        val fullThoughtLog = StringBuilder()
 
         while (loopCount < maxLoops) {
              val lastMsg = currentHistory.lastOrNull()
@@ -351,27 +353,43 @@ class CardListViewModel(
              
              when (response) {
                  is de.pantastix.project.ai.AiResponse.Text -> {
+                     if (response.thought != null) {
+                         if (fullThoughtLog.isNotEmpty()) fullThoughtLog.append("\n\n")
+                         fullThoughtLog.append(response.thought)
+                     }
+                     
                      val newContent = Content(
                          role = "model",
                          parts = listOf(Part(text = response.content)),
-                         thought = response.thought
+                         thought = if (fullThoughtLog.isNotEmpty()) fullThoughtLog.toString() else null
                      )
-                     _uiState.update { it.copy(chatMessages = it.chatMessages + newContent, isChatLoading = false) }
+                     _uiState.update { 
+                        it.copy(
+                            chatMessages = it.chatMessages + newContent, 
+                            isChatLoading = false,
+                            currentThought = null
+                        ) 
+                     }
                      break 
                  }
                  is de.pantastix.project.ai.AiResponse.ToolCall -> {
-                     currentHistory = currentHistory + ChatMessage(ChatRole.ASSISTANT, "Calling tool: ${response.toolName}")
-                     
-                     // We can optionally visualize the thought before the tool call in the chat
-                     if (response.thought != null) {
-                         val thoughtContent = Content(
-                             role = "model", 
-                             parts = listOf(Part(text = "")), // Empty text, just thought
-                             thought = response.thought
-                         )
-                         _uiState.update { it.copy(chatMessages = it.chatMessages + thoughtContent) }
+                     val thoughtText = response.thought
+                     if (thoughtText != null) {
+                         if (fullThoughtLog.isNotEmpty()) fullThoughtLog.append("\n\n")
+                         fullThoughtLog.append(thoughtText)
+                         
+                         // Update UI state for the loader to show the current thought
+                         _uiState.update { it.copy(currentThought = fullThoughtLog.toString()) }
                      }
 
+                     // Add thought + tool call to history so the model remembers it
+                     val historyContent = if (thoughtText != null) {
+                         "$thoughtText\nCalling tool: ${response.toolName}"
+                     } else {
+                         "Calling tool: ${response.toolName}"
+                     }
+                     currentHistory = currentHistory + ChatMessage(ChatRole.ASSISTANT, historyContent)
+                     
                      val tool = tools.find { it.name == response.toolName }
                      if (tool != null) {
                          val result = tool.execute(response.parameters)
@@ -383,7 +401,13 @@ class CardListViewModel(
                      }
                  }
                  is de.pantastix.project.ai.AiResponse.Error -> {
-                      _uiState.update { it.copy(isChatLoading = false, error = response.message) }
+                      _uiState.update { 
+                        it.copy(
+                            isChatLoading = false, 
+                            error = response.message,
+                            currentThought = null
+                        ) 
+                      }
                       break
                  }
              }

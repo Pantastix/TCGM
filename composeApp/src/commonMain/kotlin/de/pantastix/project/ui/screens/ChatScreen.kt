@@ -24,6 +24,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import de.pantastix.project.ai.AiProviderType
 import de.pantastix.project.model.gemini.Content
+import de.pantastix.project.ui.components.MarkdownText
 import de.pantastix.project.ui.viewmodel.CardListViewModel
 import dev.icerock.moko.resources.compose.stringResource
 import de.pantastix.project.shared.resources.MR
@@ -217,7 +218,7 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                         }
                         if (uiState.isChatLoading) {
                             item {
-                                ChatLoadingIndicator()
+                                ChatLoadingIndicator(currentThought = uiState.currentThought)
                             }
                         }
                     }
@@ -394,23 +395,26 @@ fun ChatMessageItem(message: Content, isUser: Boolean) {
                         }
                         
                         androidx.compose.animation.AnimatedVisibility(visible = isThoughtVisible) {
-                            Text(
-                                text = message.thought,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f),
-                                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                                modifier = Modifier
-                                    .padding(start = 8.dp, bottom = 8.dp)
-                                    .drawBehind {
-                                        drawLine(
-                                            color = Color.Gray.copy(alpha = 0.3f),
-                                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                                            end = androidx.compose.ui.geometry.Offset(0f, size.height),
-                                            strokeWidth = 2.dp.toPx()
-                                        )
-                                    }
-                                    .padding(start = 8.dp)
-                            )
+                            Column(modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)) {
+                                Box(
+                                    modifier = Modifier
+                                        .drawBehind {
+                                            drawLine(
+                                                color = Color.Gray.copy(alpha = 0.3f),
+                                                start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                                                end = androidx.compose.ui.geometry.Offset(0f, size.height),
+                                                strokeWidth = 2.dp.toPx()
+                                            )
+                                        }
+                                        .padding(start = 8.dp)
+                                ) {
+                                    MarkdownText(
+                                        markdown = message.thought,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                    )
+                                }
+                            }
                         }
                         
                         if (text.isNotBlank()) {
@@ -441,21 +445,64 @@ fun ChatMessageItem(message: Content, isUser: Boolean) {
 }
 
 @Composable
-fun ChatLoadingIndicator() {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(8.dp)
-    ) {
-        CircularProgressIndicator(
-            modifier = Modifier.size(16.dp),
-            strokeWidth = 2.dp,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            "Poké-Agent denkt nach...",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
+fun ChatLoadingIndicator(currentThought: String? = null) {
+    var isThoughtVisible by remember { mutableStateOf(false) }
+
+    // If we have thought content, we automatically expand if it's the first time appearing? 
+    // Or keep collapsed? User said "when one unfolds it". Default collapsed seems appropriate.
+    // But if it's "streaming", user might want to see it live. 
+    // Let's keep it collapsed by default as per request implicit "click arrow".
+
+    Column(modifier = Modifier.padding(8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.clickable(enabled = currentThought != null) { 
+                isThoughtVisible = !isThoughtVisible 
+            }
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(16.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "Poké-Agent denkt nach...",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            
+            if (currentThought != null) {
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    imageVector = if (isThoughtVisible) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = "Show Thinking",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        
+        if (currentThought != null && isThoughtVisible) {
+             Box(
+                modifier = Modifier
+                    .padding(start = 12.dp, top = 4.dp)
+                    .drawBehind {
+                        drawLine(
+                            color = Color.Gray.copy(alpha = 0.3f),
+                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
+                            end = androidx.compose.ui.geometry.Offset(0f, size.height),
+                            strokeWidth = 2.dp.toPx()
+                        )
+                    }
+                    .padding(start = 8.dp)
+            ) {
+                MarkdownText(
+                    markdown = currentThought,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                )
+            }
+        }
     }
 }
