@@ -1,9 +1,7 @@
 package de.pantastix.project.ai.strategy
 
 import de.pantastix.project.ai.AiResponse
-import de.pantastix.project.ai.model.OllamaChatMessage
-import de.pantastix.project.ai.model.OllamaChatRequest
-import de.pantastix.project.ai.model.OllamaChatResponse
+import de.pantastix.project.ai.model.ollama.*
 import de.pantastix.project.ai.tool.AgentTool
 
 interface AiWorkflowStrategy {

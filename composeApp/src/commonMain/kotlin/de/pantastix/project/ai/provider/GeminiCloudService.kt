@@ -1,6 +1,7 @@
 package de.pantastix.project.ai.provider
 
 import de.pantastix.project.ai.*
+import de.pantastix.project.ai.model.gemini.*
 import de.pantastix.project.ai.tool.AgentTool
 import de.pantastix.project.model.gemini.*
 import io.ktor.client.*
@@ -19,10 +20,9 @@ class GeminiCloudService(private val client: HttpClient) : AiService {
         encodeDefaults = true
     }
 
-    private val modelFamilies = listOf(
-        Gemini3Family(),
-        GeminiFlashFamily(),
-        GemmaFamily()
+    private val modelGroups: List<GeminiModelGroup> = listOf(
+        Gemini3Flash(),
+        Gemma()
     )
 
     override suspend fun getAvailableModels(config: AiConfig): List<de.pantastix.project.ai.AiModel> {
@@ -36,7 +36,7 @@ class GeminiCloudService(private val client: HttpClient) : AiService {
             listResponse.models
                 .filter { it.supportedGenerationMethods.contains("generateContent") }
                 .mapNotNull { apiModel ->
-                    modelFamilies.firstOrNull { it.regex.matches(apiModel.name) }?.createAiModel(apiModel)
+                    modelGroups.firstOrNull { it.regex.matches(apiModel.name) }?.createAiModel(apiModel)
                 }
                 .sortedByDescending { it.displayName }
         } catch (e: Exception) {

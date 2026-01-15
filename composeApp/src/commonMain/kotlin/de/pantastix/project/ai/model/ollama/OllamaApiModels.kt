@@ -1,4 +1,4 @@
-package de.pantastix.project.ai.model
+package de.pantastix.project.ai.model.ollama
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement

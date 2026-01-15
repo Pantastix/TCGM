@@ -1,7 +1,7 @@
 package de.pantastix.project.ai.strategy
 
 import de.pantastix.project.ai.AiResponse
-import de.pantastix.project.ai.model.*
+import de.pantastix.project.ai.model.ollama.*
 import de.pantastix.project.ai.tool.AgentTool
 import kotlinx.serialization.json.*
 

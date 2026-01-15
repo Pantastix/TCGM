@@ -1,7 +1,7 @@
 package de.pantastix.project.ai.provider
 
 import de.pantastix.project.ai.*
-import de.pantastix.project.ai.model.*
+import de.pantastix.project.ai.model.ollama.*
 import de.pantastix.project.ai.strategy.AiWorkflowStrategy
 import de.pantastix.project.ai.strategy.NativeOllamaStrategy
 import de.pantastix.project.ai.strategy.Gemma3ReasoningStrategy
@@ -17,17 +17,16 @@ import kotlinx.serialization.json.*
 class OllamaService(private val client: HttpClient) : AiService {
     override val providerType = AiProviderType.OLLAMA_LOCAL
 
+    private val modelGroups = listOf(
+        GptOss()
+    )
+
     override suspend fun getAvailableModels(config: AiConfig): List<AiModel> {
         val host = config.hostUrl ?: "http://localhost:11434"
         return try {
             val response: OllamaTagsResponse = client.get("$host/api/tags").body()
-            response.models.map {
-                AiModel(
-                    id = it.name,
-                    displayName = it.name.substringBefore(":"),
-                    provider = AiProviderType.OLLAMA_LOCAL,
-                    capabilities = setOf(AiCapability.TEXT_GENERATION) // Ollama usually doesn't have native tool calling in standard API the same way Gemini does
-                )
+            response.models.mapNotNull { ollamaModel ->
+                modelGroups.firstOrNull { it.matches(ollamaModel.name) }?.createAiModel(ollamaModel)
             }
         } catch (e: Exception) {
             emptyList()
