@@ -23,6 +23,27 @@ class GeminiFlashFamily : GeminiModelFamily {
     }
 }
 
+class Gemini3Family : GeminiModelFamily {
+    // Matches "models/gemini-3..." explicitly
+    override val regex = Regex("""^(models/)?gemini-3.*""", RegexOption.IGNORE_CASE)
+
+    override fun createAiModel(apiModel: ApiModel): AiModel {
+        val name = apiModel.name
+        val displayName = when {
+            name.contains("flash", ignoreCase = true) -> "Gemini 3 Flash"
+            name.contains("pro", ignoreCase = true) -> "Gemini 3 Pro"
+            else -> apiModel.displayName.takeIf { it.isNotEmpty() } ?: "Gemini 3"
+        }
+        
+        return AiModel(
+            id = name,
+            displayName = displayName,
+            provider = AiProviderType.GEMINI_CLOUD,
+            capabilities = setOf(AiCapability.NATIVE_TOOL_CALLING, AiCapability.TEXT_GENERATION)
+        )
+    }
+}
+
 class GemmaFamily : GeminiModelFamily {
     // Matches "models/gemma-3-..." or "gemma3:..."
     override val regex = Regex("""^(models/)?gemma[-:]?3.*""", RegexOption.IGNORE_CASE)

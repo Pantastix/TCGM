@@ -1,6 +1,7 @@
 package de.pantastix.project.ai.tool
 
 import de.pantastix.project.repository.CardRepository
+import de.pantastix.project.model.gemini.Schema
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
@@ -11,6 +12,17 @@ class SearchCardsTool(private val repository: CardRepository) : AgentTool {
     override val name = "search_cards"
     override val description = "Sucht Karten, deren Name den Suchbegriff enthält (teilweise Übereinstimmung möglich)."
     override val parameterSchemaJson = "{ \"query\": \"String (Name)\" }"
+
+    override val schema = Schema(
+        type = "OBJECT",
+        properties = mapOf(
+            "query" to Schema(
+                type = "STRING",
+                description = "The name or partial name of the Pokémon card to search for."
+            )
+        ),
+        required = listOf("query")
+    )
 
     override suspend fun execute(parameters: Map<String, Any?>): String {
         val query = parameters["query"] as? String ?: return "{ \"error\": \"No query provided\" }"
@@ -41,6 +53,11 @@ class GetInventoryStatsTool(private val repository: CardRepository) : AgentTool 
     override val name = "get_inventory_stats"
     override val description = "Gibt Statistiken über die Sammlung."
     override val parameterSchemaJson = "{}"
+
+    override val schema = Schema(
+        type = "OBJECT",
+        properties = emptyMap()
+    )
 
     override suspend fun execute(parameters: Map<String, Any?>): String {
         val allCards = repository.getCardInfos().first()

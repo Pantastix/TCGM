@@ -20,8 +20,8 @@ enum class AiCapability {
 }
 
 sealed class AiResponse {
-    data class Text(val content: String, val thought: String? = null) : AiResponse()
-    data class ToolCall(val toolName: String, val parameters: Map<String, Any?>, val thought: String? = null) : AiResponse()
+    data class Text(val content: String, val thought: String? = null, val thoughtSignature: String? = null) : AiResponse()
+    data class ToolCall(val toolName: String, val parameters: Map<String, Any?>, val thought: String? = null, val thoughtSignature: String? = null) : AiResponse()
     data class Error(val message: String) : AiResponse()
 }
 
@@ -46,7 +46,20 @@ data class AiConfig(
 
 data class ChatMessage(
     val role: ChatRole,
-    val content: String
+    val content: String,
+    val thoughtSignature: String? = null,
+    val toolCall: ToolCallData? = null,
+    val toolResponse: ToolResponseData? = null
+)
+
+data class ToolCallData(
+    val name: String,
+    val args: Map<String, Any?>
+)
+
+data class ToolResponseData(
+    val name: String,
+    val result: String // JSON string result
 )
 
 enum class ChatRole {

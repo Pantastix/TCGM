@@ -53,7 +53,8 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
         val families = mutableMapOf<String, MutableList<String>>() // Family Name -> List of Model IDs
 
         // 1. Gemini Filtering
-        val geminiRegex = Regex("""^(models/)?(gemini-[23]\.0-flash)$""", RegexOption.IGNORE_CASE)
+        // Strict filtering for now: only gemini-3-flash-preview and gemma-3
+        val geminiRegex = Regex("""^(models/)?(gemini-3-flash-preview)$""", RegexOption.IGNORE_CASE)
         val gemmaApiRegex = Regex("""^(models/)?(gemma-3-.*)$""", RegexOption.IGNORE_CASE)
 
         uiState.availableGeminiModels.forEach { model ->
@@ -356,18 +357,40 @@ fun ChatMessageItem(message: Content, isUser: Boolean) {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
-        Surface(
-            color = if (isUser) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f) else MaterialTheme.colorScheme.secondaryContainer,
-            border = if (isUser) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)) else null,
-            shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = if (isUser) 16.dp else 0.dp,
-                bottomEnd = if (isUser) 0.dp else 16.dp
-            ),
-            modifier = Modifier.widthIn(max = 600.dp)
-        ) {
-            Column(modifier = Modifier.padding(12.dp)) {
+        if (isUser) {
+            // User Message: Speech Bubble
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                shape = RoundedCornerShape(
+                    topStart = 16.dp,
+                    topEnd = 16.dp,
+                    bottomStart = 16.dp,
+                    bottomEnd = 0.dp
+                ),
+                modifier = Modifier.widthIn(max = 600.dp)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+            Text(
+                text = "Du",
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(top = 4.dp, end = 4.dp),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            )
+        } else {
+            // AI Message: Plain Text with Markdown & Reasoning
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth() // AI uses full width (or significant portion)
+                    .padding(end = 32.dp) // Leave some space on the right
+            ) {
                 // Thought Process Section
                 if (message.thought != null) {
                     var isThoughtVisible by remember { mutableStateOf(false) }
@@ -384,18 +407,18 @@ fun ChatMessageItem(message: Content, isUser: Boolean) {
                                 imageVector = if (isThoughtVisible) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
                                 contentDescription = "Toggle Thought",
                                 modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
+                                tint = MaterialTheme.colorScheme.secondary
                             )
                             Spacer(Modifier.width(4.dp))
                             Text(
                                 text = "Gedankengang",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
+                                color = MaterialTheme.colorScheme.secondary
                             )
                         }
                         
                         androidx.compose.animation.AnimatedVisibility(visible = isThoughtVisible) {
-                            Column(modifier = Modifier.padding(start = 8.dp, bottom = 8.dp)) {
+                            Column(modifier = Modifier.padding(start = 8.dp, bottom = 12.dp)) {
                                 Box(
                                     modifier = Modifier
                                         .drawBehind {
@@ -406,41 +429,35 @@ fun ChatMessageItem(message: Content, isUser: Boolean) {
                                                 strokeWidth = 2.dp.toPx()
                                             )
                                         }
-                                        .padding(start = 8.dp)
+                                        .padding(start = 12.dp)
                                 ) {
                                     MarkdownText(
                                         markdown = message.thought,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                                     )
                                 }
                             }
-                        }
-                        
-                        if (text.isNotBlank()) {
-                            HorizontalDivider(
-                                modifier = Modifier.padding(vertical = 8.dp),
-                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.1f)
-                            )
                         }
                     }
                 }
 
                 if (text.isNotBlank()) {
-                    Text(
-                        text = text,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (isUser) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSecondaryContainer
+                    MarkdownText(
+                        markdown = text,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
+                
+                Text(
+                    text = "Poké-Agent",
+                    style = MaterialTheme.typography.labelSmall,
+                    modifier = Modifier.padding(top = 8.dp),
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                )
             }
         }
-        Text(
-            text = if (isUser) "Du" else "Poké-Agent",
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-        )
     }
 }
 

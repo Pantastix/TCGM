@@ -1,5 +1,6 @@
 package de.pantastix.project.model.gemini
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 
@@ -24,7 +25,23 @@ data class GenerateContentRequest(
     val contents: List<Content>,
     val tools: List<Tool>? = null,
     val toolConfig: ToolConfig? = null,
-    val systemInstruction: Content? = null
+    val systemInstruction: Content? = null,
+    val generationConfig: GenerationConfig? = null
+)
+
+@Serializable
+data class GenerationConfig(
+    val temperature: Double? = null,
+    val topP: Double? = null,
+    val topK: Int? = null,
+    val maxOutputTokens: Int? = null,
+    val responseMimeType: String? = null,
+    val thinkingConfig: ThinkingConfig? = null
+)
+
+@Serializable
+data class ThinkingConfig(
+    @SerialName("include_thoughts") val includeThoughts: Boolean
 )
 
 @Serializable
@@ -38,7 +55,8 @@ data class Content(
 data class Part(
     val text: String? = null,
     val functionCall: FunctionCall? = null,
-    val functionResponse: FunctionResponse? = null
+    val functionResponse: FunctionResponse? = null,
+    @SerialName("thought_signature") val thoughtSignature: String? = null
 )
 
 @Serializable
