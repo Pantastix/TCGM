@@ -67,8 +67,8 @@ data class OllamaToolCallFunction(
 
 @Serializable
 data class OllamaChatResponse(
-    val model: String,
+    val model: String? = null,
     val message: OllamaChatMessage? = null,
-    val done: Boolean,
+    val done: Boolean = false,
     val error: String? = null
 )

@@ -76,7 +76,18 @@ class NativeOllamaStrategy : AiWorkflowStrategy {
                 )
             }
 
-            return AiResponse.Text(msg?.content ?: "")
+            val content = msg?.content ?: ""
+            // Parse potential <think> tags for reasoning models (e.g. DeepSeek/GPT-OSS)
+            val thinkRegex = Regex("""<think>(.*?)</think>""", RegexOption.DOT_MATCHES_ALL)
+            val match = thinkRegex.find(content)
+            
+            return if (match != null) {
+                val thought = match.groupValues[1].trim()
+                val cleanContent = content.replace(thinkRegex, "").trim()
+                AiResponse.Text(cleanContent, thought)
+            } else {
+                AiResponse.Text(content)
+            }
         } catch (e: Exception) {
             return AiResponse.Error("Ollama Parse Error: ${e.message}")
         }

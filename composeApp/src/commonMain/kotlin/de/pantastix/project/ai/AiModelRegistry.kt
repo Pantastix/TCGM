@@ -2,6 +2,7 @@ package de.pantastix.project.ai
 
 import de.pantastix.project.ai.strategy.*
 import de.pantastix.project.ai.strategy.gemini.*
+import de.pantastix.project.ai.strategy.ollama.*
 
 enum class ModelCategory {
     GEMINI_CLOUD,
@@ -23,8 +24,9 @@ object AiModelRegistry {
     // --- STRATEGIES (Execution Logic) ---
     private val strategies: List<AiWorkflowStrategy> = listOf(
         Gemma3ReasoningStrategy(),
-        GeminiNativeStrategy()
-        // Future: Ollama strategies can be added here
+        GeminiNativeStrategy(),
+        NativeOllamaStrategy(),
+        SimulatedJsonStrategy()
     )
 
     fun resolveStrategy(modelId: String, provider: AiProviderType): AiWorkflowStrategy? {
