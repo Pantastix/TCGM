@@ -1,17 +1,16 @@
 package de.pantastix.project.repository
 
-import androidx.compose.foundation.layout.Column
 import de.pantastix.project.model.*
 import de.pantastix.project.model.supabase.FullPokemonCardResponse
 import de.pantastix.project.model.supabase.SupabasePokemonCard
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.query.Columns
+import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.postgrest.query.Count
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -21,12 +20,12 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.contentOrNull
 
-
 class SupabaseCardRepository(
     private val postgrest: Postgrest
 ) : CardRepository {
 
     private val jsonParser = Json { ignoreUnknownKeys = true }
+
     private val cardsTable = "PokemonCardEntity" // Name deiner Tabelle in Supabase
     private val setsTable = "SetEntity"
     private val pokemonCardInfoView = "PokemonCardInfoView"
@@ -273,8 +272,8 @@ class SupabaseCardRepository(
 
     override suspend fun findExistingCard(setId: String, localId: String, language: String): PokemonCardInfo? = null
 
-    override suspend fun searchCards(query: String): List<PokemonCardInfo> {
-        println("SupabaseCardRepository: Searching for '$query' in $cardsTable")
+    override suspend fun searchCards(query: String?, type: String?, sort: String?): List<PokemonCardInfo> {
+        println("SupabaseCardRepository: Searching for query='$query' type='$type' sort='$sort' in $cardsTable")
         try {
             // Search in nameLocal OR nameEn directly in the Table, joining Set for the setName
             val result = postgrest.from(cardsTable).select(
@@ -293,11 +292,26 @@ class SupabaseCardRepository(
                 )
             ) {
                 filter {
-                    or {
-                        ilike("nameLocal", "*$query*")
-                        ilike("nameEn", "*$query*")
+                    if (!query.isNullOrBlank()) {
+                        or {
+                            ilike("nameLocal", "%$query%")
+                            ilike("nameEn", "%$query%")
+                            ilike("stage", "%$query%")
+                            ilike("types", "%$query%")
+                        }
+                    }
+                    if (!type.isNullOrBlank()) {
+                        ilike("types", "%$type%")
                     }
                 }
+                
+                when (sort) {
+                    "price_asc" -> order("currentPrice", Order.ASCENDING)
+                    "price_desc" -> order("currentPrice", Order.DESCENDING)
+                    "name_asc" -> order("nameLocal", Order.ASCENDING)
+                    "name_desc" -> order("nameLocal", Order.DESCENDING)
+                }
+                
                 limit(20) // Limit results for performance
             }
             

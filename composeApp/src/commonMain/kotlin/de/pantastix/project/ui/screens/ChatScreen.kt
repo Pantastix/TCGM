@@ -1,5 +1,13 @@
 package de.pantastix.project.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.StartOffset
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,6 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -21,6 +30,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import de.pantastix.project.ai.AiProviderType
 import de.pantastix.project.model.gemini.Content
@@ -30,6 +40,12 @@ import dev.icerock.moko.resources.compose.stringResource
 import de.pantastix.project.shared.resources.MR
 import org.koin.compose.koinInject
 
+// Helper interface for grouped messages
+private sealed interface ChatUiItem {
+    data class User(val message: Content) : ChatUiItem
+    data class AiGroup(val messages: List<Content>) : ChatUiItem
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
@@ -38,10 +54,35 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
     var showParameterDialog by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
-    // Automatisch nach unten scrollen bei neuen Nachrichten
-    LaunchedEffect(uiState.chatMessages.size, uiState.isChatLoading) {
-        if (uiState.chatMessages.isNotEmpty() || uiState.isChatLoading) {
-            val lastIndex = if (uiState.isChatLoading) uiState.chatMessages.size else uiState.chatMessages.size - 1
+    // Grouping Logic: Combine consecutive AI messages
+    val groupedMessages = remember(uiState.chatMessages) {
+        val groups = mutableListOf<ChatUiItem>()
+        var currentAiMessages = mutableListOf<Content>()
+
+        fun flushAi() {
+            if (currentAiMessages.isNotEmpty()) {
+                groups.add(ChatUiItem.AiGroup(currentAiMessages.toList()))
+                currentAiMessages.clear()
+            }
+        }
+
+        uiState.chatMessages.forEach { msg ->
+            if (msg.role == "user") {
+                flushAi()
+                groups.add(ChatUiItem.User(msg))
+            } else if (msg.role != "system" && msg.role != "function") {
+                // Assuming everything else (model, assistant) is AI
+                currentAiMessages.add(msg)
+            }
+        }
+        flushAi()
+        groups
+    }
+
+    // Scroll to bottom on new messages
+    LaunchedEffect(groupedMessages.size, uiState.isChatLoading, uiState.currentThought) {
+        if (groupedMessages.isNotEmpty() || uiState.isChatLoading) {
+            val lastIndex = groupedMessages.size - 1
             if (lastIndex >= 0) {
                 listState.animateScrollToItem(lastIndex)
             }
@@ -53,40 +94,34 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
         val families = mutableMapOf<String, MutableList<String>>() // Family Name -> List of Model IDs
 
         // 1. Gemini Filtering
-        // Strict filtering for now: only gemini-3-flash-preview and gemma-3
-        val geminiRegex = Regex("""^(models/)?(gemini-3-flash-preview)$""", RegexOption.IGNORE_CASE)
-        val gemmaApiRegex = Regex("""^(models/)?(gemma-3-.*)$""", RegexOption.IGNORE_CASE)
-
         uiState.availableGeminiModels.forEach { model ->
-            val pureName = model.substringAfter("models/")
-            if (geminiRegex.matches(pureName)) {
-                families.getOrPut(pureName) { mutableListOf() }.add(model)
-            } else if (gemmaApiRegex.matches(pureName)) {
-                families.getOrPut("Gemma 3 (Cloud)") { mutableListOf() }.add(model)
+            val family = de.pantastix.project.ai.AiModelRegistry.resolveFamily(model, de.pantastix.project.ai.ModelCategory.GEMINI_CLOUD)
+            if (family != null && family.filter(model)) {
+                families.getOrPut(family.displayName) { mutableListOf() }.add(model)
             }
         }
 
         // 2. Ollama Filtering & Grouping
-        // Regex for Gemma 3: gemma-3-<size>b-it
-        val gemma3Regex = Regex("gemma-3-(\\d+)b-it", RegexOption.IGNORE_CASE)
-        // Regex for GPT-OSS
-        val gptOssRegex = Regex("gpt-oss(:.*)?", RegexOption.IGNORE_CASE)
-
         uiState.availableOllamaModels.forEach { model ->
-            val name = model.lowercase()
-            val gemmaMatch = gemma3Regex.find(name)
-            if (gemmaMatch != null) {
-                val size = gemmaMatch.groupValues[1]
-                // Filter out 'e' prefix manually if regex missed it (though \d handles it)
-                if (!name.contains("e${size}b")) {
-                    families.getOrPut("Gemma 3 (Local)") { mutableListOf() }.add(model)
-                }
-            } else if (gptOssRegex.matches(name)) {
-                families.getOrPut("GPT-OSS") { mutableListOf() }.add(model)
-            }
+             val family = de.pantastix.project.ai.AiModelRegistry.resolveFamily(model, de.pantastix.project.ai.ModelCategory.OLLAMA_LOCAL)
+             if (family != null && family.filter(model)) {
+                 families.getOrPut(family.displayName) { mutableListOf() }.add(model)
+             }
         }
         
-        families.mapValues { it.value.sortedByDescending { id -> id }}
+        // Sort individual lists based on family comparator or default
+        families.mapValues { (familyName, models) ->
+            val sampleModel = models.firstOrNull() ?: return@mapValues models
+            // Try to find the family definition again to get the comparator (a bit inefficient but safe)
+            // We assume models in the list belong to the same family (which they should by design above)
+            val family = de.pantastix.project.ai.AiModelRegistry.families.find { it.displayName == familyName }
+            
+            if (family?.modelComparator != null) {
+                models.sortedWith(family.modelComparator)
+            } else {
+                models.sortedByDescending { it }
+            }
+        }
     }
 
     val currentModelId = if (uiState.selectedAiProvider == AiProviderType.GEMINI_CLOUD) {
@@ -95,7 +130,6 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
         uiState.selectedOllamaModel
     }
     
-    // Determine current family
     val currentFamilyName = modelFamilies.entries.find { it.value.contains(currentModelId) }?.key 
         ?: currentModelId.substringAfterLast("/").take(20)
 
@@ -211,16 +245,15 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(uiState.chatMessages) { message ->
-                            if (message.role != "system" && message.role != "function") {
-                                 val isUser = message.role == "user"
-                                 ChatMessageItem(message, isUser)
-                            }
-                        }
-                        if (uiState.isChatLoading) {
-                            item {
-                                ChatLoadingIndicator(currentThought = uiState.currentThought)
-                            }
+                        items(groupedMessages) { item ->
+                             // Determine if this is the very last item in the list and we are still loading
+                             val isLast = item == groupedMessages.last()
+                             val isGenerating = isLast && uiState.isChatLoading
+                             
+                             when (item) {
+                                 is ChatUiItem.User -> UserMessageItem(item.message)
+                                 is ChatUiItem.AiGroup -> AiMessageGroupItem(item.messages, isGenerating)
+                             }
                         }
                     }
                     
@@ -303,9 +336,9 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
         }
     }
     
+    // Dialog code
     if (showParameterDialog) {
         val currentVariants = modelFamilies[currentFamilyName] ?: emptyList()
-        
         AlertDialog(
             onDismissRequest = { showParameterDialog = false },
             title = { Text("Model Settings") },
@@ -335,7 +368,6 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                     } else {
                         Text("Aktuelles Modell: $currentModelId")
                     }
-                    
                     Spacer(Modifier.height(16.dp))
                     Text("Zukünftige Parameter (Temperature, etc.) kommen hier hinzu.")
                 }
@@ -348,178 +380,187 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
 }
 
 @Composable
-fun ChatMessageItem(message: Content, isUser: Boolean) {
+fun UserMessageItem(message: Content) {
     val text = message.parts.firstOrNull { it.text != null }?.text ?: ""
-    // Allow empty text if there is a thought (e.g. intermediate reasoning step)
-    if (text.isBlank() && message.thought == null) return
-
     Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
+        horizontalAlignment = Alignment.End
     ) {
-        if (isUser) {
-            // User Message: Speech Bubble
-            Surface(
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
-                shape = RoundedCornerShape(
-                    topStart = 16.dp,
-                    topEnd = 16.dp,
-                    bottomStart = 16.dp,
-                    bottomEnd = 0.dp
-                ),
-                modifier = Modifier.widthIn(max = 600.dp)
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = text,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
+        Surface(
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+            shape = RoundedCornerShape(16.dp, 16.dp, 16.dp, 0.dp),
+            modifier = Modifier.widthIn(max = 600.dp)
+        ) {
+            Column(modifier = Modifier.padding(12.dp)) {
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             }
-            Text(
-                text = "Du",
-                style = MaterialTheme.typography.labelSmall,
-                modifier = Modifier.padding(top = 4.dp, end = 4.dp),
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+        }
+        Text(
+            text = "Du",
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(top = 4.dp, end = 4.dp),
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+        )
+    }
+}
+
+@Composable
+fun AiMessageGroupItem(messages: List<Content>, isGenerating: Boolean) {
+    // Collect all unique non-blank thoughts and texts
+    val thoughts = messages.mapNotNull { it.thought }.filter { it.isNotBlank() }
+    val texts = messages.flatMap { it.parts }.mapNotNull { it.text }.filter { it.isNotBlank() }
+
+    // If nothing to show and not generating, return
+    if (thoughts.isEmpty() && texts.isEmpty() && !isGenerating) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(end = 32.dp)
+    ) {
+        var isThoughtVisible by remember { mutableStateOf(false) }
+        val hasThoughts = thoughts.isNotEmpty()
+
+        // 1. Header (Once per group)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .then(if (hasThoughts) Modifier.clickable { isThoughtVisible = !isThoughtVisible } else Modifier)
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (isGenerating) Icons.Filled.AutoAwesome else Icons.Filled.SmartToy,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.primary
             )
-        } else {
-            // AI Message: Plain Text with Markdown & Reasoning
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth() // AI uses full width (or significant portion)
-                    .padding(end = 32.dp) // Leave some space on the right
-            ) {
-                // Thought Process Section
-                if (message.thought != null) {
-                    var isThoughtVisible by remember { mutableStateOf(false) }
-                    
-                    Column(modifier = Modifier.fillMaxWidth()) {
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = if (isGenerating && texts.isEmpty()) "Poké-Agent denkt nach..." else "Poké-Agent",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            
+            if (hasThoughts) {
+                Spacer(Modifier.width(8.dp))
+                Icon(
+                    imageVector = if (isThoughtVisible) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = "Toggle Thought",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                )
+                Text(
+                   text = "(${thoughts.size})",
+                   style = MaterialTheme.typography.labelSmall,
+                   color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                   modifier = Modifier.padding(start = 2.dp)
+                )
+            }
+        }
+
+        // 2. Thoughts (List of thoughts)
+        if (hasThoughts) {
+            AnimatedVisibility(visible = isThoughtVisible) {
+                Column {
+                    thoughts.forEachIndexed { index, thought ->
                         Row(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { isThoughtVisible = !isThoughtVisible }
-                                .padding(bottom = if (isThoughtVisible) 8.dp else 0.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(start = 10.dp, top = 4.dp, bottom = 8.dp)
+                                .height(IntrinsicSize.Min)
                         ) {
-                            Icon(
-                                imageVector = if (isThoughtVisible) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                                contentDescription = "Toggle Thought",
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.secondary
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight()
+                                    .width(3.dp)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), RoundedCornerShape(2.dp))
                             )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                text = "Gedankengang",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.secondary
+                            Spacer(Modifier.width(12.dp))
+                            MarkdownText(
+                                markdown = thought,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                             )
                         }
-                        
-                        androidx.compose.animation.AnimatedVisibility(visible = isThoughtVisible) {
-                            Column(modifier = Modifier.padding(start = 8.dp, bottom = 12.dp)) {
-                                Box(
-                                    modifier = Modifier
-                                        .drawBehind {
-                                            drawLine(
-                                                color = Color.Gray.copy(alpha = 0.3f),
-                                                start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                                                end = androidx.compose.ui.geometry.Offset(0f, size.height),
-                                                strokeWidth = 2.dp.toPx()
-                                            )
-                                        }
-                                        .padding(start = 12.dp)
-                                ) {
-                                    MarkdownText(
-                                        markdown = message.thought,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                                    )
-                                }
-                            }
+                        if (index < thoughts.size - 1) {
+                            Spacer(Modifier.height(4.dp))
                         }
                     }
                 }
+            }
+        }
 
-                if (text.isNotBlank()) {
-                    MarkdownText(
-                        markdown = text,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                
-                Text(
-                    text = "Poké-Agent",
-                    style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.padding(top = 8.dp),
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+        // 3. Answer Content (Texts)
+        if (texts.isNotEmpty()) {
+            Spacer(Modifier.height(0.dp))
+            texts.forEachIndexed { idx, text ->
+                if (idx > 0) Spacer(Modifier.height(8.dp))
+                MarkdownText(
+                    markdown = text,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
+        } else if (isGenerating && !hasThoughts) {
+            TypingIndicator()
+        }
+        
+        // 4. Typing Indicator (bottom)
+        if (isGenerating && texts.isNotEmpty()) {
+            Spacer(Modifier.height(8.dp))
+            TypingIndicator()
         }
     }
 }
 
 @Composable
-fun ChatLoadingIndicator(currentThought: String? = null) {
-    var isThoughtVisible by remember { mutableStateOf(false) }
-
-    // If we have thought content, we automatically expand if it's the first time appearing? 
-    // Or keep collapsed? User said "when one unfolds it". Default collapsed seems appropriate.
-    // But if it's "streaming", user might want to see it live. 
-    // Let's keep it collapsed by default as per request implicit "click arrow".
-
-    Column(modifier = Modifier.padding(8.dp)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.clickable(enabled = currentThought != null) { 
-                isThoughtVisible = !isThoughtVisible 
-            }
-        ) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(16.dp),
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.primary
+fun TypingIndicator(
+    dotSize: Dp = 8.dp,
+    color: Color = MaterialTheme.colorScheme.primary,
+    delayUnit: Int = 300
+) {
+    val maxOffset = 6f
+    
+    @Composable
+    fun Dot(offset: Int) {
+        val transition = rememberInfiniteTransition()
+        val yOffset by transition.animateFloat(
+            initialValue = 0f,
+            targetValue = -maxOffset,
+            animationSpec = infiniteRepeatable(
+                animation = keyframes {
+                    durationMillis = delayUnit * 4
+                    0f at 0 with LinearEasing
+                    -maxOffset at delayUnit with LinearEasing
+                    0f at delayUnit * 2 with LinearEasing
+                },
+                repeatMode = RepeatMode.Restart,
+                initialStartOffset = StartOffset(offset)
             )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                "Poké-Agent denkt nach...",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            
-            if (currentThought != null) {
-                Spacer(Modifier.width(4.dp))
-                Icon(
-                    imageVector = if (isThoughtVisible) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                    contentDescription = "Show Thinking",
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
+        )
         
-        if (currentThought != null && isThoughtVisible) {
-             Box(
-                modifier = Modifier
-                    .padding(start = 12.dp, top = 4.dp)
-                    .drawBehind {
-                        drawLine(
-                            color = Color.Gray.copy(alpha = 0.3f),
-                            start = androidx.compose.ui.geometry.Offset(0f, 0f),
-                            end = androidx.compose.ui.geometry.Offset(0f, size.height),
-                            strokeWidth = 2.dp.toPx()
-                        )
-                    }
-                    .padding(start = 8.dp)
-            ) {
-                MarkdownText(
-                    markdown = currentThought,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                )
-            }
-        }
+        Box(
+            modifier = Modifier
+                .offset(y = yOffset.dp)
+                .size(dotSize)
+                .clip(CircleShape)
+                .background(color)
+        )
+    }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.padding(top = 4.dp, bottom = 8.dp, start = 4.dp)
+    ) {
+        Dot(0)
+        Dot(delayUnit)
+        Dot(delayUnit * 2)
     }
 }

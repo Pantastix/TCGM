@@ -31,16 +31,19 @@ class GeminiService(private val client: HttpClient) {
             }
             val listResponse = response.body<ModelListResponse>()
 
-            // Regex für:
-            // 1. Gemini: "gemini" + Version (z.B. -1.5, -2.0) + Typ (-flash, -pro) + Optional (-preview/latest)
-            // 2. Gemma: "gemma-3" (und Varianten)
-            val allowedModelsRegex = Regex("^(models/)?(gemini-\\d+(\\.\\d+)?-(flash|pro)(-[a-zA-Z0-9]+)?|gemma-3.*)")
-
-            listResponse.models.filter { model ->
-                val name = model.name.lowercase()
-                allowedModelsRegex.matches(name) &&
-                model.supportedGenerationMethods.contains("generateContent")
-            }.sortedByDescending { it.displayName }
+            listResponse.models.mapNotNull { model ->
+                val family = de.pantastix.project.ai.AiModelRegistry.resolveFamily(model.name, de.pantastix.project.ai.ModelCategory.GEMINI_CLOUD)
+                if (family != null && family.filter(model.name) && model.supportedGenerationMethods.contains("generateContent")) {
+                    model to family
+                } else null
+            }.sortedWith(Comparator { (modelA, famA), (modelB, famB) ->
+                if (famA.id == famB.id && famA.modelComparator != null) {
+                    famA.modelComparator.compare(modelA.name, modelB.name)
+                } else {
+                    // Fallback or inter-family sort (could be improved but alphabetical display name is fine for now)
+                    modelA.displayName.compareTo(modelB.displayName)
+                }
+            }).map { it.first }
         } catch (e: Exception) {
             println("Error fetching models: ${e.message}")
             emptyList()
@@ -56,15 +59,6 @@ class GeminiService(private val client: HttpClient) {
             // Ensure modelName doesn't have double "models/" prefix if passed incorrectly
             val safeModelName = if (modelName.startsWith("models/")) modelName else "models/$modelName"
             
-            // Log Request
-            try {
-                val requestStr = json.encodeToString(GenerateContentRequest.serializer(), request)
-                println("DEBUG GEMINI REQUEST URL: https://generativelanguage.googleapis.com/v1beta/$safeModelName:generateContent")
-                println("DEBUG GEMINI REQUEST BODY: $requestStr")
-            } catch (e: Exception) {
-                println("DEBUG GEMINI: Failed to serialize request for logging: ${e.message}")
-            }
-
             val response = client.post("https://generativelanguage.googleapis.com/v1beta/$safeModelName:generateContent") {
                 parameter("key", apiKey)
                 contentType(ContentType.Application.Json)
@@ -72,7 +66,9 @@ class GeminiService(private val client: HttpClient) {
             }
             
             val responseBody = response.bodyAsText()
-            println("DEBUG GEMINI RESPONSE BODY: $responseBody")
+            println("\n[AI OUTPUT] $responseBody\n")
+            
+            json.decodeFromString(GenerateContentResponse.serializer(), responseBody)
             
             json.decodeFromString(GenerateContentResponse.serializer(), responseBody)
         } catch (e: Exception) {

@@ -10,24 +10,50 @@ import kotlinx.serialization.json.putJsonArray
 
 class SearchCardsTool(private val repository: CardRepository) : AgentTool {
     override val name = "search_cards"
-    override val description = "Sucht Karten, deren Name den Suchbegriff enthält (teilweise Übereinstimmung möglich)."
-    override val parameterSchemaJson = "{ \"query\": \"String (Name)\" }"
+    override val description = "Sucht Karten anhand von Name, Typ und Sortierung. Es MUSS mindestens ein Suchfilter (Name oder Typ) angegeben werden."
+    override val parameterSchemaJson = """
+        {
+          "query": "String? (Name, optional, aber empfohlen)",
+          "type": "String? (z.B. Fire, Water, optional)",
+          "sort": "String? (price_asc, price_desc, name_asc, name_desc, optional)"
+        }
+    """.trimIndent()
 
     override val schema = Schema(
         type = "OBJECT",
         properties = mapOf(
             "query" to Schema(
                 type = "STRING",
-                description = "The name or partial name of the Pokémon card to search for."
+                description = "The name or partial name of the Pokémon card to search for. Must be provided if type is not."
+            ),
+            "type" to Schema(
+                type = "STRING",
+                description = "Filter by Pokémon type (e.g., Fire, Water, Psychic). Must be provided if query is not."
+            ),
+            "sort" to Schema(
+                type = "STRING",
+                description = "Sort order. Values: price_asc, price_desc, name_asc, name_desc."
             )
         ),
-        required = listOf("query")
+        required = emptyList() // Gemini seems to handle validation better if we handle logic in execute or make them optional in schema but logic strict
     )
 
     override suspend fun execute(parameters: Map<String, Any?>): String {
-        val query = parameters["query"] as? String ?: return "{ \"error\": \"No query provided\" }"
-        println("AI Tool [search_cards] (Repo: ${repository::class.simpleName}) searching for: $query")
-        val filtered = repository.searchCards(query).take(10)
+        val rawQuery = parameters["query"] as? String
+        val rawType = parameters["type"] as? String
+        val rawSort = parameters["sort"] as? String
+
+        // Sanitize inputs: treat string "null" as null
+        val query = if (rawQuery == "null" || rawQuery.isNullOrBlank()) null else rawQuery
+        val type = if (rawType == "null" || rawType.isNullOrBlank()) null else rawType
+        val sort = if (rawSort == "null" || rawSort.isNullOrBlank()) null else rawSort
+
+        if (query == null && type == null) {
+             return "{ \"error\": \"Fehler: Du hast keine Suchfilter angegeben. Bitte gib mindestens einen Namen ('query') oder einen Typ ('type') an, um zu suchen. Eine Suche ohne Filter ist nicht erlaubt.\" }"
+        }
+
+        println("AI Tool [search_cards] (Repo: ${repository::class.simpleName}) searching for: query='$query', type='$type', sort='$sort'")
+        val filtered = repository.searchCards(query, type, sort)
         println("AI Tool [search_cards] Repository returned ${filtered.size} items")
 
         val result = buildJsonObject {

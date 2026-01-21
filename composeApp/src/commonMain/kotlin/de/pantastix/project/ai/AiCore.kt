@@ -36,6 +36,13 @@ interface AiService {
         config: AiConfig,
         availableTools: List<AgentTool>
     ): AiResponse
+
+    suspend fun streamResponse(
+        prompt: String,
+        chatHistory: List<ChatMessage>,
+        config: AiConfig,
+        availableTools: List<AgentTool>
+    ): kotlinx.coroutines.flow.Flow<AiResponse>
 }
 
 data class AiConfig(

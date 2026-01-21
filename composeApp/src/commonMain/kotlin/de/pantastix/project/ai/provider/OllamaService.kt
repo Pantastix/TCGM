@@ -3,9 +3,8 @@ package de.pantastix.project.ai.provider
 import de.pantastix.project.ai.*
 import de.pantastix.project.ai.model.ollama.*
 import de.pantastix.project.ai.strategy.AiWorkflowStrategy
-import de.pantastix.project.ai.strategy.NativeOllamaStrategy
-import de.pantastix.project.ai.strategy.Gemma3ReasoningStrategy
-import de.pantastix.project.ai.strategy.SimulatedJsonStrategy
+import de.pantastix.project.ai.strategy.ollama.NativeOllamaStrategy
+import de.pantastix.project.ai.strategy.ollama.SimulatedJsonStrategy
 import de.pantastix.project.ai.tool.AgentTool
 import io.ktor.client.*
 import io.ktor.client.call.*
@@ -14,19 +13,29 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import kotlinx.serialization.json.*
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+
 class OllamaService(private val client: HttpClient) : AiService {
     override val providerType = AiProviderType.OLLAMA_LOCAL
 
-    private val modelGroups = listOf(
-        GptOss()
+    // Register local strategies here or use AiModelRegistry if you want global
+    private val localStrategies = listOf(
+        NativeOllamaStrategy(),
+        SimulatedJsonStrategy()
     )
 
     override suspend fun getAvailableModels(config: AiConfig): List<AiModel> {
         val host = config.hostUrl ?: "http://localhost:11434"
         return try {
-            val response: OllamaTagsResponse = client.get("$host/api/tags").body()
-            response.models.mapNotNull { ollamaModel ->
-                modelGroups.firstOrNull { it.matches(ollamaModel.name) }?.createAiModel(ollamaModel)
+            val response = client.get("$host/api/tags")
+            val tagsResponse = response.body<OllamaTagsResponse>()
+            
+            tagsResponse.models.mapNotNull { ollamaModel ->
+                // Find matching strategy to convert to UI model
+                val strategy = localStrategies.find { it.modelIdRegex.matches(ollamaModel.name) } 
+                    ?: localStrategies.last() // Fallback
+                strategy.createUiModel(ollamaModel)
             }
         } catch (e: Exception) {
             emptyList()
@@ -40,41 +49,31 @@ class OllamaService(private val client: HttpClient) : AiService {
         availableTools: List<AgentTool>
     ): AiResponse {
         val host = config.hostUrl ?: "http://localhost:11434"
-        val model = config.selectedModelId ?: return AiResponse.Error("No model selected")
+        val modelId = config.selectedModelId ?: return AiResponse.Error("No model selected")
 
-        // Strategy Selection Factory
-        val strategy: AiWorkflowStrategy = when {
-            model.contains("gemma-3", ignoreCase = true) || model.contains("gemma3", ignoreCase = true) -> Gemma3ReasoningStrategy()
-            model.contains("gpt-oss", ignoreCase = true) || model.contains("llama-3.1", ignoreCase = true) -> NativeOllamaStrategy()
-            else -> SimulatedJsonStrategy()
-        }
+        val strategy = localStrategies.find { it.modelIdRegex.matches(modelId) } 
+             ?: localStrategies.last()
 
-        val ollamaMessages = mutableListOf<OllamaChatMessage>()
-        
-        // Add existing history
-        chatHistory.forEach {
-            ollamaMessages.add(OllamaChatMessage(it.role.name.lowercase(), it.content))
-        }
-        
-        // Add new prompt if provided and not blank
-        if (prompt.isNotBlank()) {
-            ollamaMessages.add(OllamaChatMessage("user", prompt))
-        }
-
-        // Delegate request creation to strategy
-        val request = strategy.createRequest(model, ollamaMessages, availableTools)
+        val requestCtx = strategy.createRequest(prompt, chatHistory, config, availableTools)
+        val requestBody = requestCtx.body
 
         return try {
-            val response: OllamaChatResponse = client.post("$host/api/chat") {
+            val response = client.post("$host/api/chat") {
                 contentType(ContentType.Application.Json)
-                setBody(request)
-            }.body()
-
-            println("--- RAW OLLAMA OUTPUT ---\n${response.message?.content}\n-------------------------")
-
-            strategy.parseResponse(response)
+                setBody(requestBody)
+            }
+            strategy.parseResponse(response.bodyAsText())
         } catch (e: Exception) {
             AiResponse.Error("Ollama Error: ${e.message}")
         }
+    }
+    
+    override suspend fun streamResponse(
+        prompt: String,
+        chatHistory: List<ChatMessage>,
+        config: AiConfig,
+        availableTools: List<AgentTool>
+    ): Flow<AiResponse> = flow {
+         emit(generateResponse(prompt, chatHistory, config, availableTools))
     }
 }

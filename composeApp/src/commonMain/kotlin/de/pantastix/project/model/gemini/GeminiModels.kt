@@ -56,7 +56,8 @@ data class Part(
     val text: String? = null,
     val functionCall: FunctionCall? = null,
     val functionResponse: FunctionResponse? = null,
-    @SerialName("thought_signature") val thoughtSignature: String? = null
+    @SerialName("thought_signature") val thoughtSignature: String? = null,
+    val thought: Boolean = false
 )
 
 @Serializable

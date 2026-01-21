@@ -241,8 +241,10 @@ class LocalCardRepositoryImpl(
         }
     }
 
-    override suspend fun searchCards(query: String): List<PokemonCardInfo> {
-        println("LocalCardRepository: Searching for '$query'")
+    override suspend fun searchCards(query: String?, type: String?, sort: String?): List<PokemonCardInfo> {
+        println("LocalCardRepository: Searching for '$query', type='$type', sort='$sort'")
+        if (query.isNullOrBlank()) return emptyList() // Local search requires query for now
+        
         return withContext(ioDispatcher) {
             val results = queries.searchCardsByName(query).executeAsList().map { result ->
                 PokemonCardInfo(

@@ -104,10 +104,10 @@ SELECT
     PokemonCardEntity.currentPrice,
     PokemonCardEntity.selectedPriceSource,
     PokemonCardEntity.lastPriceUpdate,
-    SetEntity.nameLocal AS setName
+    COALESCE(SetEntity.nameLocal, 'Unknown Set') AS setName
 FROM PokemonCardEntity
-JOIN SetEntity ON PokemonCardEntity.setId = SetEntity.setId
-ORDER BY SetEntity.releaseDate DESC, PokemonCardEntity.localId;
+LEFT JOIN SetEntity ON PokemonCardEntity.setId = SetEntity.setId
+ORDER BY COALESCE(SetEntity.releaseDate, '') DESC, PokemonCardEntity.localId;
 
 
 selectFullCardDetailsById:
@@ -146,11 +146,14 @@ SELECT
     PokemonCardEntity.imageUrl,
     PokemonCardEntity.ownedCopies,
     PokemonCardEntity.currentPrice,
-    SetEntity.nameLocal AS setName
+    COALESCE(SetEntity.nameLocal, 'Unknown Set') AS setName
 FROM PokemonCardEntity
-JOIN SetEntity ON PokemonCardEntity.setId = SetEntity.setId
-WHERE lower(PokemonCardEntity.nameLocal) LIKE '%' || lower(:searchText) || '%' OR lower(PokemonCardEntity.nameEn) LIKE '%' || lower(:searchText) || '%'
-ORDER BY SetEntity.releaseDate DESC, PokemonCardEntity.localId;
+LEFT JOIN SetEntity ON PokemonCardEntity.setId = SetEntity.setId
+WHERE lower(PokemonCardEntity.nameLocal) LIKE '%' || lower(:searchText) || '%' 
+   OR lower(PokemonCardEntity.nameEn) LIKE '%' || lower(:searchText) || '%'
+   OR lower(COALESCE(PokemonCardEntity.stage, '')) LIKE '%' || lower(:searchText) || '%'
+   OR lower(COALESCE(PokemonCardEntity.types, '')) LIKE '%' || lower(:searchText) || '%'
+ORDER BY COALESCE(SetEntity.releaseDate, '') DESC, PokemonCardEntity.localId;
 
 
 deleteCardById:

@@ -22,6 +22,8 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import org.koin.dsl.module
 
+import io.ktor.client.plugins.HttpRequestRetry
+
 val commonModule = module {
 
     // Stellt den echten Ktor-Client für die App bereit
@@ -37,6 +39,10 @@ val commonModule = module {
                 requestTimeoutMillis = 120_000 // 2 minutes
                 socketTimeoutMillis = 120_000
                 connectTimeoutMillis = 30_000
+            }
+            install(HttpRequestRetry) {
+                retryOnServerErrors(maxRetries = 3)
+                exponentialDelay()
             }
         }
     }

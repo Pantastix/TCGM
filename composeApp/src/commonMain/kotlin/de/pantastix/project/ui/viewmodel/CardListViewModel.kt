@@ -113,7 +113,7 @@ data class UiState(
     val selectedAiProvider: AiProviderType = AiProviderType.GEMINI_CLOUD,
     val geminiApiKey: String = "",
     val availableGeminiModels: List<String> = emptyList(),
-    val selectedGeminiModel: String = "models/gemini-2.0-flash",
+    val selectedGeminiModel: String = "models/gemini-3-flash-preview",
     val ollamaHostUrl: String = "http://localhost:11434",
     val availableOllamaModels: List<String> = emptyList(),
     val selectedOllamaModel: String = "",
@@ -220,6 +220,10 @@ class CardListViewModel(
         }
 
         // Initialize Tools
+        reinitializeTools()
+    }
+
+    private fun reinitializeTools() {
         registeredTools.clear()
         registeredTools.add(de.pantastix.project.ai.tool.SearchCardsTool(activeCardRepository))
         registeredTools.add(de.pantastix.project.ai.tool.GetInventoryStatsTool(activeCardRepository))
@@ -253,18 +257,34 @@ class CardListViewModel(
     private suspend fun refreshOllamaModels() {
         _uiState.update { it.copy(loadingMessage = "Lade Ollama Modelle...") }
         val config = AiConfig(hostUrl = uiState.value.ollamaHostUrl)
-        val models = ollamaService.getAvailableModels(config).map { it.id }
+        
+        // Fetch raw models
+        val rawModels = ollamaService.getAvailableModels(config).map { it.id }
+        
+        // Filter and Sort using Registry
+        val sortedModels = rawModels.mapNotNull { modelName ->
+            val family = de.pantastix.project.ai.AiModelRegistry.resolveFamily(modelName, de.pantastix.project.ai.ModelCategory.OLLAMA_LOCAL)
+            if (family != null && family.filter(modelName)) {
+                modelName to family
+            } else null
+        }.sortedWith(Comparator { (modelA, famA), (modelB, famB) ->
+             if (famA.id == famB.id && famA.modelComparator != null) {
+                 famA.modelComparator.compare(modelA, modelB)
+             } else {
+                 modelA.compareTo(modelB)
+             }
+        }).map { it.first }
         
         _uiState.update { 
             it.copy(
-                availableOllamaModels = models,
+                availableOllamaModels = sortedModels,
                 loadingMessage = null
             ) 
         }
         
-        if (uiState.value.selectedOllamaModel !in models && models.isNotEmpty()) {
-            val newDefault = models.firstOrNull { it.contains("gemma") } ?: models.first()
-            selectOllamaModel(newDefault)
+        // Smart Selection: Pick the first one (which is now the "best" due to sorting)
+        if (uiState.value.selectedOllamaModel !in sortedModels && sortedModels.isNotEmpty()) {
+            selectOllamaModel(sortedModels.first())
         }
     }
 
@@ -342,73 +362,95 @@ class CardListViewModel(
 
         var loopCount = 0
         val maxLoops = 5
-        val fullThoughtLog = StringBuilder()
 
         while (loopCount < maxLoops) {
              val lastMsg = currentHistory.lastOrNull()
              val promptToUse = if (loopCount == 0 && lastMsg?.role == ChatRole.USER) lastMsg.content else ""
              val historyToUse = if (loopCount == 0) currentHistory.dropLast(1) else currentHistory
              
-             val response = service.generateResponse(promptToUse, historyToUse, config, tools)
-             
-             when (response) {
-                 is de.pantastix.project.ai.AiResponse.Text -> {
-                     if (response.thought != null) {
-                         if (fullThoughtLog.isNotEmpty()) fullThoughtLog.append("\n\n")
-                         fullThoughtLog.append(response.thought)
-                     }
-                     
-                     val newContent = Content(
-                         role = "model",
-                         parts = listOf(Part(text = response.content)),
-                         thought = if (fullThoughtLog.isNotEmpty()) fullThoughtLog.toString() else null
-                     )
-                     _uiState.update { 
-                        it.copy(
-                            chatMessages = it.chatMessages + newContent, 
-                            isChatLoading = false,
-                            currentThought = null
-                        ) 
-                     }
-                     break 
-                 }
-                 is de.pantastix.project.ai.AiResponse.ToolCall -> {
-                     val thoughtText = response.thought
-                     if (thoughtText != null) {
-                         if (fullThoughtLog.isNotEmpty()) fullThoughtLog.append("\n\n")
-                         fullThoughtLog.append(thoughtText)
-                         
-                         // Update UI state for the loader to show the current thought
-                         _uiState.update { it.copy(currentThought = fullThoughtLog.toString()) }
-                     }
+             var lastResponse: de.pantastix.project.ai.AiResponse? = null
+             var receivedToolCall: de.pantastix.project.ai.AiResponse.ToolCall? = null
+             var isFirstChunk = true
 
-                     // Add thought + tool call to history so the model remembers it
-                     val historyContent = if (thoughtText != null) {
-                         "$thoughtText\nCalling tool: ${response.toolName}"
-                     } else {
-                         "Calling tool: ${response.toolName}"
+             try {
+                 service.streamResponse(promptToUse, historyToUse, config, tools).collect { response ->
+                     lastResponse = response
+                     when (response) {
+                         is de.pantastix.project.ai.AiResponse.Text -> {
+                             val newContent = Content(
+                                 role = "model",
+                                 parts = listOf(Part(text = response.content)),
+                                 thought = response.thought
+                             )
+                             
+                             _uiState.update { state ->
+                                 val newMessages = if (isFirstChunk) {
+                                     state.chatMessages + newContent
+                                 } else {
+                                     state.chatMessages.dropLast(1) + newContent
+                                 }
+                                 
+                                 state.copy(
+                                     chatMessages = newMessages,
+                                     currentThought = response.thought,
+                                     isChatLoading = true
+                                 )
+                             }
+                             isFirstChunk = false
+                         }
+                         is de.pantastix.project.ai.AiResponse.ToolCall -> {
+                             // Update UI to show thinking state before execution
+                             _uiState.update { it.copy(currentThought = response.thought) }
+                             receivedToolCall = response
+                         }
+                         is de.pantastix.project.ai.AiResponse.Error -> {
+                              _uiState.update { it.copy(error = response.message) }
+                         }
                      }
-                     currentHistory = currentHistory + ChatMessage(ChatRole.ASSISTANT, historyContent)
-                     
-                     val tool = tools.find { it.name == response.toolName }
-                     if (tool != null) {
-                         val result = tool.execute(response.parameters)
-                         currentHistory = currentHistory + ChatMessage(ChatRole.TOOL, result)
-                         loopCount++
-                     } else {
-                         _uiState.update { it.copy(error = "Tool not found: ${response.toolName}") }
+                 }
+             } catch (e: Exception) {
+                 _uiState.update { it.copy(isChatLoading = false, error = e.message) }
+                 break
+             }
+             
+             // Prioritize executing a tool call if one was received
+             if (receivedToolCall != null) {
+                 val result = receivedToolCall!!
+                 val thoughtText = result.thought
+                 
+                 // Add thought + tool call to history so the model remembers it
+                 val historyContent = if (thoughtText != null) {
+                     "$thoughtText\nCalling tool: ${result.toolName}"
+                 } else {
+                     "Calling tool: ${result.toolName}"
+                 }
+                 currentHistory = currentHistory + ChatMessage(ChatRole.ASSISTANT, historyContent)
+                 
+                 val tool = tools.find { it.name == result.toolName }
+                 if (tool != null) {
+                     val toolResult = tool.execute(result.parameters)
+                     currentHistory = currentHistory + ChatMessage(ChatRole.TOOL, toolResult)
+                     loopCount++
+                 } else {
+                     _uiState.update { it.copy(error = "Tool not found: ${result.toolName}") }
+                     break
+                 }
+             } else {
+                 // No tool call, just handle final text or error
+                 when (val result = lastResponse) {
+                     is de.pantastix.project.ai.AiResponse.Text -> {
+                         _uiState.update { it.copy(isChatLoading = false, currentThought = null) }
+                         break 
+                     }
+                     is de.pantastix.project.ai.AiResponse.Error -> {
+                          _uiState.update { it.copy(isChatLoading = false, currentThought = null) }
+                          break
+                     }
+                     null -> {
+                         _uiState.update { it.copy(isChatLoading = false) }
                          break
                      }
-                 }
-                 is de.pantastix.project.ai.AiResponse.Error -> {
-                      _uiState.update { 
-                        it.copy(
-                            isChatLoading = false, 
-                            error = response.message,
-                            currentThought = null
-                        ) 
-                      }
-                      break
+                     else -> { break }
                  }
              }
         }
@@ -795,7 +837,7 @@ class CardListViewModel(
             val models = geminiService.getAvailableChatModels(apiKey).map { it.name }
             _uiState.update { it.copy(availableGeminiModels = models) }
             if (uiState.value.selectedGeminiModel !in models && models.isNotEmpty()) {
-                 val newDefault = models.firstOrNull { it.contains("gemini-2.0-flash") } ?: models.firstOrNull()
+                 val newDefault = models.firstOrNull { it.contains("gemini-3-flash") } ?: models.firstOrNull()
                  if (newDefault != null) selectGeminiModel(newDefault)
             }
             setLoading(false)
@@ -815,6 +857,7 @@ class CardListViewModel(
             supabase.postgrest.from("PokemonCardEntity").select { limit(1) }
             remoteCardRepository = SupabaseCardRepository(supabase.postgrest)
             _uiState.update { it.copy(isSupabaseConnected = true) }
+            reinitializeTools()
         } catch (e: Exception) {
             remoteCardRepository = null
             _uiState.update { it.copy(isSupabaseConnected = false) }
@@ -831,6 +874,7 @@ class CardListViewModel(
                 settingsRepository.saveSetting("supabase_key", key)
                 remoteCardRepository = SupabaseCardRepository(supabase.postgrest)
                 _uiState.update { it.copy(isSupabaseConnected = true, supabaseKey = key, supabaseUrl = url) }
+                reinitializeTools()
                 loadSets().join()
                 loadCardInfos()
                 checkForSync()
@@ -865,6 +909,7 @@ class CardListViewModel(
             settingsRepository.saveSetting("supabase_key", "")
             remoteCardRepository = null
             _uiState.update { it.copy(isSupabaseConnected = false, supabaseUrl = "", supabaseKey = "") }
+            reinitializeTools()
             loadSets().join()
             loadCardInfos()
             setLoading(false)
