@@ -24,7 +24,12 @@ import org.koin.dsl.module
 
 import io.ktor.client.plugins.HttpRequestRetry
 
+import de.pantastix.project.ai.tool.ToolRegistry
+
 val commonModule = module {
+
+    // Tools
+    single { ToolRegistry() }
 
     // Stellt den echten Ktor-Client für die App bereit
     single {
@@ -91,7 +96,8 @@ val commonModule = module {
             apiService = get(),
             geminiService = get(),
             geminiCloudService = get(),
-            ollamaService = get()
+            ollamaService = get(),
+            toolRegistry = get()
         )
     }
 }

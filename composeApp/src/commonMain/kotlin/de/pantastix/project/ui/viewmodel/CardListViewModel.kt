@@ -5,6 +5,7 @@ import de.pantastix.project.ai.AiConfig
 import de.pantastix.project.ai.AiProviderType
 import de.pantastix.project.ai.ChatRole
 import de.pantastix.project.ai.ChatMessage
+import de.pantastix.project.ai.ToolResponseData
 import de.pantastix.project.ai.provider.GeminiCloudService
 import de.pantastix.project.ai.provider.OllamaService
 import de.pantastix.project.coroutines.ioDispatcher
@@ -133,6 +134,7 @@ class CardListViewModel(
     private val geminiService: GeminiService,
     private val geminiCloudService: GeminiCloudService,
     private val ollamaService: OllamaService,
+    private val toolRegistry: de.pantastix.project.ai.tool.ToolRegistry,
     private val viewModelScope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher)
 ) {
     private val _uiState = MutableStateFlow(UiState())
@@ -225,8 +227,7 @@ class CardListViewModel(
 
     private fun reinitializeTools() {
         registeredTools.clear()
-        registeredTools.add(de.pantastix.project.ai.tool.SearchCardsTool(activeCardRepository))
-        registeredTools.add(de.pantastix.project.ai.tool.GetInventoryStatsTool(activeCardRepository))
+        registeredTools.addAll(toolRegistry.getAvailableTools(activeCardRepository))
     }
 
     fun setAiProvider(provider: AiProviderType) {
@@ -335,14 +336,25 @@ class CardListViewModel(
         val provider = uiState.value.selectedAiProvider
         val service = if (provider == AiProviderType.OLLAMA_LOCAL) ollamaService else geminiCloudService
         
+        val systemPrompt = """
+            Du bist Poké-Agent, ein hilfreicher Assistent für Pokémon-Karten-Sammler.
+            Deine Aufgabe ist es, Fragen zur Sammlung des Nutzers zu beantworten, indem du die bereitgestellten Tools nutzt.
+            
+            WICHTIGE REGELN:
+            1. Nutze IMMER 'search_sets' oder 'search_cards', bevor du Fakten behauptest. Rate nicht.
+            2. Wenn du über eine spezifische Karte sprichst und im Tool-Ergebnis eine 'imageUrl' siehst, binde sie als Markdown-Bild ein: ![Kartenname](imageUrl).
+            3. Wenn du nach dem Wert oder der Anzahl fragst, nutze 'get_inventory_stats' (für alles oder pro Set) oder 'search_cards' (für Einzelkarten).
+            4. Formatiere Preise immer als Währung (z.B. "12,50 €").
+        """.trimIndent()
+        
         val config = if (provider == AiProviderType.OLLAMA_LOCAL) {
-             AiConfig(hostUrl = uiState.value.ollamaHostUrl, selectedModelId = uiState.value.selectedOllamaModel)
+             AiConfig(hostUrl = uiState.value.ollamaHostUrl, selectedModelId = uiState.value.selectedOllamaModel, systemInstruction = systemPrompt)
         } else {
              if (uiState.value.geminiApiKey.isBlank()) {
                 _uiState.update { it.copy(isChatLoading = false, error = "Kein API Key gefunden.") }
                 return
              }
-             AiConfig(apiKey = uiState.value.geminiApiKey, selectedModelId = uiState.value.selectedGeminiModel)
+             AiConfig(apiKey = uiState.value.geminiApiKey, selectedModelId = uiState.value.selectedGeminiModel, systemInstruction = systemPrompt)
         }
 
         val tools = registeredTools.toList()
@@ -429,7 +441,11 @@ class CardListViewModel(
                  val tool = tools.find { it.name == result.toolName }
                  if (tool != null) {
                      val toolResult = tool.execute(result.parameters)
-                     currentHistory = currentHistory + ChatMessage(ChatRole.TOOL, toolResult)
+                     currentHistory = currentHistory + ChatMessage(
+                         role = ChatRole.TOOL, 
+                         content = "", 
+                         toolResponse = ToolResponseData(name = result.toolName, result = toolResult)
+                     )
                      loopCount++
                  } else {
                      _uiState.update { it.copy(error = "Tool not found: ${result.toolName}") }

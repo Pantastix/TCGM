@@ -155,6 +155,39 @@ WHERE lower(PokemonCardEntity.nameLocal) LIKE '%' || lower(:searchText) || '%'
    OR lower(COALESCE(PokemonCardEntity.types, '')) LIKE '%' || lower(:searchText) || '%'
 ORDER BY COALESCE(SetEntity.releaseDate, '') DESC, PokemonCardEntity.localId;
 
+advancedSearch:
+SELECT
+    PokemonCardEntity.id,
+    PokemonCardEntity.tcgDexCardId,
+    PokemonCardEntity.language,
+    PokemonCardEntity.nameLocal,
+    PokemonCardEntity.nameEn,
+    PokemonCardEntity.imageUrl,
+    PokemonCardEntity.ownedCopies,
+    PokemonCardEntity.currentPrice,
+    PokemonCardEntity.selectedPriceSource,
+    PokemonCardEntity.lastPriceUpdate,
+    PokemonCardEntity.rarity,
+    PokemonCardEntity.illustrator,
+    PokemonCardEntity.types,
+    COALESCE(SetEntity.nameLocal, 'Unknown Set') AS setName,
+    COALESCE(SetEntity.nameEn, 'Unknown Set') AS setNameEn,
+    SetEntity.releaseDate
+FROM PokemonCardEntity
+LEFT JOIN SetEntity ON PokemonCardEntity.setId = SetEntity.setId
+WHERE (:query IS NULL OR lower(PokemonCardEntity.nameLocal) LIKE '%' || lower(:query) || '%' OR lower(PokemonCardEntity.nameEn) LIKE '%' || lower(:query) || '%')
+  AND (:setId IS NULL OR PokemonCardEntity.setId = :setId)
+  AND (:type IS NULL OR lower(PokemonCardEntity.types) LIKE '%' || lower(:type) || '%')
+  AND (:rarity IS NULL OR lower(PokemonCardEntity.rarity) LIKE '%' || lower(:rarity) || '%')
+  AND (:illustrator IS NULL OR lower(PokemonCardEntity.illustrator) LIKE '%' || lower(:illustrator) || '%');
+
+searchSets:
+SELECT * FROM SetEntity
+WHERE lower(nameLocal) LIKE '%' || lower(:query) || '%'
+   OR lower(nameEn) LIKE '%' || lower(:query) || '%'
+   OR lower(abbreviation) LIKE '%' || lower(:query) || '%'
+   OR lower(setId) LIKE '%' || lower(:query) || '%'
+ORDER BY releaseDate DESC;
 
 deleteCardById:
 DELETE FROM PokemonCardEntity WHERE id = ?;

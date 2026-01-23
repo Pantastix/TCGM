@@ -241,27 +241,67 @@ class LocalCardRepositoryImpl(
         }
     }
 
-    override suspend fun searchCards(query: String?, type: String?, sort: String?): List<PokemonCardInfo> {
-        println("LocalCardRepository: Searching for '$query', type='$type', sort='$sort'")
-        if (query.isNullOrBlank()) return emptyList() // Local search requires query for now
+    override suspend fun searchCards(
+        query: String?,
+        type: String?,
+        sort: String?,
+        setId: String?,
+        rarity: String?,
+        illustrator: String?
+    ): List<PokemonCardInfo> {
+        println("LocalCardRepository: Searching for '$query', type='$type', sort='$sort', setId='$setId', rarity='$rarity'")
         
         return withContext(ioDispatcher) {
-            val results = queries.searchCardsByName(query).executeAsList().map { result ->
+            val results = queries.advancedSearch(
+                query = query,
+                setId = setId,
+                type = type,
+                rarity = rarity,
+                illustrator = illustrator
+            ).executeAsList().map { result ->
                 PokemonCardInfo(
                     id = result.id,
-                    tcgDexCardId = "", // Nicht im Suchergebnis enthalten, aber auch nicht zwingend nötig für Anzeige
-                    language = "",     // s.o.
+                    tcgDexCardId = result.tcgDexCardId,
+                    language = result.language,
                     nameLocal = result.nameLocal,
                     setName = result.setName,
                     imageUrl = result.imageUrl,
                     ownedCopies = result.ownedCopies.toInt(),
                     currentPrice = result.currentPrice,
-                    selectedPriceSource = null,
-                    lastPriceUpdate = null
+                    selectedPriceSource = result.selectedPriceSource,
+                    lastPriceUpdate = result.lastPriceUpdate
                 )
             }
-            println("LocalCardRepository: Found ${results.size} cards")
-            results
+            
+            // In-Memory Sortierung, da komplexe SQL-Sortierung schwierig ist
+            val sorted = when(sort) {
+                "name_asc" -> results.sortedBy { it.nameLocal }
+                "name_desc" -> results.sortedByDescending { it.nameLocal }
+                "price_asc" -> results.sortedBy { it.currentPrice ?: 0.0 }
+                "price_desc" -> results.sortedByDescending { it.currentPrice ?: 0.0 }
+                else -> results // Default SQL order (Release Date DESC)
+            }
+            
+            println("LocalCardRepository: Found ${sorted.size} cards")
+            sorted
+        }
+    }
+
+    override suspend fun searchSets(query: String): List<SetInfo> {
+        return withContext(ioDispatcher) {
+            queries.searchSets(query).executeAsList().map { entity ->
+                SetInfo(
+                    id = entity.id.toInt(),
+                    setId = entity.setId,
+                    abbreviation = entity.abbreviation,
+                    nameLocal = entity.nameLocal,
+                    nameEn = entity.nameEn,
+                    logoUrl = entity.logoUrl,
+                    cardCountOfficial = entity.cardCountOfficial.toInt(),
+                    cardCountTotal = entity.cardCountTotal.toInt(),
+                    releaseDate = entity.releaseDate
+                )
+            }
         }
     }
 

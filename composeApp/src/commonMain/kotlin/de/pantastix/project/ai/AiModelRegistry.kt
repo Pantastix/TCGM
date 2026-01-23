@@ -22,20 +22,33 @@ data class ModelFamilyDefinition(
 object AiModelRegistry {
     
     // --- STRATEGIES (Execution Logic) ---
-    private val strategies: List<AiWorkflowStrategy> = listOf(
-        Gemma3ReasoningStrategy(),
-        GeminiNativeStrategy(),
-        NativeOllamaStrategy(),
-        SimulatedJsonStrategy()
-    )
+    // We instantiate strategies on demand to ensure they are stateless per request (important for streaming accumulators)
 
     fun resolveStrategy(modelId: String, provider: AiProviderType): AiWorkflowStrategy? {
-        return strategies.find { 
-            it.providerType == provider && it.modelIdRegex.matches(modelId) 
+        if (provider == AiProviderType.GEMINI_CLOUD) {
+             // Gemma 3 Specific Strategy
+             if (Regex("""^(models/)?gemma-3.*""", RegexOption.IGNORE_CASE).matches(modelId)) {
+                 return Gemma3ReasoningStrategy()
+             }
+             // Default Gemini Native Strategy (Flash, Pro, etc.)
+             if (Regex("""^(models/)?gemini-(3|1\.5|2\.0).*""", RegexOption.IGNORE_CASE).matches(modelId)) {
+                 return GeminiNativeStrategy()
+             }
         }
+        
+        if (provider == AiProviderType.OLLAMA_LOCAL) {
+            // Simulated JSON Strategy (if explicitly requested or for legacy models)
+            // (Assumed logic based on previous list order, usually Native is preferred now)
+            
+            // Default Native Ollama
+            return NativeOllamaStrategy()
+        }
+        
+        return null
     }
 
     fun getStrategyForDiscovery(modelName: String, provider: AiProviderType): AiWorkflowStrategy? {
+        // For discovery, we can use temporary instances just to check regex or capabilities
         return resolveStrategy(modelName, provider)
     }
 

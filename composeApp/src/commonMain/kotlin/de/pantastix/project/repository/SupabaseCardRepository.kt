@@ -272,10 +272,16 @@ class SupabaseCardRepository(
 
     override suspend fun findExistingCard(setId: String, localId: String, language: String): PokemonCardInfo? = null
 
-    override suspend fun searchCards(query: String?, type: String?, sort: String?): List<PokemonCardInfo> {
-        println("SupabaseCardRepository: Searching for query='$query' type='$type' sort='$sort' in $cardsTable")
+    override suspend fun searchCards(
+        query: String?,
+        type: String?,
+        sort: String?,
+        setId: String?,
+        rarity: String?,
+        illustrator: String?
+    ): List<PokemonCardInfo> {
+        println("SupabaseCardRepository: Searching for query='$query' type='$type' sort='$sort' setId='$setId' in $cardsTable")
         try {
-            // Search in nameLocal OR nameEn directly in the Table, joining Set for the setName
             val result = postgrest.from(cardsTable).select(
                 columns = Columns.list(
                     "id",
@@ -296,13 +302,12 @@ class SupabaseCardRepository(
                         or {
                             ilike("nameLocal", "%$query%")
                             ilike("nameEn", "%$query%")
-                            ilike("stage", "%$query%")
-                            ilike("types", "%$query%")
                         }
                     }
-                    if (!type.isNullOrBlank()) {
-                        ilike("types", "%$type%")
-                    }
+                    if (!type.isNullOrBlank()) ilike("types", "%$type%")
+                    if (!setId.isNullOrBlank()) eq("setId", setId)
+                    if (!rarity.isNullOrBlank()) ilike("rarity", "%$rarity%")
+                    if (!illustrator.isNullOrBlank()) ilike("illustrator", "%$illustrator%")
                 }
                 
                 when (sort) {
@@ -312,19 +317,10 @@ class SupabaseCardRepository(
                     "name_desc" -> order("nameLocal", Order.DESCENDING)
                 }
                 
-                limit(20) // Limit results for performance
+                limit(50) 
             }
             
-            println("SupabaseCardRepository: Raw result data: ${result.data}")
-
-            // We need a custom serializer or helper to handle the nested SetEntity(nameLocal)
-            // But wait, decodeList<PokemonCardInfo> won't work automatically because of the nested SetEntity object
-            // and missing 'setName' field in the flat JSON.
-            // PostgREST returns: { ..., "SetEntity": { "nameLocal": "..." } }
-            
-            // Let's decode to a temporary class or JsonElement and map manually.
             val jsonElements = result.decodeList<JsonObject>()
-            
             val mapped = jsonElements.map { json ->
                 val setObj = json["SetEntity"] as? JsonObject
                 val setName = setObj?.get("nameLocal")?.jsonPrimitive?.content ?: "Unknown"
@@ -342,13 +338,29 @@ class SupabaseCardRepository(
                     lastPriceUpdate = json["lastPriceUpdate"]?.jsonPrimitive?.contentOrNull
                 )
             }
-
-            println("SupabaseCardRepository: Found ${mapped.size} cards")
             return mapped
         } catch (e: Exception) {
             println("SupabaseCardRepository: Error searching cards: ${e.message}")
-            e.printStackTrace()
             return emptyList()
+        }
+    }
+
+    override suspend fun searchSets(query: String): List<SetInfo> {
+        return try {
+            postgrest.from(setsTable).select {
+                filter {
+                    or {
+                        ilike("nameLocal", "%$query%")
+                        ilike("nameEn", "%$query%")
+                        ilike("abbreviation", "%$query%")
+                        ilike("setId", "%$query%")
+                    }
+                }
+                limit(10)
+            }.decodeList<SetInfo>()
+        } catch (e: Exception) {
+            println("SupabaseCardRepository: Error searching sets: ${e.message}")
+            emptyList()
         }
     }
 }

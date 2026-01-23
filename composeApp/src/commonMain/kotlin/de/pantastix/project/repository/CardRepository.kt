@@ -47,7 +47,16 @@ interface CardRepository {
 
     suspend fun findExistingCard(setId: String, localId: String, language: String): PokemonCardInfo?
 
-    suspend fun searchCards(query: String?, type: String? = null, sort: String? = null): List<PokemonCardInfo>
+    suspend fun searchCards(
+        query: String?,
+        type: String? = null,
+        sort: String? = null,
+        setId: String? = null,
+        rarity: String? = null,
+        illustrator: String? = null
+    ): List<PokemonCardInfo>
+
+    suspend fun searchSets(query: String): List<SetInfo>
 
     /** Löscht eine Karte anhand ihrer Sammlungs-ID. */
     suspend fun deleteCardById(cardId: Long)

@@ -1,100 +1,9 @@
-16:40:08: Executing 'desktopRun -DmainClass=de.pantastix.project.MainKt --quiet'…
+12:37:56: Executing 'desktopRun -DmainClass=de.pantastix.project.MainKt --quiet'…
 
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:44:20 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:46:9 Unresolved reference 'ModelFamilyDefinition'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:52:9 Unresolved reference 'ModelFamilyDefinition'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:57:25 Unresolved reference 'it'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:60:9 Unresolved reference 'ModelFamilyDefinition'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:66:9 Unresolved reference 'ModelFamilyDefinition'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:72:9 Unresolved reference 'ModelFamilyDefinition'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:80:9 Unresolved reference 'ModelFamilyDefinition'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:85:25 Unresolved reference 'it'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:88:9 Unresolved reference 'ModelFamilyDefinition'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:94:10 Unresolved reference 'ModelFamilyDefinition'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:100:10 Unresolved reference 'ModelFamilyDefinition'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:108:66 Unresolved reference 'ModelFamilyDefinition'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:109:25 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:109:25 Not enough information to infer type argument for 'T'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:109:30 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:109:32 Comparison of incompatible enums 'CharCategory' and 'ModelCategory' is always unsuccessful.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ai/AiModelRegistry.kt:109:62 Unresolved reference 'modelIdPattern'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/service/GeminiService.kt:36:46 None of the following candidates is applicable:
-fun <T> Array<out T>.filter(predicate: (T) -> Boolean): List<T>
-fun ByteArray.filter(predicate: (Byte) -> Boolean): List<Byte>
-fun ShortArray.filter(predicate: (Short) -> Boolean): List<Short>
-fun IntArray.filter(predicate: (Int) -> Boolean): List<Int>
-fun LongArray.filter(predicate: (Long) -> Boolean): List<Long>
-fun FloatArray.filter(predicate: (Float) -> Boolean): List<Float>
-fun DoubleArray.filter(predicate: (Double) -> Boolean): List<Double>
-fun BooleanArray.filter(predicate: (Boolean) -> Boolean): List<Boolean>
-fun CharArray.filter(predicate: (Char) -> Boolean): List<Char>
-fun <T> Iterable<T>.filter(predicate: (T) -> Boolean): List<T>
-fun <K, V> Map<out K, V>.filter(predicate: (Map.Entry<K, V>) -> Boolean): Map<K, V>
-fun UIntArray.filter(predicate: (UInt) -> Boolean): List<UInt>
-fun ULongArray.filter(predicate: (ULong) -> Boolean): List<ULong>
-fun UByteArray.filter(predicate: (UByte) -> Boolean): List<UByte>
-fun UShortArray.filter(predicate: (UShort) -> Boolean): List<UShort>
-fun <T> Sequence<T>.filter(predicate: (T) -> Boolean): Sequence<T>
-fun CharSequence.filter(predicate: (Char) -> Boolean): CharSequence
-fun String.filter(predicate: (Char) -> Boolean): String
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/service/GeminiService.kt:40:26 Unresolved reference 'id'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/service/GeminiService.kt:40:37 Unresolved reference 'id'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/service/GeminiService.kt:40:48 Unresolved reference 'modelComparator'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/service/GeminiService.kt:41:26 Unresolved reference 'modelComparator'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/screens/ChatScreen.kt:99:42 None of the following candidates is applicable:
-fun <T> Array<out T>.filter(predicate: (T) -> Boolean): List<T>
-fun ByteArray.filter(predicate: (Byte) -> Boolean): List<Byte>
-fun ShortArray.filter(predicate: (Short) -> Boolean): List<Short>
-fun IntArray.filter(predicate: (Int) -> Boolean): List<Int>
-fun LongArray.filter(predicate: (Long) -> Boolean): List<Long>
-fun FloatArray.filter(predicate: (Float) -> Boolean): List<Float>
-fun DoubleArray.filter(predicate: (Double) -> Boolean): List<Double>
-fun BooleanArray.filter(predicate: (Boolean) -> Boolean): List<Boolean>
-fun CharArray.filter(predicate: (Char) -> Boolean): List<Char>
-fun <T> Iterable<T>.filter(predicate: (T) -> Boolean): List<T>
-fun <K, V> Map<out K, V>.filter(predicate: (Map.Entry<K, V>) -> Boolean): Map<K, V>
-fun UIntArray.filter(predicate: (UInt) -> Boolean): List<UInt>
-fun ULongArray.filter(predicate: (ULong) -> Boolean): List<ULong>
-fun UByteArray.filter(predicate: (UByte) -> Boolean): List<UByte>
-fun UShortArray.filter(predicate: (UShort) -> Boolean): List<UShort>
-fun <T> Sequence<T>.filter(predicate: (T) -> Boolean): Sequence<T>
-fun CharSequence.filter(predicate: (Char) -> Boolean): CharSequence
-fun String.filter(predicate: (Char) -> Boolean): String
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/screens/ChatScreen.kt:100:42 Unresolved reference 'displayName'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/screens/ChatScreen.kt:107:43 None of the following candidates is applicable:
-fun <T> Array<out T>.filter(predicate: (T) -> Boolean): List<T>
-fun ByteArray.filter(predicate: (Byte) -> Boolean): List<Byte>
-fun ShortArray.filter(predicate: (Short) -> Boolean): List<Short>
-fun IntArray.filter(predicate: (Int) -> Boolean): List<Int>
-fun LongArray.filter(predicate: (Long) -> Boolean): List<Long>
-fun FloatArray.filter(predicate: (Float) -> Boolean): List<Float>
-fun DoubleArray.filter(predicate: (Double) -> Boolean): List<Double>
-fun BooleanArray.filter(predicate: (Boolean) -> Boolean): List<Boolean>
-fun CharArray.filter(predicate: (Char) -> Boolean): List<Char>
-fun <T> Iterable<T>.filter(predicate: (T) -> Boolean): List<T>
-fun <K, V> Map<out K, V>.filter(predicate: (Map.Entry<K, V>) -> Boolean): Map<K, V>
-fun UIntArray.filter(predicate: (UInt) -> Boolean): List<UInt>
-fun ULongArray.filter(predicate: (ULong) -> Boolean): List<ULong>
-fun UByteArray.filter(predicate: (UByte) -> Boolean): List<UByte>
-fun UShortArray.filter(predicate: (UShort) -> Boolean): List<UShort>
-fun <T> Sequence<T>.filter(predicate: (T) -> Boolean): Sequence<T>
-fun CharSequence.filter(predicate: (Char) -> Boolean): CharSequence
-fun String.filter(predicate: (Char) -> Boolean): String
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/screens/ChatScreen.kt:108:43 Unresolved reference 'displayName'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/screens/ChatScreen.kt:117:75 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/screens/ChatScreen.kt:117:75 Not enough information to infer type argument for 'T'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/screens/ChatScreen.kt:117:80 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/screens/ChatScreen.kt:117:85 Unresolved reference 'displayName'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/screens/ChatScreen.kt:119:25 Unresolved reference 'modelComparator'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/screens/ChatScreen.kt:120:42 Unresolved reference 'modelComparator'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/viewmodel/CardListViewModel.kt:267:35 Condition type mismatch: inferred type is 'Flow<ERROR CLASS: Cannot infer argument for type parameter T>' but 'Boolean' was expected.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/viewmodel/CardListViewModel.kt:267:42 Cannot infer type for this parameter. Specify it explicitly.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/viewmodel/CardListViewModel.kt:267:42 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
-fun <T> Flow<T>.filter(crossinline predicate: suspend (T) -> Boolean): Flow<T>
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/viewmodel/CardListViewModel.kt:271:23 Unresolved reference 'id'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/viewmodel/CardListViewModel.kt:271:34 Unresolved reference 'id'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/viewmodel/CardListViewModel.kt:271:45 Unresolved reference 'modelComparator'.
-e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/viewmodel/CardListViewModel.kt:272:23 Unresolved reference 'modelComparator'.
+e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/components/MarkdownText.kt:75:30 Unsupported escape sequence.
+e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/components/MarkdownText.kt:75:37 Unsupported escape sequence.
+e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/components/MarkdownText.kt:75:39 Unsupported escape sequence.
+e: file:///C:/Users/chris/IdeaProjects/SIMON/composeApp/src/commonMain/kotlin/de/pantastix/project/ui/components/MarkdownText.kt:75:46 Unsupported escape sequence.
 
 FAILURE: Build failed with an exception.
 
@@ -110,4 +19,4 @@ Execution failed for task ':composeApp:compileKotlinDesktop'.
 > Get more help at https://help.gradle.org.
 
 BUILD FAILED in 2s
-16:40:11: Execution finished 'desktopRun -DmainClass=de.pantastix.project.MainKt --quiet'.
+12:37:59: Execution finished 'desktopRun -DmainClass=de.pantastix.project.MainKt --quiet'.

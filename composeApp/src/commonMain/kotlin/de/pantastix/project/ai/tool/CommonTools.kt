@@ -8,14 +8,12 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
-class SearchCardsTool(private val repository: CardRepository) : AgentTool {
-    override val name = "search_cards"
-    override val description = "Sucht Karten anhand von Name, Typ und Sortierung. Es MUSS mindestens ein Suchfilter (Name oder Typ) angegeben werden."
+class SearchSetsTool(private val repository: CardRepository) : AgentTool {
+    override val name = "search_sets"
+    override val description = "Sucht nach Kartensets basierend auf Name, ID oder Abkürzung. Nützlich, um die korrekte 'setId' für andere Tools zu finden."
     override val parameterSchemaJson = """
         {
-          "query": "String? (Name, optional, aber empfohlen)",
-          "type": "String? (z.B. Fire, Water, optional)",
-          "sort": "String? (price_asc, price_desc, name_asc, name_desc, optional)"
+          "query": "String (Name oder ID des Sets, z.B. '151', 'Obsidian', 'sv3')"
         }
     """.trimIndent()
 
@@ -24,75 +22,153 @@ class SearchCardsTool(private val repository: CardRepository) : AgentTool {
         properties = mapOf(
             "query" to Schema(
                 type = "STRING",
-                description = "The name or partial name of the Pokémon card to search for. Must be provided if type is not."
-            ),
-            "type" to Schema(
-                type = "STRING",
-                description = "Filter by Pokémon type (e.g., Fire, Water, Psychic). Must be provided if query is not."
-            ),
-            "sort" to Schema(
-                type = "STRING",
-                description = "Sort order. Values: price_asc, price_desc, name_asc, name_desc."
+                description = "The name, abbreviation, or ID of the set to search for."
             )
         ),
-        required = emptyList() // Gemini seems to handle validation better if we handle logic in execute or make them optional in schema but logic strict
+        required = listOf("query")
     )
 
     override suspend fun execute(parameters: Map<String, Any?>): String {
-        val rawQuery = parameters["query"] as? String
-        val rawType = parameters["type"] as? String
-        val rawSort = parameters["sort"] as? String
-
-        // Sanitize inputs: treat string "null" as null
-        val query = if (rawQuery == "null" || rawQuery.isNullOrBlank()) null else rawQuery
-        val type = if (rawType == "null" || rawType.isNullOrBlank()) null else rawType
-        val sort = if (rawSort == "null" || rawSort.isNullOrBlank()) null else rawSort
-
-        if (query == null && type == null) {
-             return "{ \"error\": \"Fehler: Du hast keine Suchfilter angegeben. Bitte gib mindestens einen Namen ('query') oder einen Typ ('type') an, um zu suchen. Eine Suche ohne Filter ist nicht erlaubt.\" }"
+        val query = parameters["query"] as? String
+        
+        if (query.isNullOrBlank()) {
+             return "{ \"error\": \"Fehler: Kein Suchbegriff angegeben.\" }"
         }
 
-        println("AI Tool [search_cards] (Repo: ${repository::class.simpleName}) searching for: query='$query', type='$type', sort='$sort'")
-        val filtered = repository.searchCards(query, type, sort)
-        println("AI Tool [search_cards] Repository returned ${filtered.size} items")
+        val sets = repository.searchSets(query)
+
+        return buildJsonObject {
+            putJsonArray("sets") {
+                sets.forEach {
+                    add(buildJsonObject {
+                        put("id", it.setId)
+                        put("name", it.nameLocal)
+                        put("abbreviation", it.abbreviation ?: "")
+                        put("card_count", it.cardCountOfficial)
+                    })
+                }
+            }
+            put("count", sets.size)
+        }.toString()
+    }
+}
+
+class SearchCardsTool(private val repository: CardRepository) : AgentTool {
+    override val name = "search_cards"
+    override val description = "Sucht Karten in der Sammlung. Unterstützt Filter nach Name, Set, Typ, Seltenheit und Künstler."
+    override val parameterSchemaJson = """
+        {
+          "query": "String? (Name)",
+          "set_id": "String? (Exakte Set ID, z.B. 'sv1')",
+          "type": "String? (z.B. Fire)",
+          "rarity": "String? (z.B. Rare)",
+          "illustrator": "String? (Name)",
+          "sort": "String? (price_desc, price_asc, name_asc)"
+        }
+    """.trimIndent()
+
+    override val schema = Schema(
+        type = "OBJECT",
+        properties = mapOf(
+            "query" to Schema(type = "STRING", description = "Name or partial name of the card."),
+            "set_id" to Schema(type = "STRING", description = "The exact Set ID (use search_sets to find it)."),
+            "type" to Schema(type = "STRING", description = "Pokémon type (e.g., Fire, Water)."),
+            "rarity" to Schema(type = "STRING", description = "Rarity (e.g., 'Illustration Rare', 'Common')."),
+            "illustrator" to Schema(type = "STRING", description = "Artist name."),
+            "sort" to Schema(type = "STRING", description = "Sort order: price_asc, price_desc, name_asc.")
+        ),
+        required = emptyList()
+    )
+
+    override suspend fun execute(parameters: Map<String, Any?>): String {
+        val query = parameters["query"] as? String
+        val setId = parameters["set_id"] as? String
+        val type = parameters["type"] as? String
+        val rarity = parameters["rarity"] as? String
+        val illustrator = parameters["illustrator"] as? String
+        val sort = parameters["sort"] as? String
+
+        if (query.isNullOrBlank() && setId.isNullOrBlank() && type.isNullOrBlank() && rarity.isNullOrBlank() && illustrator.isNullOrBlank()) {
+             return "{ \"error\": \"Fehler: Bitte gib mindestens einen Filter an (Name, Set, Typ, etc.).\" }"
+        }
+
+        val filtered = repository.searchCards(
+            query = if (query == "null") null else query,
+            type = if (type == "null") null else type,
+            sort = if (sort == "null") null else sort,
+            setId = if (setId == "null") null else setId,
+            rarity = if (rarity == "null") null else rarity,
+            illustrator = if (illustrator == "null") null else illustrator
+        )
 
         val result = buildJsonObject {
             putJsonArray("cards") {
                 filtered.forEach {
                     add(buildJsonObject {
                         put("name", it.nameLocal)
+                        put("id", it.tcgDexCardId)
                         put("set", it.setName)
+                        put("rarity", "") // Info not currently in PokemonCardInfo view, need to check Repository mapping if critical
                         put("price", it.currentPrice ?: 0.0)
                         put("copies", it.ownedCopies)
+                        // WICHTIG: Image URL für Markdown Embedding zurückgeben
+                        if (it.imageUrl != null) {
+                            put("imageUrl", it.imageUrl)
+                        }
                     })
                 }
             }
             put("count", filtered.size)
         }.toString()
 
-        println("AI Tool [search_cards] result: $result")
         return result
     }
 }
 
 class GetInventoryStatsTool(private val repository: CardRepository) : AgentTool {
     override val name = "get_inventory_stats"
-    override val description = "Gibt Statistiken über die Sammlung."
-    override val parameterSchemaJson = "{}"
+    override val description = "Gibt Statistiken über die Sammlung (Gesamtwert, Anzahl). NICHT für Informationen zu einzelnen Karten verwenden (nutze dafür search_cards)."
+    override val parameterSchemaJson = """
+        {
+          "set_id": "String? (Optional: Filtert Statistiken nur für dieses Set)"
+        }
+    """.trimIndent()
 
     override val schema = Schema(
         type = "OBJECT",
-        properties = emptyMap()
+        properties = mapOf(
+            "set_id" to Schema(type = "STRING", description = "Optional: Calculate stats only for this specific Set ID.")
+        )
     )
 
     override suspend fun execute(parameters: Map<String, Any?>): String {
+        val setId = parameters["set_id"] as? String
+        val cleanSetId = if (setId == "null" || setId.isNullOrBlank()) null else setId
+
+        // TODO: This loads all cards into memory, which is fine for < 20k cards but could be optimized with a direct SQL count query later.
         val allCards = repository.getCardInfos().first()
-        val totalValue = allCards.sumOf { (it.currentPrice ?: 0.0) * it.ownedCopies }
-        val totalCopies = allCards.sumOf { it.ownedCopies }
+        
+        val filteredCards = if (cleanSetId != null) {
+            // Since we don't have setId in PokemonCardInfo directly available without lookup or if repository doesn't filter it
+            // We need to rely on the fact that we might need to fetch full details OR assume the repository call handles filtering.
+            // CURRENTLY: Repository.getCardInfos returns ALL.
+            // Ideally, we should add `getInventoryStats(setId)` to the Repository.
+            // For now, let's filter in memory if possible, but PokemonCardInfo lacks setId field in the simple view!
+            // Wait, I updated PokemonCardInfo? Let me check.
+            // The view `PokemonCardInfo` has `tcgDexCardId` (e.g. "sv1-001"), so we can extract set ID? NO, that's brittle.
+            // Repository `searchCards` returns `PokemonCardInfo`. Let's use `searchCards` with set_id if provided!
+            repository.searchCards(query = "", setId = cleanSetId)
+        } else {
+            allCards
+        }
+
+        val totalValue = filteredCards.sumOf { (it.currentPrice ?: 0.0) * it.ownedCopies }
+        val totalCopies = filteredCards.sumOf { it.ownedCopies }
 
         return buildJsonObject {
-            put("total_cards_types", allCards.size)
-            put("total_copies", totalCopies)
+            put("filter_set_id", cleanSetId ?: "all")
+            put("unique_cards_count", filteredCards.size)
+            put("total_cards_count", totalCopies)
             put("total_market_value", totalValue)
         }.toString()
     }

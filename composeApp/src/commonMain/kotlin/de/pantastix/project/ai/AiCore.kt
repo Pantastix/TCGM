@@ -48,7 +48,8 @@ interface AiService {
 data class AiConfig(
     val apiKey: String? = null, // For Gemini
     val hostUrl: String? = null, // For Ollama
-    val selectedModelId: String? = null
+    val selectedModelId: String? = null,
+    val systemInstruction: String? = null
 )
 
 data class ChatMessage(

@@ -48,7 +48,8 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
         // Convert Chat History
         contents.addAll(chatHistory.map { msg ->
             val role = when (msg.role) {
-                ChatRole.USER, ChatRole.TOOL -> "user"
+                ChatRole.USER -> "user"
+                ChatRole.TOOL -> "function"
                 else -> "model"
             }
 
@@ -77,6 +78,7 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
 
         // Configure Tools
         var tools: List<Tool>? = null
+        var toolConfig: ToolConfig? = null
         if (availableTools.isNotEmpty()) {
             val functionDeclarations = availableTools.mapNotNull { tool ->
                 tool.schema?.let { schema ->
@@ -89,6 +91,7 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
             }
             if (functionDeclarations.isNotEmpty()) {
                 tools = listOf(Tool(functionDeclarations = functionDeclarations))
+                toolConfig = ToolConfig(functionCallingConfig = FunctionCallingConfig(mode = "AUTO"))
             }
         }
 
@@ -100,15 +103,16 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
             null
         }
         
-        // Enforce <think> tags for Gemini 3 if thinkingConfig isn't enough or as fallback
-        if (isGemini3 && contents.none { it.role == "user" && it.parts.any { p -> p.text?.contains("<think>") == true } }) {
-             // Optional: Add system instruction to enforce format if model doesn't support native thinking yet
+        val systemContent = config.systemInstruction?.let { 
+            Content(role = "system", parts = listOf(Part(text = it)))
         }
 
         val request = GenerateContentRequest(
             contents = contents,
             tools = tools,
-            generationConfig = generationConfig
+            toolConfig = toolConfig,
+            generationConfig = generationConfig,
+            systemInstruction = systemContent
         )
 
         return StrategyRequest(
@@ -176,14 +180,22 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
                 }
                 
                 if (part.text != null) {
+                    val textChunk = part.text
+                    // FILTER: Ignore leaked tool call descriptions from Gemini 3 Flash
+                    if (textChunk.contains("Calling tool:") || 
+                        textChunk.contains("default_api") || 
+                        textChunk.contains("<ctrl") || 
+                        accumulatedText.endsWith("Calling tool:") // Handle split chunks
+                    ) {
+                        return emptyList()
+                    }
+
                     if (part.thought) {
-                        accumulatedThought += part.text
+                        accumulatedThought += textChunk
                     } else {
-                        accumulatedText += part.text
+                        accumulatedText += textChunk
                     }
                     
-                    // Check for embedded <think> if native thought wasn't present (legacy fallback)
-                    // (Simpler regex for streaming than the full parser, but assumes clean tags)
                     return listOf(AiResponse.Text(
                         content = accumulatedText, 
                         thought = accumulatedThought.takeIf { it.isNotEmpty() },
