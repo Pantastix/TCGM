@@ -9,8 +9,8 @@ import kotlinx.serialization.json.*
 
 class NativeOllamaStrategy : AiWorkflowStrategy {
     override val providerType = AiProviderType.OLLAMA_LOCAL
-    // Matches "llama-3...", "mistral...", "gpt-oss..."
-    override val modelIdRegex = Regex("""^(llama-3|mistral|gpt-oss).*""", RegexOption.IGNORE_CASE)
+    // Matches "llama-3...", "mistral..."
+    override val modelIdRegex = Regex("""^(llama-3|mistral).*""", RegexOption.IGNORE_CASE)
 
     override fun createUiModel(apiModelData: Any): AiModel {
         // Fallback or specific casting if possible

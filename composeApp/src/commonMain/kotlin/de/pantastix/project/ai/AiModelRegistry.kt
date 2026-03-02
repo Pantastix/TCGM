@@ -3,6 +3,7 @@ package de.pantastix.project.ai
 import de.pantastix.project.ai.strategy.*
 import de.pantastix.project.ai.strategy.gemini.*
 import de.pantastix.project.ai.strategy.ollama.*
+import de.pantastix.project.ai.strategy.ollama.GptOssStrategy
 
 enum class ModelCategory {
     GEMINI_CLOUD,
@@ -37,9 +38,9 @@ object AiModelRegistry {
         }
         
         if (provider == AiProviderType.OLLAMA_LOCAL) {
-            // Simulated JSON Strategy (if explicitly requested or for legacy models)
-            // (Assumed logic based on previous list order, usually Native is preferred now)
-            
+            if (Regex("""^gpt-oss.*""", RegexOption.IGNORE_CASE).matches(modelId)) {
+                return GptOssStrategy()
+            }
             // Default Native Ollama
             return NativeOllamaStrategy()
         }

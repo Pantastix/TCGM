@@ -380,19 +380,22 @@ class CardListViewModel(
              val promptToUse = if (loopCount == 0 && lastMsg?.role == ChatRole.USER) lastMsg.content else ""
              val historyToUse = if (loopCount == 0) currentHistory.dropLast(1) else currentHistory
              
-             var lastResponse: de.pantastix.project.ai.AiResponse? = null
              var receivedToolCall: de.pantastix.project.ai.AiResponse.ToolCall? = null
              var isFirstChunk = true
+             var fullTextAccumulator = ""
+             var fullThoughtAccumulator = ""
 
              try {
                  service.streamResponse(promptToUse, historyToUse, config, tools).collect { response ->
-                     lastResponse = response
                      when (response) {
                          is de.pantastix.project.ai.AiResponse.Text -> {
+                             fullTextAccumulator += response.content
+                             response.thought?.let { fullThoughtAccumulator += it }
+                             
                              val newContent = Content(
                                  role = "model",
-                                 parts = listOf(Part(text = response.content)),
-                                 thought = response.thought
+                                 parts = listOf(Part(text = fullTextAccumulator)),
+                                 thought = fullThoughtAccumulator.ifBlank { null }
                              )
                              
                              _uiState.update { state ->
@@ -404,23 +407,27 @@ class CardListViewModel(
                                  
                                  state.copy(
                                      chatMessages = newMessages,
-                                     currentThought = response.thought,
+                                     currentThought = fullThoughtAccumulator.ifBlank { null },
                                      isChatLoading = true
                                  )
                              }
                              isFirstChunk = false
                          }
                          is de.pantastix.project.ai.AiResponse.ToolCall -> {
-                             // Update UI to show thinking state before execution
-                             _uiState.update { it.copy(currentThought = response.thought) }
+                             // Accumulate thought if present in tool call
+                             response.thought?.let { fullThoughtAccumulator += it }
+                             _uiState.update { it.copy(currentThought = fullThoughtAccumulator.ifBlank { null }) }
                              receivedToolCall = response
                          }
                          is de.pantastix.project.ai.AiResponse.Error -> {
+                              println("[AI ERROR CALLBACK] ${response.message}")
                               _uiState.update { it.copy(error = response.message) }
                          }
                      }
                  }
              } catch (e: Exception) {
+                 println("[AI LOOP EXCEPTION] ${e.message}")
+                 e.printStackTrace()
                  _uiState.update { it.copy(isChatLoading = false, error = e.message) }
                  break
              }
@@ -428,22 +435,23 @@ class CardListViewModel(
              // Prioritize executing a tool call if one was received
              if (receivedToolCall != null) {
                  val result = receivedToolCall!!
-                 val thoughtText = result.thought
                  
-                 // Add thought + tool call to history so the model remembers it
-                 val historyContent = if (thoughtText != null) {
-                     "$thoughtText\nCalling tool: ${result.toolName}"
-                 } else {
-                     "Calling tool: ${result.toolName}"
-                 }
-                 currentHistory = currentHistory + ChatMessage(ChatRole.ASSISTANT, historyContent)
+                 // Add ASSISTANT message with tool call data to history
+                 currentHistory = currentHistory + ChatMessage(
+                     role = ChatRole.ASSISTANT, 
+                     content = fullTextAccumulator, // Content might have text before the tool call
+                     thoughtSignature = fullThoughtAccumulator.ifBlank { null },
+                     toolCall = de.pantastix.project.ai.ToolCallData(name = result.toolName, args = result.parameters)
+                 )
                  
                  val tool = tools.find { it.name == result.toolName }
                  if (tool != null) {
                      val toolResult = tool.execute(result.parameters)
+                     
+                     // Add TOOL message with response result to history
                      currentHistory = currentHistory + ChatMessage(
                          role = ChatRole.TOOL, 
-                         content = "", 
+                         content = toolResult, 
                          toolResponse = ToolResponseData(name = result.toolName, result = toolResult)
                      )
                      loopCount++
@@ -452,22 +460,9 @@ class CardListViewModel(
                      break
                  }
              } else {
-                 // No tool call, just handle final text or error
-                 when (val result = lastResponse) {
-                     is de.pantastix.project.ai.AiResponse.Text -> {
-                         _uiState.update { it.copy(isChatLoading = false, currentThought = null) }
-                         break 
-                     }
-                     is de.pantastix.project.ai.AiResponse.Error -> {
-                          _uiState.update { it.copy(isChatLoading = false, currentThought = null) }
-                          break
-                     }
-                     null -> {
-                         _uiState.update { it.copy(isChatLoading = false) }
-                         break
-                     }
-                     else -> { break }
-                 }
+                 // No tool call, finalize the response
+                 _uiState.update { it.copy(isChatLoading = false, currentThought = null) }
+                 break 
              }
         }
     }

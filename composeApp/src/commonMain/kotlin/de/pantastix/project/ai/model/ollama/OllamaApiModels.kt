@@ -38,6 +38,7 @@ data class OllamaChatRequest(
 data class OllamaChatMessage(
     val role: String,
     val content: String,
+    val thinking: String? = null,
     val tool_calls: List<OllamaToolCall>? = null
 )
 
@@ -61,6 +62,7 @@ data class OllamaToolCall(
 
 @Serializable
 data class OllamaToolCallFunction(
+    val index: Int? = null,
     val name: String,
     val arguments: Map<String, JsonElement>
 )
