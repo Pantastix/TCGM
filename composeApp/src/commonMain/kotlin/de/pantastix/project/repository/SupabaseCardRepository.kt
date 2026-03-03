@@ -281,7 +281,24 @@ class SupabaseCardRepository(
         illustrator: String?,
         limit: Int
     ): List<PokemonCardInfo> {
-        println("SupabaseCardRepository: Searching for query='$query' type='$type' sort='$sort' setId='$setId' limit=$limit in $cardsTable")
+        // Map of English types to all supported language variations
+        val typeTranslations = mapOf(
+            "water" to listOf("Water", "Wasser", "Eau", "Agua", "Acqua", "Água", "水"),
+            "fire" to listOf("Fire", "Feuer", "Feu", "Fuego", "Fuoco", "Fogo", "炎"),
+            "grass" to listOf("Grass", "Pflanze", "Plante", "Planta", "Erba", "草"),
+            "lightning" to listOf("Lightning", "Elektro", "Électrique", "Eléctrico", "Elettro", "Elétrico", "雷"),
+            "psychic" to listOf("Psychic", "Psycho", "Psy", "Psíquico", "Psichico", "超"),
+            "fighting" to listOf("Fighting", "Kampf", "Combat", "Lucha", "Lotta", "Luta", "闘"),
+            "darkness" to listOf("Darkness", "Finsternis", "Obscurité", "Oscuridad", "Oscurità", "Escuridão", "悪"),
+            "metal" to listOf("Metal", "Metall", "Métal", "Metallo", "鋼"),
+            "dragon" to listOf("Dragon", "Drache", "Dragón", "Drago", "Dragão", "竜"),
+            "colorless" to listOf("Colorless", "Farblos", "Incolore", "Incolora", "Incolore", "無"),
+            "fairy" to listOf("Fairy", "Fee", "Fée", "Hada", "Folletto", "Fada", "フェアリー")
+        )
+
+        val searchTerms = type?.lowercase()?.let { typeTranslations[it] } ?: type?.let { listOf(it) } ?: emptyList()
+
+        println("SupabaseCardRepository: Searching for query='$query' types=$searchTerms sort='$sort' setId='$setId' limit=$limit in $cardsTable")
         try {
             val result = postgrest.from(cardsTable).select(
                 columns = Columns.list(
@@ -305,7 +322,15 @@ class SupabaseCardRepository(
                             ilike("nameEn", "%$query%")
                         }
                     }
-                    if (!type.isNullOrBlank()) ilike("types", "%$type%")
+                    
+                    if (searchTerms.isNotEmpty()) {
+                        or {
+                            searchTerms.forEach { term ->
+                                ilike("types", "%$term%")
+                            }
+                        }
+                    }
+                    
                     if (!setId.isNullOrBlank()) eq("setId", setId)
                     if (!rarity.isNullOrBlank()) ilike("rarity", "%$rarity%")
                     if (!illustrator.isNullOrBlank()) ilike("illustrator", "%$illustrator%")

@@ -47,13 +47,36 @@ class Gemma3ReasoningStrategy : AiWorkflowStrategy {
     ): StrategyRequest {
         val contents = mutableListOf<Content>()
 
-        // 1. Convert History (Careful: Remove thoughtSignature to avoid API 400)
+        // 1. Convert History (Carefully reconstruct the full text including thoughts)
         contents.addAll(chatHistory.map { msg ->
             val role = when (msg.role) {
-                ChatRole.USER, ChatRole.TOOL -> "user"
+                ChatRole.USER -> "user"
+                ChatRole.TOOL -> "user" // Tool results are "feedback" to the model, treated as user input
                 else -> "model"
             }
-            val text = if (msg.role == ChatRole.TOOL) "Tool Result: ${msg.content}" else msg.content
+            
+            val text = when {
+                msg.role == ChatRole.TOOL -> "Tool Result (${msg.toolResponse?.name ?: "unknown"}): ${msg.content}"
+                msg.role == ChatRole.ASSISTANT -> {
+                    buildString {
+                        // Re-wrap thoughts if they exist
+                        if (!msg.thoughtSignature.isNullOrBlank()) {
+                            append("<think>${msg.thoughtSignature}</think>\n")
+                        }
+                        
+                        if (msg.toolCall != null) {
+                            val toolJson = buildJsonObject {
+                                put("tool", msg.toolCall.name)
+                                put("parameters", mapToJsonObject(msg.toolCall.args))
+                            }
+                            append("<tool>$toolJson</tool>")
+                        } else if (msg.content.isNotBlank()) {
+                            append(msg.content)
+                        }
+                    }
+                }
+                else -> msg.content
+            }
             Content(role = role, parts = listOf(Part(text = text)))
         })
 
@@ -266,5 +289,20 @@ class Gemma3ReasoningStrategy : AiWorkflowStrategy {
         } catch (e: Exception) {}
         
         return events
+    }
+
+    private fun mapToJsonObject(map: Map<String, Any?>): JsonObject {
+        return buildJsonObject {
+            map.forEach { (k, v) ->
+                when (v) {
+                    is String -> put(k, v)
+                    is Number -> put(k, v)
+                    is Boolean -> put(k, v)
+                    is JsonElement -> put(k, v)
+                    null -> put(k, JsonNull)
+                    else -> put(k, v.toString())
+                }
+            }
+        }
     }
 }

@@ -135,7 +135,6 @@ class GeminiCloudService(private val client: HttpClient) : AiService {
                         if (line.isNotBlank()) {
                             if (line.startsWith("data: ")) {
                                 val jsonPart = line.substring(6)
-                                fullRawStream.append(jsonPart).append("\n")
                                 
                                 // Try to extract text for readable debug log
                                 try {
@@ -154,8 +153,9 @@ class GeminiCloudService(private val client: HttpClient) : AiService {
                             events.forEach { emit(it) }
                         }
                     }
-                    println("\n=== [DEBUG] GEMINI FULL STREAM RAW DATA ===\n$fullRawStream\n")
-                    println("=== [DEBUG] ASSEMBLED TEXT ===\n$fullAssembledText\n===========================================\n")
+                    if (fullAssembledText.isNotBlank()) {
+                        println("\n=== [AI RESPONSE] ===\n$fullAssembledText\n=====================\n")
+                    }
                 }
                 return@flow // Success
             } catch (e: Exception) {

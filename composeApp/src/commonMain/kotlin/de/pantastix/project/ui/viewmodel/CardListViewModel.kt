@@ -363,17 +363,29 @@ class CardListViewModel(
 
         val tools = registeredTools.toList()
         
-        var currentHistory = uiState.value.chatMessages.map {
-             val role = when(it.role) {
-                 "user" -> ChatRole.USER
-                 "model" -> ChatRole.ASSISTANT
-                 "function" -> ChatRole.TOOL
-                 else -> ChatRole.SYSTEM
-             }
-             val text = it.parts.firstOrNull { it.text != null }?.text 
-                 ?: it.parts.firstOrNull { it.functionResponse != null }?.functionResponse?.response.toString()
-                 ?: ""
-             ChatMessage(role, text)
+        var currentHistory = uiState.value.chatMessages.map { content ->
+            val role = when (content.role) {
+                "user" -> ChatRole.USER
+                "model" -> ChatRole.ASSISTANT
+                "function" -> ChatRole.TOOL
+                else -> ChatRole.SYSTEM
+            }
+            
+            val textPart = content.parts.find { it.text != null }?.text ?: ""
+            val toolCallPart = content.parts.find { it.functionCall != null }?.functionCall
+            val toolResponsePart = content.parts.find { it.functionResponse != null }?.functionResponse
+            val thoughtPart = content.parts.find { it.thought }?.text 
+                ?: content.thought 
+                ?: content.parts.find { it.thoughtSignature != null }?.thoughtSignature
+            
+            ChatMessage(
+                role = role,
+                content = textPart,
+                thoughtSignature = thoughtPart,
+                toolCall = toolCallPart?.let { de.pantastix.project.ai.ToolCallData(it.name, it.args ?: emptyMap()) },
+                toolResponse = toolResponsePart?.let { ToolResponseData(it.name, it.response.toString()) }
+            )
+
         }
 
         var loopCount = 0
@@ -389,6 +401,7 @@ class CardListViewModel(
              var isFirstChunk = true
              var fullTextAccumulator = ""
              var fullThoughtAccumulator = ""
+             var fullThoughtSignatureAccumulator = ""
 
              try {
                  service.streamResponse(promptToUse, historyToUse, config, tools).collect { response ->
@@ -396,10 +409,14 @@ class CardListViewModel(
                          is de.pantastix.project.ai.AiResponse.Text -> {
                              fullTextAccumulator += response.content
                              response.thought?.let { fullThoughtAccumulator += it }
+                             response.thoughtSignature?.let { fullThoughtSignatureAccumulator = it } // Signature is usually one-off
                              
                              val newContent = Content(
                                  role = "model",
-                                 parts = listOf(Part(text = fullTextAccumulator)),
+                                 parts = listOfNotNull(
+                                     if (fullTextAccumulator.isNotBlank()) Part(text = fullTextAccumulator) else null,
+                                     if (fullThoughtSignatureAccumulator.isNotBlank()) Part(thoughtSignature = fullThoughtSignatureAccumulator) else null
+                                 ),
                                  thought = fullThoughtAccumulator.ifBlank { null }
                              )
                              
@@ -420,6 +437,7 @@ class CardListViewModel(
                          }
                          is de.pantastix.project.ai.AiResponse.ToolCall -> {
                              response.thought?.let { fullThoughtAccumulator += it }
+                             response.thoughtSignature?.let { fullThoughtSignatureAccumulator = it }
                              _uiState.update { it.copy(currentThought = fullThoughtAccumulator.ifBlank { null }) }
                              receivedToolCall = response
                          }
@@ -437,27 +455,71 @@ class CardListViewModel(
              }
              
              if (receivedToolCall != null) {
-                 val result = receivedToolCall!!
-                 println("[AI EXECUTING TOOL] ${result.toolName} with args: ${result.parameters}")
+                 val toolCallRes = receivedToolCall!!
+                 println("[AI EXECUTING TOOL] ${toolCallRes.toolName} with args: ${toolCallRes.parameters}")
                  
-                 currentHistory = currentHistory + ChatMessage(
+                 // 1. Add tool call to history (CRITICAL: preserve thoughtSignature)
+                 val toolCallMsg = ChatMessage(
                      role = ChatRole.ASSISTANT, 
                      content = fullTextAccumulator,
-                     thoughtSignature = fullThoughtAccumulator.ifBlank { null },
-                     toolCall = de.pantastix.project.ai.ToolCallData(name = result.toolName, args = result.parameters)
+                     thoughtSignature = fullThoughtSignatureAccumulator.ifBlank { toolCallRes.thoughtSignature },
+                     toolCall = de.pantastix.project.ai.ToolCallData(name = toolCallRes.toolName, args = toolCallRes.parameters)
+                 )
+                 currentHistory = currentHistory + toolCallMsg
+                 
+                 // 2. Add tool call to UI state (Replace last message if we already showed streaming thoughts)
+                 val toolCallContent = Content(
+                     role = "model",
+                     parts = listOfNotNull(
+                         if (fullTextAccumulator.isNotBlank()) Part(text = fullTextAccumulator) else null,
+                         Part(
+                            functionCall = FunctionCall(
+                                name = toolCallRes.toolName,
+                                args = mapToJsonObject(toolCallRes.parameters)
+                            ),
+                            thoughtSignature = fullThoughtSignatureAccumulator.ifBlank { toolCallRes.thoughtSignature }
+                         )
+                     ),
+                     thought = fullThoughtAccumulator.ifBlank { null }
                  )
                  
-                 val tool = tools.find { it.name == result.toolName }
+                 _uiState.update { state ->
+                     val newMessages = if (isFirstChunk) {
+                         state.chatMessages + toolCallContent
+                     } else {
+                         state.chatMessages.dropLast(1) + toolCallContent
+                     }
+                     state.copy(chatMessages = newMessages)
+                 }
+                 
+                 val tool = tools.find { it.name == toolCallRes.toolName }
                  if (tool != null) {
-                     val toolResult = tool.execute(result.parameters)
+                     val toolResult = tool.execute(toolCallRes.parameters)
+                     
+                     // 3. Add tool response to history
                      currentHistory = currentHistory + ChatMessage(
                          role = ChatRole.TOOL, 
                          content = toolResult, 
-                         toolResponse = ToolResponseData(name = result.toolName, result = toolResult)
+                         toolResponse = ToolResponseData(name = toolCallRes.toolName, result = toolResult)
                      )
+                     
+                     // 4. Add tool response to UI state
+                     val toolResponseContent = Content(
+                         role = "function",
+                         parts = listOf(Part(functionResponse = FunctionResponse(
+                             name = toolCallRes.toolName,
+                             response = try { 
+                                 Json.decodeFromString<JsonObject>(toolResult) 
+                             } catch(e: Exception) { 
+                                 buildJsonObject { put("result", toolResult) } 
+                             }
+                         )))
+                     )
+                     _uiState.update { it.copy(chatMessages = it.chatMessages + toolResponseContent) }
+                     
                      loopCount++
                  } else {
-                     _uiState.update { it.copy(isChatLoading = false, error = "Tool not found: ${result.toolName}") }
+                     _uiState.update { it.copy(isChatLoading = false, error = "Tool not found: ${toolCallRes.toolName}") }
                      break
                  }
              } else {
@@ -472,6 +534,21 @@ class CardListViewModel(
                  println("[AI LOOP LIMIT] Max iterations ($maxLoops) reached. Stopping.")
                  _uiState.update { it.copy(isChatLoading = false, error = "Limit für automatische Korrekturen erreicht.") }
              }
+        }
+    }
+
+    private fun mapToJsonObject(map: Map<String, Any?>): JsonObject {
+        return buildJsonObject {
+            map.forEach { (k, v) ->
+                when (v) {
+                    is String -> put(k, v)
+                    is Number -> put(k, v)
+                    is Boolean -> put(k, v)
+                    is JsonElement -> put(k, v)
+                    null -> put(k, JsonNull)
+                    else -> put(k, v.toString())
+                }
+            }
         }
     }
 

@@ -51,14 +51,20 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
 
             val parts = mutableListOf<Part>()
 
-            // 1. Add Thought if present (Gemini 2.0+ expects it as a part with thought=true)
-            if (!msg.thoughtSignature.isNullOrBlank()) {
+            // 1. Add Thought (as separate part for Gemini 2.0+ if it's not a signature for a tool)
+            if (!msg.thoughtSignature.isNullOrBlank() && msg.toolCall == null) {
                 parts.add(Part(text = msg.thoughtSignature, thought = true))
             }
 
             // 2. Add content/tool data
             if (msg.toolCall != null) {
-                parts.add(Part(functionCall = FunctionCall(name = msg.toolCall.name, args = mapToJsonObject(msg.toolCall.args))))
+                parts.add(Part(
+                    functionCall = FunctionCall(
+                        name = msg.toolCall.name, 
+                        args = mapToJsonObject(msg.toolCall.args)
+                    ),
+                    thoughtSignature = msg.thoughtSignature // CRITICAL: Link to functionCall part
+                ))
             } else if (msg.toolResponse != null) {
                 val jsonResponse = try {
                     json.decodeFromString<JsonObject>(msg.toolResponse.result)
@@ -109,16 +115,19 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
             val response = json.decodeFromString<GenerateContentResponse>(responseBody)
             val candidate = response.candidates?.firstOrNull() ?: return AiResponse.Error("No candidates")
             val part = candidate.content.parts.firstOrNull()
+            
+            // Extract thought from specific field OR from parts marked as thought
             val thought = candidate.content.thought ?: candidate.content.parts.find { it.thought }?.text
+            val signature = part?.thoughtSignature // Try to get from first part
             
             if (part?.functionCall != null) {
                 val args = part.functionCall.args?.mapValues {
                     if (it.value is JsonPrimitive) it.value.jsonPrimitive.content else it.value.toString()
                 } ?: emptyMap()
-                return AiResponse.ToolCall(part.functionCall.name, args, thought)
+                return AiResponse.ToolCall(part.functionCall.name, args, thought, signature)
             }
             
-            return AiResponse.Text(part?.text ?: "", thought)
+            return AiResponse.Text(part?.text ?: "", thought, signature)
         } catch (e: Exception) {
             return AiResponse.Error("Parse Error: ${e.message}")
         }
@@ -130,11 +139,19 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
         if (jsonStr == "[DONE]") return emptyList()
 
         try {
+            // Robust parsing: extract thoughtSignature manually if JSON decoder misses it due to camelCase
+            val element = json.parseToJsonElement(jsonStr)
+            val parts = element.jsonObject["candidates"]?.jsonArray?.firstOrNull()?.jsonObject?.get("content")?.jsonObject?.get("parts")?.jsonArray
+            val firstPart = parts?.firstOrNull()?.jsonObject
+            
+            val manualSignature = firstPart?.get("thoughtSignature")?.jsonPrimitive?.content 
+                ?: firstPart?.get("thought_signature")?.jsonPrimitive?.content
+
             val response = json.decodeFromString<GenerateContentResponse>(jsonStr)
             val candidate = response.candidates?.firstOrNull()
             val part = candidate?.content?.parts?.firstOrNull() ?: return emptyList()
             
-            // IMPORTANT: Return ONLY DELTAS to prevent doubling in ViewModel
+            val signature = part.thoughtSignature ?: manualSignature
             
             if (part.functionCall != null) {
                 val args = part.functionCall.args?.mapValues {
@@ -144,7 +161,8 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
                 return listOf(AiResponse.ToolCall(
                     toolName = part.functionCall.name,
                     parameters = args,
-                    thought = null // Thought usually came in previous chunks
+                    thought = null,
+                    thoughtSignature = signature
                 ))
             }
             
@@ -153,11 +171,17 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
                 if (textChunk.contains("Calling tool:") || textChunk.contains("default_api")) return emptyList()
 
                 return if (part.thought) {
-                    listOf(AiResponse.Text(content = "", thought = textChunk))
+                    listOf(AiResponse.Text(content = "", thought = textChunk, thoughtSignature = signature))
                 } else {
-                    listOf(AiResponse.Text(content = textChunk, thought = null))
+                    listOf(AiResponse.Text(content = textChunk, thought = null, thoughtSignature = signature))
                 }
             }
+            
+            // If we have a signature but no text/call yet, still report it
+            if (signature != null) {
+                return listOf(AiResponse.Text(content = "", thought = null, thoughtSignature = signature))
+            }
+
         } catch (e: Exception) { }
         return emptyList()
     }
