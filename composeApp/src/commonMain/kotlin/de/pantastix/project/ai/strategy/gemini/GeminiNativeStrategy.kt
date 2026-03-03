@@ -9,19 +9,18 @@ import de.pantastix.project.model.gemini.AiModel as ApiModel
 import kotlinx.serialization.json.*
 
 /**
- * Strategy for Native Gemini models (Flash, Pro) that support:
- * - Native Function Calling
- * - Native "Thinking" (if enabled in config)
+ * Strategy for Native Gemini models (Flash, Pro).
+ * FIXED: 
+ * - Returns Deltas in stream to prevent doubling.
+ * - Handles thoughts correctly in history without triggering 400 Bad Request.
  */
 class GeminiNativeStrategy : AiWorkflowStrategy {
     override val providerType = AiProviderType.GEMINI_CLOUD
-    
-    // Matches "gemini-3-flash", "gemini-1.5-pro", etc.
     override val modelIdRegex = Regex("""^(models/)?gemini-(3|1\.5|2\.0).*""", RegexOption.IGNORE_CASE)
 
     private val json = Json { 
         ignoreUnknownKeys = true 
-        encodeDefaults = true
+        encodeDefaults = false // CRITICAL: Do not send null fields like thought_signature
     }
 
     override fun createUiModel(apiModelData: Any): de.pantastix.project.ai.AiModel {
@@ -41,11 +40,8 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
         availableTools: List<AgentTool>
     ): StrategyRequest {
         val isGemini3 = config.selectedModelId?.contains("gemini-3", ignoreCase = true) == true
-        val isLegacy = !isGemini3 // 1.5 and 2.0 use v1beta, 3.0 usually v1alpha (check docs, assuming v1beta for now unless specified)
-
         val contents = mutableListOf<Content>()
         
-        // Convert Chat History
         contents.addAll(chatHistory.map { msg ->
             val role = when (msg.role) {
                 ChatRole.USER -> "user"
@@ -55,9 +51,14 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
 
             val parts = mutableListOf<Part>()
 
+            // 1. Add Thought if present (Gemini 2.0+ expects it as a part with thought=true)
+            if (!msg.thoughtSignature.isNullOrBlank()) {
+                parts.add(Part(text = msg.thoughtSignature, thought = true))
+            }
+
+            // 2. Add content/tool data
             if (msg.toolCall != null) {
-                val jsonArgs = mapToJsonObject(msg.toolCall.args)
-                parts.add(Part(functionCall = FunctionCall(name = msg.toolCall.name, args = jsonArgs), thoughtSignature = msg.thoughtSignature))
+                parts.add(Part(functionCall = FunctionCall(name = msg.toolCall.name, args = mapToJsonObject(msg.toolCall.args))))
             } else if (msg.toolResponse != null) {
                 val jsonResponse = try {
                     json.decodeFromString<JsonObject>(msg.toolResponse.result)
@@ -66,57 +67,39 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
                 }
                 parts.add(Part(functionResponse = FunctionResponse(name = msg.toolResponse.name, response = jsonResponse)))
             } else {
-                parts.add(Part(text = msg.content, thoughtSignature = msg.thoughtSignature))
+                if (msg.content.isNotBlank()) {
+                    parts.add(Part(text = msg.content))
+                }
             }
             Content(role = role, parts = parts)
         })
 
-        // Add User Prompt
         if (prompt.isNotBlank()) {
             contents.add(Content(role = "user", parts = listOf(Part(text = prompt))))
         }
 
-        // Configure Tools
         var tools: List<Tool>? = null
         var toolConfig: ToolConfig? = null
         if (availableTools.isNotEmpty()) {
-            val functionDeclarations = availableTools.mapNotNull { tool ->
-                tool.schema?.let { schema ->
-                    FunctionDeclaration(
-                        name = tool.name,
-                        description = tool.description,
-                        parameters = schema
-                    )
-                }
+            val decls = availableTools.mapNotNull { tool ->
+                tool.schema?.let { FunctionDeclaration(name = tool.name, description = tool.description, parameters = it) }
             }
-            if (functionDeclarations.isNotEmpty()) {
-                tools = listOf(Tool(functionDeclarations = functionDeclarations))
+            if (decls.isNotEmpty()) {
+                tools = listOf(Tool(functionDeclarations = decls))
                 toolConfig = ToolConfig(functionCallingConfig = FunctionCallingConfig(mode = "AUTO"))
             }
         }
 
-        // Configure Generation (Thinking)
-        // Only Gemini 3.0 supports "thinkingConfig" natively usually
         val generationConfig = if (isGemini3) {
             GenerationConfig(thinkingConfig = ThinkingConfig(includeThoughts = true))
-        } else {
-            null
-        }
+        } else null
         
         val systemContent = config.systemInstruction?.let { 
             Content(role = "system", parts = listOf(Part(text = it)))
         }
 
-        val request = GenerateContentRequest(
-            contents = contents,
-            tools = tools,
-            toolConfig = toolConfig,
-            generationConfig = generationConfig,
-            systemInstruction = systemContent
-        )
-
         return StrategyRequest(
-            body = request,
+            body = GenerateContentRequest(contents, tools, toolConfig, systemContent, generationConfig),
             apiVersion = if (isGemini3) "v1alpha" else "v1beta" 
         )
     }
@@ -126,8 +109,7 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
             val response = json.decodeFromString<GenerateContentResponse>(responseBody)
             val candidate = response.candidates?.firstOrNull() ?: return AiResponse.Error("No candidates")
             val part = candidate.content.parts.firstOrNull()
-            
-            val thought = candidate.content.thought
+            val thought = candidate.content.thought ?: candidate.content.parts.find { it.thought }?.text
             
             if (part?.functionCall != null) {
                 val args = part.functionCall.args?.mapValues {
@@ -142,9 +124,6 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
         }
     }
 
-    private var accumulatedText = ""
-    private var accumulatedThought = ""
-    
     override fun parseStreamChunk(chunk: String, buffer: StringBuilder): List<AiResponse> {
         if (!chunk.startsWith("data: ")) return emptyList()
         val jsonStr = chunk.substring(6).trim()
@@ -153,59 +132,33 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
         try {
             val response = json.decodeFromString<GenerateContentResponse>(jsonStr)
             val candidate = response.candidates?.firstOrNull()
-            val part = candidate?.content?.parts?.firstOrNull()
+            val part = candidate?.content?.parts?.firstOrNull() ?: return emptyList()
             
-            // Native Thought (if supported by model/API version)
-            val newThought = candidate?.content?.thought
-            if (!newThought.isNullOrEmpty()) {
-                accumulatedThought += newThought
-                return listOf(AiResponse.Text(accumulatedText, accumulatedThought))
+            // IMPORTANT: Return ONLY DELTAS to prevent doubling in ViewModel
+            
+            if (part.functionCall != null) {
+                val args = part.functionCall.args?.mapValues {
+                    if (it.value is JsonPrimitive) it.value.jsonPrimitive.content else it.value.toString()
+                } ?: emptyMap()
+                
+                return listOf(AiResponse.ToolCall(
+                    toolName = part.functionCall.name,
+                    parameters = args,
+                    thought = null // Thought usually came in previous chunks
+                ))
             }
             
-            if (part != null) {
-                // IMPORTANT: Extract thought signature from function call chunk if present
-                val thoughtSig = part.thoughtSignature
-                
-                if (part.functionCall != null) {
-                     val args = part.functionCall.args?.mapValues {
-                        if (it.value is JsonPrimitive) it.value.jsonPrimitive.content else it.value.toString()
-                    } ?: emptyMap()
-                    
-                    return listOf(AiResponse.ToolCall(
-                        toolName = part.functionCall.name,
-                        parameters = args,
-                        thought = accumulatedThought.takeIf { it.isNotEmpty() },
-                        thoughtSignature = thoughtSig
-                    ))
-                }
-                
-                if (part.text != null) {
-                    val textChunk = part.text
-                    // FILTER: Ignore leaked tool call descriptions from Gemini 3 Flash
-                    if (textChunk.contains("Calling tool:") || 
-                        textChunk.contains("default_api") || 
-                        textChunk.contains("<ctrl") || 
-                        accumulatedText.endsWith("Calling tool:") // Handle split chunks
-                    ) {
-                        return emptyList()
-                    }
+            if (part.text != null) {
+                val textChunk = part.text
+                if (textChunk.contains("Calling tool:") || textChunk.contains("default_api")) return emptyList()
 
-                    if (part.thought) {
-                        accumulatedThought += textChunk
-                    } else {
-                        accumulatedText += textChunk
-                    }
-                    
-                    return listOf(AiResponse.Text(
-                        content = accumulatedText, 
-                        thought = accumulatedThought.takeIf { it.isNotEmpty() },
-                        thoughtSignature = thoughtSig
-                    ))
+                return if (part.thought) {
+                    listOf(AiResponse.Text(content = "", thought = textChunk))
+                } else {
+                    listOf(AiResponse.Text(content = textChunk, thought = null))
                 }
             }
-        } catch (e: Exception) {
-            // ignore
-        }
+        } catch (e: Exception) { }
         return emptyList()
     }
     

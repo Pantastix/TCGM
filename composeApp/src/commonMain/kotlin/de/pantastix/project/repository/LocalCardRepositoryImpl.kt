@@ -247,9 +247,10 @@ class LocalCardRepositoryImpl(
         sort: String?,
         setId: String?,
         rarity: String?,
-        illustrator: String?
+        illustrator: String?,
+        limit: Int
     ): List<PokemonCardInfo> {
-        println("LocalCardRepository: Searching for '$query', type='$type', sort='$sort', setId='$setId', rarity='$rarity'")
+        println("LocalCardRepository: Searching for '$query', type='$type', sort='$sort', setId='$setId', rarity='$rarity', limit=$limit")
         
         return withContext(ioDispatcher) {
             val results = queries.advancedSearch(
@@ -282,8 +283,9 @@ class LocalCardRepositoryImpl(
                 else -> results // Default SQL order (Release Date DESC)
             }
             
-            println("LocalCardRepository: Found ${sorted.size} cards")
-            sorted
+            val limited = sorted.take(limit)
+            println("LocalCardRepository: Found ${limited.size} cards (limited from ${sorted.size})")
+            limited
         }
     }
 

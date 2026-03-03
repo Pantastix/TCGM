@@ -53,7 +53,8 @@ interface CardRepository {
         sort: String? = null,
         setId: String? = null,
         rarity: String? = null,
-        illustrator: String? = null
+        illustrator: String? = null,
+        limit: Int = 50
     ): List<PokemonCardInfo>
 
     suspend fun searchSets(query: String): List<SetInfo>

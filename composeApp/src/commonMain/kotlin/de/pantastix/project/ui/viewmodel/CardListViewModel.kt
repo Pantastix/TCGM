@@ -315,6 +315,10 @@ class CardListViewModel(
         _uiState.update { it.copy(chatInput = newInput) }
     }
 
+    fun clearChat() {
+        _uiState.update { it.copy(chatMessages = emptyList(), currentThought = null, error = null) }
+    }
+
     fun sendMessage() {
         val input = uiState.value.chatInput
         if (input.isBlank() || uiState.value.isChatLoading) return
@@ -373,9 +377,10 @@ class CardListViewModel(
         }
 
         var loopCount = 0
-        val maxLoops = 5
+        val maxLoops = 10
 
         while (loopCount < maxLoops) {
+             println("[AI LOOP] Starting iteration ${loopCount + 1}/$maxLoops")
              val lastMsg = currentHistory.lastOrNull()
              val promptToUse = if (loopCount == 0 && lastMsg?.role == ChatRole.USER) lastMsg.content else ""
              val historyToUse = if (loopCount == 0) currentHistory.dropLast(1) else currentHistory
@@ -414,7 +419,6 @@ class CardListViewModel(
                              isFirstChunk = false
                          }
                          is de.pantastix.project.ai.AiResponse.ToolCall -> {
-                             // Accumulate thought if present in tool call
                              response.thought?.let { fullThoughtAccumulator += it }
                              _uiState.update { it.copy(currentThought = fullThoughtAccumulator.ifBlank { null }) }
                              receivedToolCall = response
@@ -432,14 +436,13 @@ class CardListViewModel(
                  break
              }
              
-             // Prioritize executing a tool call if one was received
              if (receivedToolCall != null) {
                  val result = receivedToolCall!!
+                 println("[AI EXECUTING TOOL] ${result.toolName} with args: ${result.parameters}")
                  
-                 // Add ASSISTANT message with tool call data to history
                  currentHistory = currentHistory + ChatMessage(
                      role = ChatRole.ASSISTANT, 
-                     content = fullTextAccumulator, // Content might have text before the tool call
+                     content = fullTextAccumulator,
                      thoughtSignature = fullThoughtAccumulator.ifBlank { null },
                      toolCall = de.pantastix.project.ai.ToolCallData(name = result.toolName, args = result.parameters)
                  )
@@ -447,8 +450,6 @@ class CardListViewModel(
                  val tool = tools.find { it.name == result.toolName }
                  if (tool != null) {
                      val toolResult = tool.execute(result.parameters)
-                     
-                     // Add TOOL message with response result to history
                      currentHistory = currentHistory + ChatMessage(
                          role = ChatRole.TOOL, 
                          content = toolResult, 
@@ -456,13 +457,20 @@ class CardListViewModel(
                      )
                      loopCount++
                  } else {
-                     _uiState.update { it.copy(error = "Tool not found: ${result.toolName}") }
+                     _uiState.update { it.copy(isChatLoading = false, error = "Tool not found: ${result.toolName}") }
                      break
                  }
              } else {
-                 // No tool call, finalize the response
+                 if (fullTextAccumulator.isNotBlank()) {
+                     println("[AI FINAL ANSWER] $fullTextAccumulator")
+                 }
                  _uiState.update { it.copy(isChatLoading = false, currentThought = null) }
                  break 
+             }
+             
+             if (loopCount >= maxLoops) {
+                 println("[AI LOOP LIMIT] Max iterations ($maxLoops) reached. Stopping.")
+                 _uiState.update { it.copy(isChatLoading = false, error = "Limit für automatische Korrekturen erreicht.") }
              }
         }
     }

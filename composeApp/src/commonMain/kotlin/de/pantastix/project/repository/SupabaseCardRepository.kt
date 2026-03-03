@@ -278,9 +278,10 @@ class SupabaseCardRepository(
         sort: String?,
         setId: String?,
         rarity: String?,
-        illustrator: String?
+        illustrator: String?,
+        limit: Int
     ): List<PokemonCardInfo> {
-        println("SupabaseCardRepository: Searching for query='$query' type='$type' sort='$sort' setId='$setId' in $cardsTable")
+        println("SupabaseCardRepository: Searching for query='$query' type='$type' sort='$sort' setId='$setId' limit=$limit in $cardsTable")
         try {
             val result = postgrest.from(cardsTable).select(
                 columns = Columns.list(
@@ -317,7 +318,7 @@ class SupabaseCardRepository(
                     "name_desc" -> order("nameLocal", Order.DESCENDING)
                 }
                 
-                limit(50) 
+                limit(limit.toLong()) 
             }
             
             val jsonElements = result.decodeList<JsonObject>()

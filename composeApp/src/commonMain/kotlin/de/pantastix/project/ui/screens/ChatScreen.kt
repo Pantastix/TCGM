@@ -207,6 +207,17 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                 IconButton(onClick = { showParameterDialog = true }) {
                     Icon(Icons.Filled.Settings, contentDescription = "Parameters")
                 }
+
+                IconButton(
+                    onClick = { viewModel.clearChat() },
+                    enabled = uiState.chatMessages.isNotEmpty() && !uiState.isChatLoading
+                ) {
+                    Icon(
+                        Icons.Filled.DeleteSweep, 
+                        contentDescription = "Clear Chat",
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                    )
+                }
             }
         }
 

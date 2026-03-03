@@ -35,7 +35,7 @@ class Gemma3ReasoningStrategy : AiWorkflowStrategy {
             id = name,
             displayName = displayName,
             provider = AiProviderType.GEMINI_CLOUD,
-            capabilities = setOf(AiCapability.TEXT_GENERATION) // Technically only text, we simulate tools
+            capabilities = setOf(AiCapability.NATIVE_TOOL_CALLING, AiCapability.TEXT_GENERATION)
         )
     }
 
@@ -47,13 +47,12 @@ class Gemma3ReasoningStrategy : AiWorkflowStrategy {
     ): StrategyRequest {
         val contents = mutableListOf<Content>()
 
-        // 1. Convert History
+        // 1. Convert History (Careful: Remove thoughtSignature to avoid API 400)
         contents.addAll(chatHistory.map { msg ->
             val role = when (msg.role) {
                 ChatRole.USER, ChatRole.TOOL -> "user"
                 else -> "model"
             }
-            // For Gemma, tool outputs are just user messages
             val text = if (msg.role == ChatRole.TOOL) "Tool Result: ${msg.content}" else msg.content
             Content(role = role, parts = listOf(Part(text = text)))
         })
@@ -63,7 +62,7 @@ class Gemma3ReasoningStrategy : AiWorkflowStrategy {
             contents.add(Content(role = "user", parts = listOf(Part(text = prompt))))
         }
 
-        // 3. Inject System Prompt (Simulated via first user message)
+        // 3. Inject System Prompt
         val toolsDescription = if (availableTools.isNotEmpty()) {
             availableTools.joinToString("\n") { "- ${it.name}: ${it.description}. Parameters: ${it.parameterSchemaJson}" }
         } else "None"
@@ -77,33 +76,24 @@ class Gemma3ReasoningStrategy : AiWorkflowStrategy {
             PROTOCOL:
             1. THOUGHT PROCESS: Start every response with a <think>...</think> block. Analyze the user's request step-by-step.
             2. ACTION:
-               - If you need data (prices, inventory, stats), output a JSON tool call inside <tool>...</tool> tags.
+               - If you need data, output a JSON tool call inside <tool>...</tool> tags.
                - If you can answer directly, output the final text answer after the </think> tag.
             
             FORMATS:
+            <think>Reasoning...</think>
+            <tool>{ "tool": "tool_name", "parameters": { ... } }</tool>
             
-            [Tool Call]
-            <think>
-            Reasoning here...
-            </think>
-            <tool>
-            { "tool": "tool_name", "parameters": { "param": "value" } }
-            </tool>
-            
-            [Text Response]
-            <think>
-            Reasoning here...
-            </think>
-            Your final answer here.
+            OR
+            <think>Reasoning...</think>
+            Your final answer.
         """.trimIndent()
 
-        // Prepend instructions
         contents.add(0, Content(role = "user", parts = listOf(Part(text = instructionText))))
         contents.add(1, Content(role = "model", parts = listOf(Part(text = "Understood. I will use <think> for reasoning and <tool> for function calls."))))
 
         val request = GenerateContentRequest(
             contents = contents,
-            tools = null, // No native tools for Gemma 3
+            tools = null,
             generationConfig = null
         )
 
@@ -123,21 +113,18 @@ class Gemma3ReasoningStrategy : AiWorkflowStrategy {
         }
     }
 
-    // Reuse the parsing logic from the old service, but cleaner
     private fun parseGemmaText(fullText: String): AiResponse {
-        // Parse <think>
         val thinkRegex = Regex("""<think>(.*?)</think>""", RegexOption.DOT_MATCHES_ALL)
         val thinkMatch = thinkRegex.find(fullText)
         val thought = thinkMatch?.groupValues?.get(1)?.trim()
         val contentWithoutThought = fullText.replace(thinkRegex, "").trim()
 
-        // Parse <tool>
         val toolRegex = Regex("""<tool>\s*(\{[\s\S]*"tool"[\s\S]*\})\s*</tool>""")
         val toolMatch = toolRegex.find(contentWithoutThought)
 
         if (toolMatch != null) {
             val jsonString = toolMatch.groupValues[1]
-            return try {
+            try {
                 val jsonElement = json.parseToJsonElement(jsonString) as JsonObject
                 val toolName = jsonElement["tool"]?.jsonPrimitive?.content
                 val params = jsonElement["parameters"]?.let { it as? JsonObject }?.mapValues {
@@ -145,28 +132,20 @@ class Gemma3ReasoningStrategy : AiWorkflowStrategy {
                 } ?: emptyMap()
 
                 if (toolName != null) {
-                    AiResponse.ToolCall(toolName, params, thought)
-                } else {
-                    AiResponse.Text(contentWithoutThought, thought)
+                    return AiResponse.ToolCall(toolName, params, thought)
                 }
             } catch (e: Exception) {
-                AiResponse.Text(contentWithoutThought, thought)
+                // Silently fall back to text if tool parsing fails
             }
         }
-        
         return AiResponse.Text(contentWithoutThought, thought)
     }
 
-    // Stateful parsing for streaming
+    // Stateful parsing for streaming (FIXED: Returns DELTAS now)
     private var state = ParserState.CONTENT
-    private var totalText = ""
-    private var totalThought = ""
-    private var foundToolCall: AiResponse.ToolCall? = null
-
     private enum class ParserState { CONTENT, THINKING, TOOL }
 
     override fun parseStreamChunk(chunk: String, buffer: StringBuilder): List<AiResponse> {
-        // chunk is expected to be a data: line from SSE
         if (!chunk.startsWith("data: ")) return emptyList()
         val jsonStr = chunk.substring(6).trim()
         if (jsonStr == "[DONE]") return emptyList()
@@ -175,8 +154,15 @@ class Gemma3ReasoningStrategy : AiWorkflowStrategy {
         
         try {
             val response = json.decodeFromString<GenerateContentResponse>(jsonStr)
-            val newText = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text ?: return emptyList()
+            val candidate = response.candidates?.firstOrNull()
+            val newText = candidate?.content?.parts?.firstOrNull()?.text ?: return emptyList()
             
+            // Native Thought check (some Gemma variants might use it if API version is higher)
+            val nativeThought = candidate.content.thought
+            if (!nativeThought.isNullOrBlank()) {
+                return listOf(AiResponse.Text("", nativeThought))
+            }
+
             buffer.append(newText)
             
             var loop = true
@@ -198,9 +184,8 @@ class Gemma3ReasoningStrategy : AiWorkflowStrategy {
 
                         if (firstTagIndex != -1) {
                             if (firstTagIndex > 0) {
-                                val content = currentBuffer.substring(0, firstTagIndex)
-                                totalText += content
-                                events.add(AiResponse.Text(totalText, totalThought.takeIf { it.isNotEmpty() }))
+                                val delta = currentBuffer.substring(0, firstTagIndex)
+                                events.add(AiResponse.Text(delta, null))
                                 buffer.delete(0, firstTagIndex)
                             }
 
@@ -213,21 +198,19 @@ class Gemma3ReasoningStrategy : AiWorkflowStrategy {
                             }
                             loop = true
                         } else {
-                            // Safe buffer logic
-                             val safeLength = currentBuffer.lastIndexOf('<')
-                             if (safeLength != -1 && safeLength > currentBuffer.length - 7) {
-                                 // Wait for tag completion
-                                 if (safeLength > 0) {
-                                     val content = currentBuffer.substring(0, safeLength)
-                                     totalText += content
-                                     events.add(AiResponse.Text(totalText, totalThought.takeIf { it.isNotEmpty() }))
-                                     buffer.delete(0, safeLength)
+                             // Delta logic for regular content
+                             val lastOpenBracket = currentBuffer.lastIndexOf('<')
+                             if (lastOpenBracket != -1 && lastOpenBracket > currentBuffer.length - 7) {
+                                 if (lastOpenBracket > 0) {
+                                     val delta = currentBuffer.substring(0, lastOpenBracket)
+                                     events.add(AiResponse.Text(delta, null))
+                                     buffer.delete(0, lastOpenBracket)
                                  }
                              } else {
                                  if (buffer.isNotEmpty()) {
-                                     totalText += buffer.toString()
-                                     events.add(AiResponse.Text(totalText, totalThought.takeIf { it.isNotEmpty() }))
-                                     buffer.clear()
+                                     val delta = buffer.toString()
+                                     events.add(AiResponse.Text(delta, null))
+                                     buffer.setLength(0)
                                  }
                              }
                         }
@@ -235,21 +218,33 @@ class Gemma3ReasoningStrategy : AiWorkflowStrategy {
                     ParserState.THINKING -> {
                         val closeIndex = currentBuffer.indexOf("</think>")
                         if (closeIndex != -1) {
-                            val thoughtContent = currentBuffer.substring(0, closeIndex)
-                            totalThought += thoughtContent
-                            events.add(AiResponse.Text(totalText, totalThought))
+                            val thoughtDelta = currentBuffer.substring(0, closeIndex)
+                            events.add(AiResponse.Text("", thoughtDelta))
                             buffer.delete(0, closeIndex + 8)
                             state = ParserState.CONTENT
                             loop = true
                         } else {
-                             // Wait until we have </think> or buffer gets too large
+                             // Delta logic for thinking
+                             val lastOpenBracket = currentBuffer.lastIndexOf('<')
+                             if (lastOpenBracket != -1 && lastOpenBracket > currentBuffer.length - 8) {
+                                 if (lastOpenBracket > 0) {
+                                     val thoughtDelta = currentBuffer.substring(0, lastOpenBracket)
+                                     events.add(AiResponse.Text("", thoughtDelta))
+                                     buffer.delete(0, lastOpenBracket)
+                                 }
+                             } else {
+                                 if (buffer.isNotEmpty()) {
+                                     val thoughtDelta = buffer.toString()
+                                     events.add(AiResponse.Text("", thoughtDelta))
+                                     buffer.setLength(0)
+                                 }
+                             }
                         }
                     }
                     ParserState.TOOL -> {
                          val closeIndex = currentBuffer.indexOf("</tool>")
                          if (closeIndex != -1) {
                              val toolJsonStr = currentBuffer.substring(0, closeIndex)
-                             // Attempt to parse tool
                              try {
                                  val jsonElement = json.parseToJsonElement(toolJsonStr) as JsonObject
                                  val toolName = jsonElement["tool"]?.jsonPrimitive?.content
@@ -258,13 +253,9 @@ class Gemma3ReasoningStrategy : AiWorkflowStrategy {
                                  } ?: emptyMap()
                                  
                                  if (toolName != null) {
-                                     foundToolCall = AiResponse.ToolCall(toolName, params, totalThought)
-                                     events.add(foundToolCall!!)
+                                     events.add(AiResponse.ToolCall(toolName, params, null))
                                  }
-                             } catch (e: Exception) {
-                                 // Ignore malformed tool calls in stream
-                             }
-                             
+                             } catch (e: Exception) {}
                              buffer.delete(0, closeIndex + 7)
                              state = ParserState.CONTENT
                              loop = true
@@ -272,9 +263,7 @@ class Gemma3ReasoningStrategy : AiWorkflowStrategy {
                     }
                 }
             }
-        } catch (e: Exception) {
-            // ignore chunk errors
-        }
+        } catch (e: Exception) {}
         
         return events
     }

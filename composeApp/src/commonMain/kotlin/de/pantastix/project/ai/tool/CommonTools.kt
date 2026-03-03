@@ -63,7 +63,8 @@ class SearchCardsTool(private val repository: CardRepository) : AgentTool {
           "type": "String? (z.B. Fire)",
           "rarity": "String? (z.B. Rare)",
           "illustrator": "String? (Name)",
-          "sort": "String? (price_desc, price_asc, name_asc)"
+          "sort": "String? (price_desc, price_asc, name_asc)",
+          "limit": "Int? (Standard: 20, max: 50)"
         }
     """.trimIndent()
 
@@ -75,7 +76,8 @@ class SearchCardsTool(private val repository: CardRepository) : AgentTool {
             "type" to Schema(type = "STRING", description = "Pokémon type (e.g., Fire, Water)."),
             "rarity" to Schema(type = "STRING", description = "Rarity (e.g., 'Illustration Rare', 'Common')."),
             "illustrator" to Schema(type = "STRING", description = "Artist name."),
-            "sort" to Schema(type = "STRING", description = "Sort order: price_asc, price_desc, name_asc.")
+            "sort" to Schema(type = "STRING", description = "Sort order: price_asc, price_desc, name_asc."),
+            "limit" to Schema(type = "INTEGER", description = "Limit the number of results (default 20, max 50).")
         ),
         required = emptyList()
     )
@@ -87,18 +89,22 @@ class SearchCardsTool(private val repository: CardRepository) : AgentTool {
         val rarity = parameters["rarity"] as? String
         val illustrator = parameters["illustrator"] as? String
         val sort = parameters["sort"] as? String
+        val limit = (parameters["limit"] as? Number)?.toInt() ?: 20
 
-        if (query.isNullOrBlank() && setId.isNullOrBlank() && type.isNullOrBlank() && rarity.isNullOrBlank() && illustrator.isNullOrBlank()) {
-             return "{ \"error\": \"Fehler: Bitte gib mindestens einen Filter an (Name, Set, Typ, etc.).\" }"
+        // Allow search if at least one filter OR a sort order is provided
+        if (query.isNullOrBlank() && setId.isNullOrBlank() && type.isNullOrBlank() && 
+            rarity.isNullOrBlank() && illustrator.isNullOrBlank() && sort.isNullOrBlank()) {
+             return "{ \"error\": \"Fehler: Bitte gib mindestens einen Filter an (Name, Set, Typ, etc.) oder eine Sortierung.\" }"
         }
 
         val filtered = repository.searchCards(
-            query = if (query == "null") null else query,
-            type = if (type == "null") null else type,
-            sort = if (sort == "null") null else sort,
-            setId = if (setId == "null") null else setId,
-            rarity = if (rarity == "null") null else rarity,
-            illustrator = if (illustrator == "null") null else illustrator
+            query = if (query == "null" || query.isNullOrBlank()) null else query,
+            type = if (type == "null" || type.isNullOrBlank()) null else type,
+            sort = if (sort == "null" || sort.isNullOrBlank()) null else sort,
+            setId = if (setId == "null" || setId.isNullOrBlank()) null else setId,
+            rarity = if (rarity == "null" || rarity.isNullOrBlank()) null else rarity,
+            illustrator = if (illustrator == "null" || illustrator.isNullOrBlank()) null else illustrator,
+            limit = limit.coerceIn(1, 50)
         )
 
         val result = buildJsonObject {
