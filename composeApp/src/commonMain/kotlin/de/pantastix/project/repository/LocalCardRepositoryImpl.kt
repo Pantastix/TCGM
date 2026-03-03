@@ -241,6 +241,23 @@ class LocalCardRepositoryImpl(
         }
     }
 
+    override suspend fun getAllTypeReferences(): List<de.pantastix.project.model.TypeReference> {
+        return withContext(ioDispatcher) {
+            queries.selectAllTypes().executeAsList().map { entity ->
+                de.pantastix.project.model.TypeReference(
+                    id = entity.id,
+                    name_de = entity.name_de,
+                    name_en = entity.name_en,
+                    name_fr = entity.name_fr,
+                    name_es = entity.name_es,
+                    name_it = entity.name_it,
+                    name_pt = entity.name_pt,
+                    name_jp = entity.name_jp
+                )
+            }
+        }
+    }
+
     override suspend fun searchCards(
         query: String?,
         type: String?,
@@ -253,13 +270,31 @@ class LocalCardRepositoryImpl(
         println("LocalCardRepository: Searching for '$query', type='$type', sort='$sort', setId='$setId', rarity='$rarity', limit=$limit")
         
         return withContext(ioDispatcher) {
+            // Find all translated names for the given type to make search language independent
+            val typeSearchTerms = if (!type.isNullOrBlank()) {
+                val refs = getAllTypeReferences()
+                val matchedRef = refs.find { ref ->
+                    ref.id.equals(type, ignoreCase = true) || 
+                    ref.getAllNames().any { it.equals(type, ignoreCase = true) }
+                }
+                matchedRef?.getAllNames() ?: listOf(type)
+            } else null
+
+            // SQLDelight doesn't support dynamic OR for list of terms easily in advancedSearch without custom SQL
+            // So we fetch all and filter in memory for the complex type OR logic, or we use a simplified approach.
+            // For local, performance is usually fine to filter types in memory if typeSearchTerms is not null.
+            
             val results = queries.advancedSearch(
                 query = query,
                 setId = setId,
-                type = type,
+                type = if (typeSearchTerms != null) null else null, // We handle type manually below if multiple terms
                 rarity = rarity,
                 illustrator = illustrator
-            ).executeAsList().map { result ->
+            ).executeAsList().filter { entity ->
+                if (typeSearchTerms == null) return@filter true
+                val cardTypes = entity.types?.split(",")?.map { it.trim().lowercase() } ?: emptyList()
+                typeSearchTerms.any { term -> cardTypes.contains(term.lowercase()) }
+            }.map { result ->
                 PokemonCardInfo(
                     id = result.id,
                     tcgDexCardId = result.tcgDexCardId,

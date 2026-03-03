@@ -77,6 +77,8 @@ val commonModule = module {
     single { GeminiService(client = get()) }
     single { GeminiCloudService(client = get()) }
     single { OllamaService(client = get()) }
+    single { de.pantastix.project.service.TypeService(repository = get()) }
+    single { de.pantastix.project.ai.migration.SupabaseMigrationManager() }
 
     // Der Haupt-API-Service, der an andere Komponenten injiziert wird.
     // Er kombiniert die Funktionalität der beiden anderen Services.
@@ -97,7 +99,9 @@ val commonModule = module {
             geminiService = get(),
             geminiCloudService = get(),
             ollamaService = get(),
-            toolRegistry = get()
+            toolRegistry = get(),
+            migrationManager = get<de.pantastix.project.ai.migration.SupabaseMigrationManager>(),
+            typeService = get()
         )
     }
 }

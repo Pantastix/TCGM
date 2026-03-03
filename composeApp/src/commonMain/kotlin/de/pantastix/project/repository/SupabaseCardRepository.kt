@@ -272,6 +272,15 @@ class SupabaseCardRepository(
 
     override suspend fun findExistingCard(setId: String, localId: String, language: String): PokemonCardInfo? = null
 
+    override suspend fun getAllTypeReferences(): List<de.pantastix.project.model.TypeReference> {
+        return try {
+            postgrest.from("TypeReference").select().decodeList<de.pantastix.project.model.TypeReference>()
+        } catch (e: Exception) {
+            println("SupabaseCardRepository: Error fetching type references: ${e.message}")
+            emptyList()
+        }
+    }
+
     override suspend fun searchCards(
         query: String?,
         type: String?,
@@ -281,22 +290,16 @@ class SupabaseCardRepository(
         illustrator: String?,
         limit: Int
     ): List<PokemonCardInfo> {
-        // Map of English types to all supported language variations
-        val typeTranslations = mapOf(
-            "water" to listOf("Water", "Wasser", "Eau", "Agua", "Acqua", "Água", "水"),
-            "fire" to listOf("Fire", "Feuer", "Feu", "Fuego", "Fuoco", "Fogo", "炎"),
-            "grass" to listOf("Grass", "Pflanze", "Plante", "Planta", "Erba", "草"),
-            "lightning" to listOf("Lightning", "Elektro", "Électrique", "Eléctrico", "Elettro", "Elétrico", "雷"),
-            "psychic" to listOf("Psychic", "Psycho", "Psy", "Psíquico", "Psichico", "超"),
-            "fighting" to listOf("Fighting", "Kampf", "Combat", "Lucha", "Lotta", "Luta", "闘"),
-            "darkness" to listOf("Darkness", "Finsternis", "Obscurité", "Oscuridad", "Oscurità", "Escuridão", "悪"),
-            "metal" to listOf("Metal", "Metall", "Métal", "Metallo", "鋼"),
-            "dragon" to listOf("Dragon", "Drache", "Dragón", "Drago", "Dragão", "竜"),
-            "colorless" to listOf("Colorless", "Farblos", "Incolore", "Incolora", "Incolore", "無"),
-            "fairy" to listOf("Fairy", "Fee", "Fée", "Hada", "Folletto", "Fada", "フェアリー")
-        )
-
-        val searchTerms = type?.lowercase()?.let { typeTranslations[it] } ?: type?.let { listOf(it) } ?: emptyList()
+        // Find translations for the provided type
+        val searchTerms = if (!type.isNullOrBlank()) {
+             val refs = getAllTypeReferences()
+             // Try to find a reference where the input type matches ID or any name
+             val matchedRef = refs.find { ref ->
+                 ref.id.equals(type, ignoreCase = true) || 
+                 ref.getAllNames().any { it.equals(type, ignoreCase = true) }
+             }
+             matchedRef?.getAllNames() ?: listOf(type)
+        } else emptyList()
 
         println("SupabaseCardRepository: Searching for query='$query' types=$searchTerms sort='$sort' setId='$setId' limit=$limit in $cardsTable")
         try {

@@ -55,7 +55,7 @@ class SearchSetsTool(private val repository: CardRepository) : AgentTool {
 
 class SearchCardsTool(private val repository: CardRepository) : AgentTool {
     override val name = "search_cards"
-    override val description = "Sucht Karten in der Sammlung. Unterstützt Filter nach Name, Set, Typ, Seltenheit und Künstler."
+    override val description = "Sucht Karten in der Sammlung. Unterstützt Filter nach Name, Set, Typ (sprachunabhängig, z.B. 'Water' oder 'Wasser'), Seltenheit und Künstler."
     override val parameterSchemaJson = """
         {
           "query": "String? (Name)",

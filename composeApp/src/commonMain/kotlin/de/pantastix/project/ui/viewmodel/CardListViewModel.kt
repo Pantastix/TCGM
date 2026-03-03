@@ -135,6 +135,8 @@ class CardListViewModel(
     private val geminiCloudService: GeminiCloudService,
     private val ollamaService: OllamaService,
     private val toolRegistry: de.pantastix.project.ai.tool.ToolRegistry,
+    private val migrationManager: de.pantastix.project.ai.migration.MigrationManager,
+    private val typeService: de.pantastix.project.service.TypeService,
     private val viewModelScope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher)
 ) {
     private val _uiState = MutableStateFlow(UiState())
@@ -166,6 +168,10 @@ class CardListViewModel(
 
             _uiState.update { it.copy(loadingMessage = "Prüfe Cloud-Verbindung...") }
             initializeSupabaseConnection()
+
+            // Initial Type Loading
+            typeService.setRepository(activeCardRepository)
+            typeService.refresh()
 
             val isFirstLaunch = activeCardRepository.isSetStorageEmpty()
 
@@ -951,11 +957,23 @@ class CardListViewModel(
         try {
             val supabase = createSupabaseClient(url, key) { install(Postgrest) }
             supabase.postgrest.from("PokemonCardEntity").select { limit(1) }
+            
+            // Run migrations
+            try {
+                migrationManager.migrateToLatest(supabase.postgrest)
+            } catch (e: Exception) {
+                println("Cloud Migration Error during auto-connect: ${e.message}")
+            }
+
             remoteCardRepository = SupabaseCardRepository(supabase.postgrest)
+            typeService.setRepository(remoteCardRepository!!)
+            typeService.refresh()
+            
             _uiState.update { it.copy(isSupabaseConnected = true) }
             reinitializeTools()
         } catch (e: Exception) {
             remoteCardRepository = null
+            typeService.setRepository(localCardRepository)
             _uiState.update { it.copy(isSupabaseConnected = false) }
         }
     }
@@ -966,9 +984,21 @@ class CardListViewModel(
             try {
                 val supabase = createSupabaseClient(url, key) { install(Postgrest) }
                 supabase.postgrest.from("PokemonCardEntity").select { limit(1) }
+                
+                // Connection successful, now run migrations before saving settings
+                setLoading(true, "Synchronisiere Cloud-Datenbank...")
+                try {
+                    migrationManager.migrateToLatest(supabase.postgrest)
+                } catch (e: Exception) {
+                    println("Migration error on new connection: ${e.message}")
+                }
+
                 settingsRepository.saveSetting("supabase_url", url)
                 settingsRepository.saveSetting("supabase_key", key)
                 remoteCardRepository = SupabaseCardRepository(supabase.postgrest)
+                typeService.setRepository(remoteCardRepository!!)
+                typeService.refresh()
+
                 _uiState.update { it.copy(isSupabaseConnected = true, supabaseKey = key, supabaseUrl = url) }
                 reinitializeTools()
                 loadSets().join()
@@ -1004,6 +1034,9 @@ class CardListViewModel(
             settingsRepository.saveSetting("supabase_url", "")
             settingsRepository.saveSetting("supabase_key", "")
             remoteCardRepository = null
+            typeService.setRepository(localCardRepository)
+            typeService.refresh()
+
             _uiState.update { it.copy(isSupabaseConnected = false, supabaseUrl = "", supabaseKey = "") }
             reinitializeTools()
             loadSets().join()
@@ -1210,5 +1243,9 @@ class CardListViewModel(
     fun clearSelectedCard() = _uiState.update { it.copy(selectedCardDetails = null) }
     fun resetApiCardDetails() {
         _uiState.update { it.copy(apiCardDetails = null, englishApiCardDetails = null, searchedCardLanguage = null) }
+    }
+
+    fun translateType(localTypeName: String): String {
+        return typeService.translate(localTypeName, uiState.value.appLanguage.code)
     }
 }

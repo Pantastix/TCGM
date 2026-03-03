@@ -195,3 +195,26 @@ DELETE FROM PokemonCardEntity WHERE id = ?;
 
 clearAllPokemonCards:
 DELETE FROM PokemonCardEntity;
+
+
+--------------------------------------------------
+-- Typen-Referenz (TypeReference)
+--------------------------------------------------
+
+CREATE TABLE TypeReference (
+    id TEXT PRIMARY KEY,
+    name_de TEXT NOT NULL,
+    name_en TEXT NOT NULL,
+    name_fr TEXT,
+    name_es TEXT,
+    name_it TEXT,
+    name_pt TEXT,
+    name_jp TEXT
+);
+
+selectAllTypes:
+SELECT * FROM TypeReference;
+
+insertType:
+INSERT OR REPLACE INTO TypeReference (id, name_de, name_en, name_fr, name_es, name_it, name_pt, name_jp)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);

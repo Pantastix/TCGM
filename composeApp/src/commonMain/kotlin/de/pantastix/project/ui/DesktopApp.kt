@@ -256,8 +256,10 @@ fun DesktopApp(
                                 onBack = { viewModel.clearSelectedCard() },
                                 onEdit = { isEditing = true }, // Wechselt in den Bearbeitungsmodus
                                 onDelete = { viewModel.deleteSelectedCard() }, // Ruft die neue Löschfunktion auf
-                                onRefreshPrice = { cardToRefresh -> viewModel.refreshCardPrice(cardToRefresh) }
+                                onRefreshPrice = { cardToRefresh -> viewModel.refreshCardPrice(cardToRefresh) },
+                                translateType = { viewModel.translateType(it) }
                             )
+
                         }
                     }
                 }

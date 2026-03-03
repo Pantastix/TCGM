@@ -41,7 +41,8 @@ fun CardDetailScreen(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onRefreshPrice: (PokemonCard) -> Unit
+    onRefreshPrice: (PokemonCard) -> Unit,
+    translateType: (String) -> String
 ) {
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
@@ -125,7 +126,7 @@ fun CardDetailScreen(
                         ) {
                             InfoChip(stringResource(MR.strings.card_details_rarity), card.rarity ?: "N/A")
                             InfoChip(stringResource(MR.strings.card_details_hp), card.hp?.toString() ?: "N/A")
-                            InfoChip(stringResource(MR.strings.card_details_types), card.types.joinToString(", "))
+                            InfoChip(stringResource(MR.strings.card_details_types), card.types.joinToString(", ") { translateType(it) })
                         }
 
                         HorizontalDivider()

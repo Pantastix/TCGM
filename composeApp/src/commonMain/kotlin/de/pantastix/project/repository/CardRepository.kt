@@ -57,6 +57,9 @@ interface CardRepository {
         limit: Int = 50
     ): List<PokemonCardInfo>
 
+    // --- Typen-Referenz ---
+    suspend fun getAllTypeReferences(): List<de.pantastix.project.model.TypeReference>
+
     suspend fun searchSets(query: String): List<SetInfo>
 
     /** Löscht eine Karte anhand ihrer Sammlungs-ID. */

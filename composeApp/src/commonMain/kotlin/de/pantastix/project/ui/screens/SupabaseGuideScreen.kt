@@ -93,9 +93,35 @@ fun SupabaseGuideScreen(onBack: () -> Unit) {
             CONSTRAINT one_row CHECK (id = 1)
         );
 
-        INSERT INTO public.schema_version (id, version) VALUES (1, 1);
-        
+        -- Start auf Version 2 (entspricht App v1.1.0)
+        INSERT INTO public.schema_version (id, version) VALUES (1, 2);
+
+        CREATE TABLE public."TypeReference" (
+            "id" TEXT PRIMARY KEY,
+            "name_de" TEXT NOT NULL,
+            "name_en" TEXT NOT NULL,
+            "name_fr" TEXT,
+            "name_es" TEXT,
+            "name_it" TEXT,
+            "name_pt" TEXT,
+            "name_jp" TEXT
+        );
+
+        INSERT INTO public."TypeReference" (id, name_de, name_en, name_fr, name_jp) VALUES 
+        ('water', 'Wasser', 'Water', 'Eau', '水'),
+        ('fire', 'Feuer', 'Fire', 'Feu', '炎'),
+        ('grass', 'Pflanze', 'Grass', 'Plante', '草'),
+        ('lightning', 'Elektro', 'Lightning', 'Électrique', '雷'),
+        ('psychic', 'Psycho', 'Psychic', 'Psy', '超'),
+        ('fighting', 'Kampf', 'Fighting', 'Lucha', '闘'),
+        ('darkness', 'Unlicht', 'Darkness', 'Obscurité', '悪'),
+        ('metal', 'Metall', 'Metal', 'Métal', '鋼'),
+        ('dragon', 'Drache', 'Dragon', 'Dragon', '竜'),
+        ('colorless', 'Farblos', 'Colorless', 'Incolore', '無'),
+        ('fairy', 'Fee', 'Fairy', 'Fée', 'フェアリー');
+
         CREATE OR REPLACE FUNCTION public.execute_migration(sql_command TEXT)
+
         RETURNS void AS $$
         BEGIN
             EXECUTE sql_command;
