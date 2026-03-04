@@ -52,8 +52,7 @@ object AiModelRegistry {
         }
 
         if (provider == AiProviderType.CLAUDE_CLOUD) {
-            // Placeholder for Claude strategy
-            return null
+            return de.pantastix.project.ai.strategy.claude.ClaudeNativeStrategy()
         }
         
         return null
@@ -182,6 +181,12 @@ object AiModelRegistry {
 
         // CLAUDE CLOUD
         ModelFamilyDefinition(
+            id = "claude-3-7-sonnet",
+            displayName = "Claude 3.7 Sonnet",
+            category = ModelCategory.CLAUDE_CLOUD,
+            modelIdPattern = Regex("""claude-3-7-sonnet.*""", RegexOption.IGNORE_CASE)
+        ),
+        ModelFamilyDefinition(
             id = "claude-3-5-sonnet",
             displayName = "Claude 3.5 Sonnet",
             category = ModelCategory.CLAUDE_CLOUD,
@@ -198,6 +203,18 @@ object AiModelRegistry {
             displayName = "Claude 3 Opus",
             category = ModelCategory.CLAUDE_CLOUD,
             modelIdPattern = Regex("""claude-3-opus.*""", RegexOption.IGNORE_CASE)
+        ),
+        ModelFamilyDefinition(
+            id = "claude-3-sonnet",
+            displayName = "Claude 3 Sonnet",
+            category = ModelCategory.CLAUDE_CLOUD,
+            modelIdPattern = Regex("""claude-3-sonnet.*""", RegexOption.IGNORE_CASE)
+        ),
+        ModelFamilyDefinition(
+            id = "claude-3-haiku",
+            displayName = "Claude 3 Haiku",
+            category = ModelCategory.CLAUDE_CLOUD,
+            modelIdPattern = Regex("""claude-3-haiku.*""", RegexOption.IGNORE_CASE)
         )
     )
 
