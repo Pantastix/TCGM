@@ -11,7 +11,8 @@ class ToolRegistry {
         return listOf(
             SearchCardsTool(repository),
             GetInventoryStatsTool(repository),
-            SearchSetsTool(repository)
+            SearchSetsTool(repository),
+            UpdateCardQuantityTool(repository)
         )
     }
 }

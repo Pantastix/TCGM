@@ -3,10 +3,7 @@ package de.pantastix.project.ai.tool
 import de.pantastix.project.repository.CardRepository
 import de.pantastix.project.model.gemini.Schema
 import kotlinx.coroutines.flow.first
-import kotlinx.serialization.json.add
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.*
 
 class SearchSetsTool(private val repository: CardRepository) : AgentTool {
     override val name = "search_sets"
@@ -133,49 +130,141 @@ class SearchCardsTool(private val repository: CardRepository) : AgentTool {
 
 class GetInventoryStatsTool(private val repository: CardRepository) : AgentTool {
     override val name = "get_inventory_stats"
-    override val description = "Gibt Statistiken über die Sammlung (Gesamtwert, Anzahl). NICHT für Informationen zu einzelnen Karten verwenden (nutze dafür search_cards)."
+    override val description = "Gibt Statistiken über die Sammlung (Gesamtwert, Anzahl). WICHTIG: Nutze dieses Tool NUR für Übersichtswerte. Benutze search_cards für Informationen zu spezifischen Karten. NICHT raten."
     override val parameterSchemaJson = """
         {
-          "set_id": "String? (Optional: Filtert Statistiken nur für dieses Set)"
+          "set_id": "String? (Optional: Filtert Statistiken nur für dieses Set)",
+          "sort_by": "String? (Nur relevant wenn set_id fehlt: 'value_desc', 'value_asc', 'count_desc', 'age_desc', 'age_asc')"
         }
     """.trimIndent()
 
     override val schema = Schema(
         type = "OBJECT",
         properties = mapOf(
-            "set_id" to Schema(type = "STRING", description = "Optional: Calculate stats only for this specific Set ID.")
+            "set_id" to Schema(type = "STRING", description = "Optional: Calculate stats only for this specific Set ID."),
+            "sort_by" to Schema(type = "STRING", description = "Optional: If set_id is null, sort the set breakdown by: value_desc, count_desc, age_desc, etc.")
         )
     )
 
     override suspend fun execute(parameters: Map<String, Any?>): String {
         val setId = parameters["set_id"] as? String
+        val sortBy = parameters["sort_by"] as? String ?: "value_desc"
         val cleanSetId = if (setId == "null" || setId.isNullOrBlank()) null else setId
 
-        // TODO: This loads all cards into memory, which is fine for < 20k cards but could be optimized with a direct SQL count query later.
         val allCards = repository.getCardInfos().first()
+        val allSets = repository.fetchAllSetsOnce()
         
-        val filteredCards = if (cleanSetId != null) {
-            // Since we don't have setId in PokemonCardInfo directly available without lookup or if repository doesn't filter it
-            // We need to rely on the fact that we might need to fetch full details OR assume the repository call handles filtering.
-            // CURRENTLY: Repository.getCardInfos returns ALL.
-            // Ideally, we should add `getInventoryStats(setId)` to the Repository.
-            // For now, let's filter in memory if possible, but PokemonCardInfo lacks setId field in the simple view!
-            // Wait, I updated PokemonCardInfo? Let me check.
-            // The view `PokemonCardInfo` has `tcgDexCardId` (e.g. "sv1-001"), so we can extract set ID? NO, that's brittle.
-            // Repository `searchCards` returns `PokemonCardInfo`. Let's use `searchCards` with set_id if provided!
-            repository.searchCards(query = "", setId = cleanSetId)
-        } else {
-            allCards
-        }
+        if (cleanSetId != null) {
+            // Stats for a SPECIFIC set
+            val filteredCards = repository.searchCards(query = "", setId = cleanSetId)
+            val totalValue = filteredCards.sumOf { (it.currentPrice ?: 0.0) * it.ownedCopies }
+            val totalCopies = filteredCards.sumOf { it.ownedCopies }
+            val setInfo = allSets.find { it.setId == cleanSetId }
 
-        val totalValue = filteredCards.sumOf { (it.currentPrice ?: 0.0) * it.ownedCopies }
-        val totalCopies = filteredCards.sumOf { it.ownedCopies }
+            return buildJsonObject {
+                put("set_name", setInfo?.nameLocal ?: cleanSetId)
+                put("set_id", cleanSetId)
+                put("unique_cards_count", filteredCards.size)
+                put("total_cards_count", totalCopies)
+                put("total_market_value", totalValue)
+                put("currency", "EUR")
+            }.toString()
+        } else {
+            // GLOBAL Stats + Set Breakdown
+            val globalValue = allCards.sumOf { (it.currentPrice ?: 0.0) * it.ownedCopies }
+            val globalCopies = allCards.sumOf { it.ownedCopies }
+            
+            // Group cards by set name (since we don't have setId directly in PokemonCardInfo view yet)
+            val setBreakdown = allCards.groupBy { it.setName }.map { (setName, cards) ->
+                val setInfo = allSets.find { it.nameLocal == setName }
+                buildJsonObject {
+                    put("name", setName)
+                    put("id", setInfo?.setId ?: "unknown")
+                    put("unique_count", cards.size)
+                    put("total_count", cards.sumOf { it.ownedCopies })
+                    put("value", cards.sumOf { (it.currentPrice ?: 0.0) * it.ownedCopies })
+                    put("release_date", setInfo?.releaseDate ?: "9999-99-99")
+                }
+            }
+
+            val sortedBreakdown = when (sortBy) {
+                "value_desc" -> setBreakdown.sortedByDescending { it["value"]?.jsonPrimitive?.double ?: 0.0 }
+                "value_asc" -> setBreakdown.sortedBy { it["value"]?.jsonPrimitive?.double ?: 0.0 }
+                "count_desc" -> setBreakdown.sortedByDescending { it["total_count"]?.jsonPrimitive?.int ?: 0 }
+                "age_desc" -> setBreakdown.sortedByDescending { it["release_date"]?.jsonPrimitive?.content ?: "" }
+                "age_asc" -> setBreakdown.sortedBy { it["release_date"]?.jsonPrimitive?.content ?: "" }
+                else -> setBreakdown.sortedByDescending { it["value"]?.jsonPrimitive?.double ?: 0.0 }
+            }
+
+            return buildJsonObject {
+                put("summary", buildJsonObject {
+                    put("total_unique_cards", allCards.size)
+                    put("total_physical_cards", globalCopies)
+                    put("total_market_value", globalValue)
+                    put("currency", "EUR")
+                })
+                putJsonArray("top_sets") {
+                    sortedBreakdown.take(10).forEach { add(it) }
+                }
+                put("total_sets_in_collection", setBreakdown.size)
+                put("note", "Showing top 10 sets by $sortBy. Use set_id for details on other sets.")
+            }.toString()
+        }
+    }
+}
+
+class UpdateCardQuantityTool(private val repository: CardRepository) : AgentTool {
+    override val name = "update_card_quantity"
+    override val description = "Aktualisiert die Anzahl der Exemplare einer Karte in der Sammlung. Gibt die neue Gesamtanzahl zurück."
+    override val parameterSchemaJson = """
+        {
+          "tcg_dex_card_id": "String (Die eindeutige API-ID der Karte, z.B. 'sv1-1', aus search_cards)",
+          "language": "String? (Sprachcode, Standard: de)",
+          "change": "Int (Betrag der Änderung, z.B. +1 oder -2)"
+        }
+    """.trimIndent()
+
+    override val schema = Schema(
+        type = "OBJECT",
+        properties = mapOf(
+            "tcg_dex_card_id" to Schema(type = "STRING", description = "The unique card ID (e.g., 'sv3pt5-1')."),
+            "language" to Schema(type = "STRING", description = "The language of the card (e.g., 'de', 'en'). Defaults to 'de'."),
+            "change" to Schema(type = "INTEGER", description = "The amount to add or subtract (e.g., 1, -1).")
+        ),
+        required = listOf("tcg_dex_card_id", "change")
+    )
+
+    override suspend fun execute(parameters: Map<String, Any?>): String {
+        val tcgDexId = parameters["tcg_dex_card_id"] as? String ?: return "{ \"error\": \"ID fehlt.\" }"
+        val language = parameters["language"] as? String ?: "de"
+        val change = (parameters["change"] as? Number)?.toInt() ?: 0
+
+        if (change == 0) return "{ \"error\": \"Keine Änderung angegeben.\" }"
+
+        val cardInfo = repository.findCardByTcgDexId(tcgDexId, language)
+            ?: return "{ \"error\": \"Karte nicht in der Sammlung gefunden (ID: $tcgDexId, Lang: $language).\" }"
+
+        val fullCard = repository.getFullCardDetails(cardInfo.id) ?: return "{ \"error\": \"Konnte Kartendetails nicht laden.\" }"
+        val newCount = (cardInfo.ownedCopies + change).coerceAtLeast(0)
+
+        repository.updateCardUserData(
+            cardId = cardInfo.id,
+            ownedCopies = newCount,
+            notes = fullCard.notes,
+            currentPrice = fullCard.currentPrice,
+            lastPriceUpdate = fullCard.lastPriceUpdate,
+            selectedPriceSource = fullCard.selectedPriceSource,
+            gradedCopies = fullCard.gradedCopies
+        )
 
         return buildJsonObject {
-            put("filter_set_id", cleanSetId ?: "all")
-            put("unique_cards_count", filteredCards.size)
-            put("total_cards_count", totalCopies)
-            put("total_market_value", totalValue)
+            put("success", true)
+            put("card_name", cardInfo.nameLocal)
+            put("tcg_dex_id", tcgDexId)
+            put("language", language)
+            put("previous_count", cardInfo.ownedCopies)
+            put("new_total_count", newCount)
+            put("change_applied", change)
         }.toString()
     }
 }

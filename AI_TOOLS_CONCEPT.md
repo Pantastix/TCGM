@@ -26,9 +26,12 @@ These tools are approved for the next development phase.
 *   **Purpose:** Get statistics for a specific subset of the collection or the global total.
 *   **New Optional Parameters:**
     *   `set_id` (String): Calculates value and counts ONLY for the specified set.
+*   ** New Optional Sort Parameter:**
+    *   `sort_by` (String): "value_desc", "value_asc", "count_desc" "Age_asc/Desc", etc. to sort the output by different metrics.
 *   **New Metrics:**
     *   `unique_cards_count`: Number of distinct card entries (ignoring duplicates).
     *   `total_cards_count`: Total number of physical cards (sum of owned copies).
+    *   `total_value`: Total estimated value of the specified subset.
 *   **Anti-Hallucination/Misuse Rule:** The tool description must explicitly state: "DO NOT use this tool to find information about a single specific card. Use `search_cards` for that."
 *   **Use Case:** "How much is my Paldea Evolved collection worth?" vs "How much is my whole collection worth?"
 
@@ -49,6 +52,9 @@ These tools are approved for the next development phase.
     *   Input: `set_id`.
     *   Output: Completion status (e.g., "150/165 cards owned", "91% complete").
     *   Advanced: Could list specific missing "Chase Cards" (high rarity) to give context without dumping the whole missing list.
+
+### Value: "how has the value of all cards changed" Based of the Value menu point
+
 
 ---
 
@@ -90,3 +96,6 @@ Here are further safe, high-value tool ideas:
 *   **System Prompt Instruction:** "If you discuss a specific card and have its image URL, embed it using Markdown syntax at a relevant place in your answer."
 *   **Benefit:** Visually rich chat without the overhead/latency of extra tool round-trips.
 
+## 5. Multi agent
+*   **Concept:** In the future, we could have specialized agents (e.g., "Value Agent", "Collection Agent") that have access to different subsets of tools. This would allow for more focused and efficient interactions.
+*   ** Add A Agent for free search across designated api endpoints to find cards not in the collection and maybe add them?

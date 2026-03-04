@@ -120,7 +120,7 @@ class ClaudeNativeStrategy : AiWorkflowStrategy {
                 tools = claudeTools,
                 stream = true,
                 thinking = thinkingConfig,
-                max_tokens = maxTokens
+                maxTokens = maxTokens
             ),
             urlSuffix = "/v1/messages"
         )
