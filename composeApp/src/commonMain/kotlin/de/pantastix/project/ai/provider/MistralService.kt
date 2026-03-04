@@ -88,7 +88,9 @@ class MistralService(private val client: HttpClient) : AiService {
             return@flow
         }
         
-        val strategyRequest = strategy.createRequest(prompt, chatHistory, config, availableTools)
+        // Create a fresh strategy instance per stream to ensure fresh parser state
+        val requestStrategy = de.pantastix.project.ai.strategy.mistral.MistralNativeStrategy()
+        val strategyRequest = requestStrategy.createRequest(prompt, chatHistory, config, availableTools)
         val buffer = StringBuilder()
 
         try {
@@ -114,7 +116,12 @@ class MistralService(private val client: HttpClient) : AiService {
                     val line = channel.readUTF8Line() ?: break
                     if (line.isBlank()) continue
                     
-                    val responses = strategy.parseStreamChunk(line, buffer)
+                    // DEBUG: Print raw chunks
+                    if (line.startsWith("data: ") && line != "data: [DONE]") {
+                         // println("[MISTRAL RAW] $line") 
+                    }
+                    
+                    val responses = requestStrategy.parseStreamChunk(line, buffer)
                     responses.forEach { emit(it) }
                 }
             }

@@ -9,12 +9,16 @@ import kotlinx.serialization.json.*
 
 class MistralNativeStrategy : AiWorkflowStrategy {
     override val providerType = AiProviderType.MISTRAL_CLOUD
-    override val modelIdRegex = Regex(""".*""", RegexOption.IGNORE_CASE) // General strategy for all Mistral models
+    override val modelIdRegex = Regex(""".*""", RegexOption.IGNORE_CASE) 
 
     private val json = Json { 
         ignoreUnknownKeys = true 
         encodeDefaults = false 
     }
+
+    // Parser State for Streaming
+    private var parserState = ParserState.CONTENT
+    private enum class ParserState { CONTENT, THINKING }
 
     override fun createUiModel(apiModelData: Any): de.pantastix.project.ai.AiModel {
         val apiModel = apiModelData as MistralModelCard
@@ -42,10 +46,10 @@ class MistralNativeStrategy : AiWorkflowStrategy {
     ): StrategyRequest {
         val messages = mutableListOf<MistralMessage>()
 
-        // 1. System Prompt
-        if (!config.systemInstruction.isNullOrBlank()) {
-            messages.add(MistralMessage(role = "system", content = config.systemInstruction))
-        }
+        // 1. Enhanced System Prompt for Reasoning
+        val baseSystem = config.systemInstruction ?: "Du bist ein hilfreicher Assistent."
+        val reasoningInstruction = "\n\nPROTOCOL: Starte deine Antwort IMMER mit einem <think>...</think> Block, in dem du dein Vorgehen planst."
+        messages.add(MistralMessage(role = "system", content = baseSystem + reasoningInstruction))
 
         // 2. History
         chatHistory.forEach { msg ->
@@ -58,20 +62,26 @@ class MistralNativeStrategy : AiWorkflowStrategy {
                 ChatRole.ASSISTANT -> {
                     val toolCalls = msg.toolCall?.let {
                         listOf(MistralToolCall(
-                            id = msg.thoughtSignature ?: "call_${it.name}",
+                            id = msg.thoughtSignature ?: "", // Use real ID or empty (which will fail validation correctly)
                             function = MistralFunctionCall(it.name, json.encodeToString(mapToJsonObject(it.args)))
                         ))
                     }
-                    // CRITICAL: Assistant message MUST have content OR tool_calls.
-                    // If both are empty, Mistral returns 400.
-                    val content = msg.content.ifBlank { if (toolCalls == null) " " else null }
+                    
+                    val fullContent = buildString {
+                        if (!msg.thought.isNullOrBlank()) {
+                            append("<think>${msg.thought}</think>\n")
+                        }
+                        append(msg.content)
+                    }
+                    
+                    val content = fullContent.ifBlank { if (toolCalls == null) " " else null }
                     messages.add(MistralMessage(role = "assistant", content = content, toolCalls = toolCalls))
                 }
                 ChatRole.TOOL -> {
                     messages.add(MistralMessage(
                         role = "tool", 
                         content = msg.content, 
-                        toolCallId = msg.thoughtSignature ?: "call_${msg.toolResponse?.name}",
+                        toolCallId = msg.thoughtSignature ?: "",
                         name = msg.toolResponse?.name
                     ))
                 }
@@ -84,7 +94,7 @@ class MistralNativeStrategy : AiWorkflowStrategy {
             messages.add(MistralMessage(role = "user", content = prompt))
         }
 
-        // 4. Tools (with Lowercase Types)
+        // 4. Tools
         val mistralTools = if (availableTools.isNotEmpty()) {
             availableTools.mapNotNull { tool ->
                 tool.schema?.let { 
@@ -147,7 +157,13 @@ class MistralNativeStrategy : AiWorkflowStrategy {
                 return AiResponse.ToolCall(call.function.name, args, thoughtSignature = call.id)
             }
             
-            AiResponse.Text(msg.content ?: "")
+            val fullText = msg.content ?: ""
+            val thinkRegex = Regex("""<think>(.*?)</think>""", RegexOption.DOT_MATCHES_ALL)
+            val thinkMatch = thinkRegex.find(fullText)
+            val thought = thinkMatch?.groupValues?.get(1)?.trim()
+            val content = fullText.replace(thinkRegex, "").trim()
+            
+            AiResponse.Text(content, thought)
         } catch (e: Exception) {
             AiResponse.Error("Parse Error: ${e.message}")
         }
@@ -159,26 +175,21 @@ class MistralNativeStrategy : AiWorkflowStrategy {
         val data = line.substring(6).trim()
         if (data == "[DONE]") return emptyList()
 
-        return try {
+        val events = mutableListOf<AiResponse>()
+
+        try {
             val response = json.decodeFromString<MistralChunkResponse>(data)
             val choice = response.choices.firstOrNull() ?: return emptyList()
             val delta = choice.delta
             
             if (delta.toolCalls != null) {
                 val call = delta.toolCalls.first()
-                
-                // 1. Capture ID if present (usually only in the first chunk)
                 if (!call.id.isNullOrBlank()) {
-                    // Store ID at the beginning of the buffer using a delimiter
-                    // Format: "ID|ARGUMENTS"
                     buffer.setLength(0)
                     buffer.append(call.id).append("|")
                 }
-                
-                // 2. Accumulate arguments
                 buffer.append(call.function.arguments)
                 
-                // 3. Check for finish
                 if (choice.finishReason == "tool_calls") {
                     val content = buffer.toString()
                     val parts = content.split("|", limit = 2)
@@ -189,22 +200,75 @@ class MistralNativeStrategy : AiWorkflowStrategy {
                         json.decodeFromString<Map<String, JsonElement>>(allArgs).mapValues {
                             if (it.value is JsonPrimitive) it.value.jsonPrimitive.content else it.value.toString()
                         }
-                    } catch(e: Exception) { 
-                        println("[MISTRAL PARSE ERROR] Args: $allArgs")
-                        emptyMap() 
-                    }
+                    } catch(e: Exception) { emptyMap() }
                     
-                    return listOf(AiResponse.ToolCall(call.function.name, fullArgs, thoughtSignature = toolId))
+                    events.add(AiResponse.ToolCall(call.function.name, fullArgs, thoughtSignature = toolId))
+                    buffer.setLength(0)
                 }
-                emptyList()
             } else if (delta.content != null) {
-                listOf(AiResponse.Text(delta.content))
-            } else {
-                emptyList()
+                val newText = delta.content
+                buffer.append(newText)
+                
+                var loop = true
+                while (loop) {
+                    loop = false
+                    val currentBuffer = buffer.toString()
+                    
+                    when (parserState) {
+                        ParserState.CONTENT -> {
+                            val thinkIndex = currentBuffer.indexOf("<think>")
+                            if (thinkIndex != -1) {
+                                if (thinkIndex > 0) {
+                                    events.add(AiResponse.Text(currentBuffer.substring(0, thinkIndex)))
+                                }
+                                parserState = ParserState.THINKING
+                                buffer.delete(0, thinkIndex + 7)
+                                loop = true
+                            } else {
+                                // Delta logic
+                                val lastOpen = currentBuffer.lastIndexOf('<')
+                                if (lastOpen != -1 && lastOpen > currentBuffer.length - 7) {
+                                    if (lastOpen > 0) {
+                                        events.add(AiResponse.Text(currentBuffer.substring(0, lastOpen)))
+                                        buffer.delete(0, lastOpen)
+                                    }
+                                } else {
+                                    if (buffer.isNotEmpty()) {
+                                        events.add(AiResponse.Text(buffer.toString()))
+                                        buffer.setLength(0)
+                                    }
+                                }
+                            }
+                        }
+                        ParserState.THINKING -> {
+                            val closeIndex = currentBuffer.indexOf("</think>")
+                            if (closeIndex != -1) {
+                                events.add(AiResponse.Text("", currentBuffer.substring(0, closeIndex)))
+                                parserState = ParserState.CONTENT
+                                buffer.delete(0, closeIndex + 8)
+                                loop = true
+                            } else {
+                                // Delta logic
+                                val lastOpen = currentBuffer.lastIndexOf('<')
+                                if (lastOpen != -1 && lastOpen > currentBuffer.length - 8) {
+                                    if (lastOpen > 0) {
+                                        events.add(AiResponse.Text("", currentBuffer.substring(0, lastOpen)))
+                                        buffer.delete(0, lastOpen)
+                                    }
+                                } else {
+                                    if (buffer.isNotEmpty()) {
+                                        events.add(AiResponse.Text("", buffer.toString()))
+                                        buffer.setLength(0)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
-        } catch (e: Exception) {
-            emptyList()
-        }
+        } catch (e: Exception) {}
+        
+        return events
     }
 
     private fun mapToJsonObject(map: Map<String, Any?>): JsonObject {

@@ -57,6 +57,7 @@ data class AiConfig(
 data class ChatMessage(
     val role: ChatRole,
     val content: String,
+    val thought: String? = null,
     val thoughtSignature: String? = null,
     val toolCall: ToolCallData? = null,
     val toolResponse: ToolResponseData? = null

@@ -438,14 +438,16 @@ class CardListViewModel(
             val textPart = content.parts.find { it.text != null }?.text ?: ""
             val toolCallPart = content.parts.find { it.functionCall != null }?.functionCall
             val toolResponsePart = content.parts.find { it.functionResponse != null }?.functionResponse
-            val thoughtPart = content.parts.find { it.thought }?.text 
-                ?: content.thought 
-                ?: content.parts.find { it.thoughtSignature != null }?.thoughtSignature
+            
+            // New logic: Separate thought (reasoning) and thoughtSignature (technical ID)
+            val thoughtPart = content.parts.find { it.thought }?.text ?: content.thought
+            val signaturePart = content.parts.find { it.thoughtSignature != null }?.thoughtSignature
             
             ChatMessage(
                 role = role,
                 content = textPart,
-                thoughtSignature = thoughtPart,
+                thought = thoughtPart,
+                thoughtSignature = signaturePart,
                 toolCall = toolCallPart?.let { de.pantastix.project.ai.ToolCallData(it.name, it.args ?: emptyMap()) },
                 toolResponse = toolResponsePart?.let { ToolResponseData(name = it.name, result = it.response.toString()) }
             )
@@ -571,14 +573,17 @@ class CardListViewModel(
                      // 4. Add tool response to UI state
                      val toolResponseContent = Content(
                          role = "function",
-                         parts = listOf(Part(functionResponse = FunctionResponse(
-                             name = toolCallRes.toolName,
-                             response = try { 
-                                 Json.decodeFromString<JsonObject>(toolResult) 
-                             } catch(e: Exception) { 
-                                 buildJsonObject { put("result", toolResult) } 
-                             }
-                         )))
+                         parts = listOf(Part(
+                             functionResponse = FunctionResponse(
+                                 name = toolCallRes.toolName,
+                                 response = try { 
+                                     Json.decodeFromString<JsonObject>(toolResult) 
+                                 } catch(e: Exception) { 
+                                     buildJsonObject { put("result", toolResult) } 
+                                 }
+                             ),
+                             thoughtSignature = toolCallMsg.thoughtSignature
+                         ))
                      )
                      _uiState.update { it.copy(chatMessages = it.chatMessages + toolResponseContent) }
                      
