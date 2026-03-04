@@ -1,18 +1,30 @@
 package de.pantastix.project.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import de.pantastix.project.ai.AiProviderType
 import de.pantastix.project.shared.resources.MR
 import de.pantastix.project.ui.components.ErrorDialog
@@ -28,8 +40,7 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
     var supabaseUrl by remember(uiState.supabaseUrl) { mutableStateOf(uiState.supabaseUrl) }
     var supabaseKey by remember(uiState.supabaseKey) { mutableStateOf(uiState.supabaseKey) }
     var languageDropdownExpanded by remember { mutableStateOf(false) }
-    var geminiModelDropdownExpanded by remember { mutableStateOf(false) }
-    var ollamaModelDropdownExpanded by remember { mutableStateOf(false) }
+    var showAiDialog by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -76,105 +87,28 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
-            Text(stringResource(MR.strings.settings_ai_assistant), style = MaterialTheme.typography.titleLarge)
-
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                SegmentedButton(
-                    selected = uiState.selectedAiProvider == AiProviderType.GEMINI_CLOUD,
-                    onClick = { viewModel.setAiProvider(AiProviderType.GEMINI_CLOUD) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
+            // --- AI SECTION ---
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(stringResource(MR.strings.settings_ai_assistant), style = MaterialTheme.typography.titleLarge)
+                Button(
+                    onClick = { showAiDialog = true },
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    Text("Gemini Cloud")
-                }
-                SegmentedButton(
-                    selected = uiState.selectedAiProvider == AiProviderType.OLLAMA_LOCAL,
-                    onClick = { viewModel.setAiProvider(AiProviderType.OLLAMA_LOCAL) },
-                    shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
-                ) {
-                    Text("Ollama Local")
+                    Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Konfigurieren")
                 }
             }
 
-            if (uiState.selectedAiProvider == AiProviderType.GEMINI_CLOUD) {
-                OutlinedTextField(
-                    value = uiState.geminiApiKey,
-                    onValueChange = { viewModel.saveGeminiApiKey(it) },
-                    label = { Text(stringResource(MR.strings.settings_gemini_api_key_label)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !uiState.isLoading,
-                    singleLine = true
-                )
-
-                ExposedDropdownMenuBox(
-                    expanded = geminiModelDropdownExpanded && !uiState.isLoading,
-                    onExpandedChange = { if (!uiState.isLoading) geminiModelDropdownExpanded = !geminiModelDropdownExpanded }
-                ) {
-                    OutlinedTextField(
-                        value = uiState.selectedGeminiModel,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text(stringResource(MR.strings.settings_gemini_model_label)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = geminiModelDropdownExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth(),
-                        enabled = !uiState.isLoading && uiState.availableGeminiModels.isNotEmpty()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = geminiModelDropdownExpanded,
-                        onDismissRequest = { geminiModelDropdownExpanded = false }
-                    ) {
-                        uiState.availableGeminiModels.forEach { model ->
-                            DropdownMenuItem(
-                                text = { Text(model) },
-                                onClick = {
-                                    viewModel.selectGeminiModel(model)
-                                    geminiModelDropdownExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-            } else {
-                OutlinedTextField(
-                    value = uiState.ollamaHostUrl,
-                    onValueChange = { viewModel.saveOllamaHost(it) },
-                    label = { Text("Ollama Host URL") },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !uiState.isLoading,
-                    singleLine = true
-                )
-
-                ExposedDropdownMenuBox(
-                    expanded = ollamaModelDropdownExpanded && !uiState.isLoading,
-                    onExpandedChange = { if (!uiState.isLoading) ollamaModelDropdownExpanded = !ollamaModelDropdownExpanded }
-                ) {
-                    OutlinedTextField(
-                        value = uiState.selectedOllamaModel,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Ollama Model") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = ollamaModelDropdownExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth(),
-                        enabled = !uiState.isLoading && uiState.availableOllamaModels.isNotEmpty()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = ollamaModelDropdownExpanded,
-                        onDismissRequest = { ollamaModelDropdownExpanded = false }
-                    ) {
-                        uiState.availableOllamaModels.forEach { model ->
-                            DropdownMenuItem(
-                                text = { Text(model) },
-                                onClick = {
-                                    viewModel.selectOllamaModel(model)
-                                    ollamaModelDropdownExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
+            AiStatusSummary(uiState.aiProviders)
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
+            // --- CLOUD SYNC SECTION ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -284,6 +218,201 @@ fun SettingsScreen(viewModel: CardListViewModel = koinInject(), onNavigateToGuid
                             color = MaterialTheme.colorScheme.surface
                         )
                     }
+                }
+            }
+        }
+        
+        if (showAiDialog) {
+            AiConfigurationDialog(
+                uiState = uiState,
+                onDismiss = { showAiDialog = false },
+                onUpdateSettings = { type, key, url -> viewModel.updateAiProviderSettings(type, key, url) }
+            )
+        }
+    }
+}
+
+@Composable
+fun AiStatusSummary(providers: Map<AiProviderType, de.pantastix.project.ui.viewmodel.AiProviderStatus>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        providers.values.forEach { status ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = if (status.isConfigured) Icons.Default.CheckCircle else Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = if (status.isConfigured) Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "${status.label}: ",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = if (status.isConfigured) "Konfiguriert" else "Nicht konfiguriert",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (status.isConfigured) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AiConfigurationDialog(
+    uiState: de.pantastix.project.ui.viewmodel.UiState,
+    onDismiss: () -> Unit,
+    onUpdateSettings: (AiProviderType, String?, String?) -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(0.9f).fillMaxHeight(0.85f),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("KI-Dienste konfigurieren", style = MaterialTheme.typography.headlineSmall)
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Schließen")
+                    }
+                }
+                
+                HorizontalDivider()
+                
+                // Content
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        "Hier kannst du deine API-Keys und lokalen Instanzen verwalten. Die Modelle wählst du später direkt im Chat.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    AiProviderType.entries.forEach { type ->
+                        val status = uiState.aiProviders[type] ?: return@forEach
+                        ProviderConfigCard(
+                            status = status,
+                            onUpdate = { key, url -> onUpdateSettings(type, key, url) }
+                        )
+                    }
+                }
+                
+                HorizontalDivider()
+                
+                // Footer
+                Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.CenterEnd) {
+                    Button(onClick = onDismiss) {
+                        Text("Fertig")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ProviderConfigCard(
+    status: de.pantastix.project.ui.viewmodel.AiProviderStatus,
+    onUpdate: (String?, String?) -> Unit
+) {
+    var isEditing by remember { mutableStateOf(false) }
+    var tempKey by remember(status.apiKey) { mutableStateOf(status.apiKey) }
+    var tempUrl by remember(status.hostUrl) { mutableStateOf(status.hostUrl) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (status.isConfigured) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f) 
+                            else MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(1.dp, if (status.isConfigured) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) 
+                                    else MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(8.dp).clip(RoundedCornerShape(4.dp))
+                            .background(if (status.isConfigured) Color(0xFF4CAF50) else Color.Gray)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(status.label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+                
+                if (!isEditing) {
+                    IconButton(onClick = { isEditing = true }) {
+                        Icon(Icons.Default.Edit, contentDescription = "Bearbeiten", modifier = Modifier.size(20.dp))
+                    }
+                }
+            }
+            
+            if (isEditing) {
+                Spacer(Modifier.height(12.dp))
+                if (status.type == AiProviderType.OLLAMA_LOCAL) {
+                    OutlinedTextField(
+                        value = tempUrl,
+                        onValueChange = { tempUrl = it },
+                        label = { Text("Host URL") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = tempKey,
+                        onValueChange = { tempKey = it },
+                        label = { Text("API Key") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+                
+                Spacer(Modifier.height(12.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = { 
+                        isEditing = false
+                        tempKey = status.apiKey
+                        tempUrl = status.hostUrl
+                    }) {
+                        Text("Abbrechen")
+                    }
+                    Button(onClick = { 
+                        onUpdate(if (tempKey != status.apiKey) tempKey else null, if (tempUrl != status.hostUrl) tempUrl else null)
+                        isEditing = false 
+                    }) {
+                        Text("Speichern")
+                    }
+                }
+            } else {
+                if (status.isConfigured) {
+                    val displayValue = if (status.type == AiProviderType.OLLAMA_LOCAL) status.hostUrl else "••••••••••••••••"
+                    Text(
+                        text = displayValue,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 20.dp, top = 4.dp)
+                    )
                 }
             }
         }

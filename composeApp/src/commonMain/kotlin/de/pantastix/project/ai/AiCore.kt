@@ -4,7 +4,9 @@ import de.pantastix.project.ai.tool.AgentTool
 
 enum class AiProviderType {
     GEMINI_CLOUD,
-    OLLAMA_LOCAL
+    OLLAMA_LOCAL,
+    MISTRAL_CLOUD,
+    CLAUDE_CLOUD
 }
 
 data class AiModel(

@@ -8,6 +8,8 @@ import de.pantastix.project.ai.ChatMessage
 import de.pantastix.project.ai.ToolResponseData
 import de.pantastix.project.ai.provider.GeminiCloudService
 import de.pantastix.project.ai.provider.OllamaService
+import de.pantastix.project.ai.provider.MistralService
+import de.pantastix.project.ai.provider.ClaudeService
 import de.pantastix.project.coroutines.ioDispatcher
 import de.pantastix.project.model.Ability
 import de.pantastix.project.model.Attack
@@ -81,6 +83,16 @@ data class BulkUpdateProgress(
     val currentStepMessage: String? = null
 )
 
+data class AiProviderStatus(
+    val type: AiProviderType,
+    val isConfigured: Boolean,
+    val label: String,
+    val apiKey: String = "",
+    val hostUrl: String = "",
+    val availableModels: List<String> = emptyList(),
+    val selectedModel: String = ""
+)
+
 data class UiState(
     val isInitialized: Boolean = false,
     val cardInfos: List<PokemonCardInfo> = emptyList(),
@@ -115,14 +127,14 @@ data class UiState(
     val bulkUpdateProgress: BulkUpdateProgress = BulkUpdateProgress(),
     val canBulkUpdatePrices: Boolean = false,
     
-    // AI - Provider & Config
+    // AI - NEW STRUCTURE
     val selectedAiProvider: AiProviderType = AiProviderType.GEMINI_CLOUD,
-    val geminiApiKey: String = "",
-    val availableGeminiModels: List<String> = emptyList(),
-    val selectedGeminiModel: String = "models/gemini-3-flash-preview",
-    val ollamaHostUrl: String = "http://localhost:11434",
-    val availableOllamaModels: List<String> = emptyList(),
-    val selectedOllamaModel: String = "",
+    val aiProviders: Map<AiProviderType, AiProviderStatus> = mapOf(
+        AiProviderType.GEMINI_CLOUD to AiProviderStatus(AiProviderType.GEMINI_CLOUD, false, "Google Gemini"),
+        AiProviderType.OLLAMA_LOCAL to AiProviderStatus(AiProviderType.OLLAMA_LOCAL, false, "Ollama (Local)", hostUrl = "http://localhost:11434"),
+        AiProviderType.MISTRAL_CLOUD to AiProviderStatus(AiProviderType.MISTRAL_CLOUD, false, "Mistral AI"),
+        AiProviderType.CLAUDE_CLOUD to AiProviderStatus(AiProviderType.CLAUDE_CLOUD, false, "Anthropic Claude")
+    ),
     
     // AI - Chat State
     val chatMessages: List<Content> = emptyList(),
@@ -145,6 +157,8 @@ class CardListViewModel(
     private val geminiService: GeminiService,
     private val geminiCloudService: GeminiCloudService,
     private val ollamaService: OllamaService,
+    private val mistralService: MistralService,
+    private val claudeService: ClaudeService,
     private val toolRegistry: de.pantastix.project.ai.tool.ToolRegistry,
     private val migrationManager: de.pantastix.project.ai.migration.MigrationManager,
     private val typeService: de.pantastix.project.service.TypeService,
@@ -214,32 +228,40 @@ class CardListViewModel(
     // --- AI Integration ---
 
     private suspend fun initializeAi() {
-        val savedProvider = settingsRepository.getSetting("ai_provider")
-        val provider = if (savedProvider == "OLLAMA") AiProviderType.OLLAMA_LOCAL else AiProviderType.GEMINI_CLOUD
+        val savedProviderStr = settingsRepository.getSetting("ai_provider")
+        val provider = try { AiProviderType.valueOf(savedProviderStr ?: "") } catch(e: Exception) { AiProviderType.GEMINI_CLOUD }
         _uiState.update { it.copy(selectedAiProvider = provider) }
 
-        // Gemini Config
-        val key = settingsRepository.getSetting("gemini_api_key") ?: ""
-        val selectedGeminiModel = settingsRepository.getSetting("gemini_model")
-        _uiState.update { it.copy(geminiApiKey = key) }
-        
-        if (key.isNotBlank()) {
-             refreshGeminiModels(key)
-        } else if (selectedGeminiModel != null) {
-             _uiState.update { it.copy(selectedGeminiModel = selectedGeminiModel) }
-        }
-        
-        // Ollama Config
-        val savedHost = settingsRepository.getSetting("ollama_host") ?: "http://localhost:11434"
-        val savedOllamaModel = settingsRepository.getSetting("ollama_model") ?: ""
-        _uiState.update { it.copy(ollamaHostUrl = savedHost, selectedOllamaModel = savedOllamaModel) }
-        
-        if (provider == AiProviderType.OLLAMA_LOCAL) {
-            refreshOllamaModels()
+        // Initialize each provider from settings
+        AiProviderType.entries.forEach { type ->
+            val prefix = type.name.lowercase()
+            val apiKey = settingsRepository.getSetting("${prefix}_api_key") ?: ""
+            val hostUrl = settingsRepository.getSetting("${prefix}_host_url") ?: (if (type == AiProviderType.OLLAMA_LOCAL) "http://localhost:11434" else "")
+            val selectedModel = settingsRepository.getSetting("${prefix}_selected_model") ?: ""
+            
+            updateProviderStatus(type) { it.copy(
+                apiKey = apiKey,
+                hostUrl = hostUrl,
+                selectedModel = selectedModel,
+                isConfigured = apiKey.isNotBlank() || (type == AiProviderType.OLLAMA_LOCAL && hostUrl.isNotBlank())
+            )}
+            
+            // Initial model refresh
+            if (apiKey.isNotBlank() || (type == AiProviderType.OLLAMA_LOCAL && hostUrl.isNotBlank())) {
+                refreshModelsForProvider(type)
+            }
         }
 
-        // Initialize Tools
         reinitializeTools()
+    }
+
+    private fun updateProviderStatus(type: AiProviderType, update: (AiProviderStatus) -> AiProviderStatus) {
+        _uiState.update { state ->
+            val currentProviders = state.aiProviders.toMutableMap()
+            val currentStatus = currentProviders[type] ?: AiProviderStatus(type, false, type.name)
+            currentProviders[type] = update(currentStatus)
+            state.copy(aiProviders = currentProviders)
+        }
     }
 
     private fun reinitializeTools() {
@@ -249,82 +271,98 @@ class CardListViewModel(
 
     fun setAiProvider(provider: AiProviderType) {
         viewModelScope.launch {
-            settingsRepository.saveSetting("ai_provider", if (provider == AiProviderType.OLLAMA_LOCAL) "OLLAMA" else "GEMINI")
+            settingsRepository.saveSetting("ai_provider", provider.name)
             _uiState.update { it.copy(selectedAiProvider = provider) }
-            if (provider == AiProviderType.OLLAMA_LOCAL && uiState.value.availableOllamaModels.isEmpty()) {
-                refreshOllamaModels()
+            val status = uiState.value.aiProviders[provider]
+            if (status != null && status.availableModels.isEmpty() && status.isConfigured) {
+                refreshModelsForProvider(provider)
             }
         }
     }
 
-    fun saveOllamaHost(host: String) {
+    fun updateAiProviderSettings(type: AiProviderType, apiKey: String? = null, hostUrl: String? = null) {
         viewModelScope.launch {
-            settingsRepository.saveSetting("ollama_host", host)
-            _uiState.update { it.copy(ollamaHostUrl = host) }
-            refreshOllamaModels()
+            val prefix = type.name.lowercase()
+            if (apiKey != null) {
+                settingsRepository.saveSetting("${prefix}_api_key", apiKey)
+                updateProviderStatus(type) { it.copy(apiKey = apiKey, isConfigured = apiKey.isNotBlank()) }
+            }
+            if (hostUrl != null) {
+                settingsRepository.saveSetting("${prefix}_host_url", hostUrl)
+                updateProviderStatus(type) { it.copy(hostUrl = hostUrl, isConfigured = hostUrl.isNotBlank()) }
+            }
+            refreshModelsForProvider(type)
         }
     }
-    
-    fun selectOllamaModel(model: String) {
+
+    private fun refreshModelsForProvider(type: AiProviderType) {
         viewModelScope.launch {
-            settingsRepository.saveSetting("ollama_model", model)
-            _uiState.update { it.copy(selectedOllamaModel = model) }
+            val status = uiState.value.aiProviders[type] ?: return@launch
+            setLoading(true, "Lade Modelle für ${status.label}...")
+            
+            val config = AiConfig(apiKey = status.apiKey, hostUrl = status.hostUrl)
+            val service = when(type) {
+                AiProviderType.GEMINI_CLOUD -> geminiCloudService
+                AiProviderType.OLLAMA_LOCAL -> ollamaService
+                AiProviderType.MISTRAL_CLOUD -> mistralService
+                AiProviderType.CLAUDE_CLOUD -> claudeService
+            }
+            
+            if (service == null) {
+                // If service not implemented yet, just clear models or use dummy
+                setLoading(false)
+                return@launch
+            }
+
+            try {
+                val rawModels = service.getAvailableModels(config).map { it.id }
+                val category = when(type) {
+                    AiProviderType.GEMINI_CLOUD -> de.pantastix.project.ai.ModelCategory.GEMINI_CLOUD
+                    AiProviderType.OLLAMA_LOCAL -> de.pantastix.project.ai.ModelCategory.OLLAMA_LOCAL
+                    AiProviderType.MISTRAL_CLOUD -> de.pantastix.project.ai.ModelCategory.MISTRAL_CLOUD
+                    AiProviderType.CLAUDE_CLOUD -> de.pantastix.project.ai.ModelCategory.CLAUDE_CLOUD
+                }
+
+                val sortedModels = rawModels.mapNotNull { modelName ->
+                    val family = de.pantastix.project.ai.AiModelRegistry.resolveFamily(modelName, category)
+                    if (family != null && family.filter(modelName)) {
+                        modelName to family
+                    } else null
+                }.sortedWith(Comparator { (modelA, famA), (modelB, famB) ->
+                    if (famA.id == famB.id && famA.modelComparator != null) {
+                        famA.modelComparator.compare(modelA, modelB)
+                    } else {
+                        modelA.compareTo(modelB)
+                    }
+                }).map { it.first }
+
+                updateProviderStatus(type) { it.copy(availableModels = sortedModels) }
+                
+                if (status.selectedModel !in sortedModels && sortedModels.isNotEmpty()) {
+                    selectModelForProvider(type, sortedModels.first())
+                }
+            } catch (e: Exception) {
+                println("Error refreshing models for $type: ${e.message}")
+            }
+            setLoading(false)
         }
     }
-    
-    private suspend fun refreshOllamaModels() {
-        _uiState.update { it.copy(loadingMessage = "Lade Ollama Modelle...") }
-        val config = AiConfig(hostUrl = uiState.value.ollamaHostUrl)
-        
-        // Fetch raw models
-        val rawModels = ollamaService.getAvailableModels(config).map { it.id }
-        
-        // Filter and Sort using Registry
-        val sortedModels = rawModels.mapNotNull { modelName ->
-            val family = de.pantastix.project.ai.AiModelRegistry.resolveFamily(modelName, de.pantastix.project.ai.ModelCategory.OLLAMA_LOCAL)
-            if (family != null && family.filter(modelName)) {
-                modelName to family
-            } else null
-        }.sortedWith(Comparator { (modelA, famA), (modelB, famB) ->
-             if (famA.id == famB.id && famA.modelComparator != null) {
-                 famA.modelComparator.compare(modelA, modelB)
-             } else {
-                 modelA.compareTo(modelB)
-             }
-        }).map { it.first }
-        
-        _uiState.update { 
-            it.copy(
-                availableOllamaModels = sortedModels,
-                loadingMessage = null
-            ) 
-        }
-        
-        // Smart Selection: Pick the first one (which is now the "best" due to sorting)
-        if (uiState.value.selectedOllamaModel !in sortedModels && sortedModels.isNotEmpty()) {
-            selectOllamaModel(sortedModels.first())
+
+    fun selectModelForProvider(type: AiProviderType, modelName: String) {
+        viewModelScope.launch {
+            settingsRepository.saveSetting("${type.name.lowercase()}_selected_model", modelName)
+            updateProviderStatus(type) { it.copy(selectedModel = modelName) }
         }
     }
 
     fun selectUnifiedModel(modelName: String) {
         viewModelScope.launch {
-            // Determine provider based on model name or known lists
-            val isOllama = uiState.value.availableOllamaModels.contains(modelName)
-            val isGemini = uiState.value.availableGeminiModels.contains(modelName)
+            // Find which provider this model belongs to
+            val providerType = uiState.value.aiProviders.values.find { it.availableModels.contains(modelName) }?.type
+                ?: uiState.value.selectedAiProvider // Fallback
             
-            val newProvider = when {
-                isOllama -> AiProviderType.OLLAMA_LOCAL
-                isGemini -> AiProviderType.GEMINI_CLOUD
-                else -> AiProviderType.GEMINI_CLOUD // Default fallback
-            }
-            
-            setAiProvider(newProvider)
-            
-            if (newProvider == AiProviderType.OLLAMA_LOCAL) {
-                selectOllamaModel(modelName)
-            } else {
-                selectGeminiModel(modelName)
-            }
+            setAiProvider(providerType)
+            selectModelForProvider(providerType, modelName)
         }
     }
 
@@ -354,8 +392,15 @@ class CardListViewModel(
     }
 
     private suspend fun processAILoop() {
-        val provider = uiState.value.selectedAiProvider
-        val service = if (provider == AiProviderType.OLLAMA_LOCAL) ollamaService else geminiCloudService
+        val providerType = uiState.value.selectedAiProvider
+        val providerStatus = uiState.value.aiProviders[providerType] ?: return
+        
+        val service = when(providerType) {
+            AiProviderType.GEMINI_CLOUD -> geminiCloudService
+            AiProviderType.OLLAMA_LOCAL -> ollamaService
+            AiProviderType.MISTRAL_CLOUD -> mistralService
+            AiProviderType.CLAUDE_CLOUD -> claudeService
+        }
         
         val systemPrompt = """
             Du bist Poké-Agent, ein hilfreicher Assistent für Pokémon-Karten-Sammler.
@@ -368,14 +413,16 @@ class CardListViewModel(
             4. Formatiere Preise immer als Währung (z.B. "12,50 €").
         """.trimIndent()
         
-        val config = if (provider == AiProviderType.OLLAMA_LOCAL) {
-             AiConfig(hostUrl = uiState.value.ollamaHostUrl, selectedModelId = uiState.value.selectedOllamaModel, systemInstruction = systemPrompt)
-        } else {
-             if (uiState.value.geminiApiKey.isBlank()) {
-                _uiState.update { it.copy(isChatLoading = false, error = "Kein API Key gefunden.") }
-                return
-             }
-             AiConfig(apiKey = uiState.value.geminiApiKey, selectedModelId = uiState.value.selectedGeminiModel, systemInstruction = systemPrompt)
+        val config = AiConfig(
+            apiKey = providerStatus.apiKey,
+            hostUrl = providerStatus.hostUrl,
+            selectedModelId = providerStatus.selectedModel,
+            systemInstruction = systemPrompt
+        )
+
+        if (!providerStatus.isConfigured) {
+            _uiState.update { it.copy(isChatLoading = false, error = "Provider ${providerStatus.label} ist nicht konfiguriert.") }
+            return
         }
 
         val tools = registeredTools.toList()
@@ -400,7 +447,7 @@ class CardListViewModel(
                 content = textPart,
                 thoughtSignature = thoughtPart,
                 toolCall = toolCallPart?.let { de.pantastix.project.ai.ToolCallData(it.name, it.args ?: emptyMap()) },
-                toolResponse = toolResponsePart?.let { ToolResponseData(it.name, it.response.toString()) }
+                toolResponse = toolResponsePart?.let { ToolResponseData(name = it.name, result = it.response.toString()) }
             )
 
         }
@@ -517,6 +564,7 @@ class CardListViewModel(
                      currentHistory = currentHistory + ChatMessage(
                          role = ChatRole.TOOL, 
                          content = toolResult, 
+                         thoughtSignature = toolCallMsg.thoughtSignature, // CRITICAL: Link response to same ID
                          toolResponse = ToolResponseData(name = toolCallRes.toolName, result = toolResult)
                      )
                      
@@ -936,34 +984,6 @@ class CardListViewModel(
     }
 
     // --- Settings & Supabase ---
-
-    fun saveGeminiApiKey(key: String) {
-        viewModelScope.launch {
-            settingsRepository.saveSetting("gemini_api_key", key)
-            _uiState.update { it.copy(geminiApiKey = key) }
-            if (key.isNotBlank()) refreshGeminiModels(key)
-        }
-    }
-    
-    fun selectGeminiModel(modelName: String) {
-        viewModelScope.launch {
-            settingsRepository.saveSetting("gemini_model", modelName)
-            _uiState.update { it.copy(selectedGeminiModel = modelName) }
-        }
-    }
-    
-    private fun refreshGeminiModels(apiKey: String) {
-        viewModelScope.launch {
-            setLoading(true, "Lade verfügbare AI-Modelle...")
-            val models = geminiService.getAvailableChatModels(apiKey).map { it.name }
-            _uiState.update { it.copy(availableGeminiModels = models) }
-            if (uiState.value.selectedGeminiModel !in models && models.isNotEmpty()) {
-                 val newDefault = models.firstOrNull { it.contains("gemini-3-flash") } ?: models.firstOrNull()
-                 if (newDefault != null) selectGeminiModel(newDefault)
-            }
-            setLoading(false)
-        }
-    }
 
     private suspend fun initializeSupabaseConnection() {
         val url = settingsRepository.getSetting("supabase_url") ?: ""

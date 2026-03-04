@@ -3,11 +3,13 @@ package de.pantastix.project.ai
 import de.pantastix.project.ai.strategy.*
 import de.pantastix.project.ai.strategy.gemini.*
 import de.pantastix.project.ai.strategy.ollama.*
-import de.pantastix.project.ai.strategy.ollama.GptOssStrategy
+import de.pantastix.project.ai.strategy.mistral.MistralNativeStrategy
 
 enum class ModelCategory {
     GEMINI_CLOUD,
-    OLLAMA_LOCAL
+    OLLAMA_LOCAL,
+    MISTRAL_CLOUD,
+    CLAUDE_CLOUD
 }
 
 data class ModelFamilyDefinition(
@@ -43,6 +45,15 @@ object AiModelRegistry {
             }
             // Default Native Ollama
             return NativeOllamaStrategy()
+        }
+
+        if (provider == AiProviderType.MISTRAL_CLOUD) {
+            return MistralNativeStrategy()
+        }
+
+        if (provider == AiProviderType.CLAUDE_CLOUD) {
+            // Placeholder for Claude strategy
+            return null
         }
         
         return null
@@ -123,6 +134,70 @@ object AiModelRegistry {
             displayName = "Mistral",
             category = ModelCategory.OLLAMA_LOCAL,
             modelIdPattern = Regex("""mistral(:.*)?""", RegexOption.IGNORE_CASE)
+        ),
+
+        // MISTRAL CLOUD
+        ModelFamilyDefinition(
+            id = "mistral-large",
+            displayName = "Mistral Large",
+            category = ModelCategory.MISTRAL_CLOUD,
+            modelIdPattern = Regex("""mistral-large.*""", RegexOption.IGNORE_CASE)
+        ),
+        ModelFamilyDefinition(
+            id = "mistral-medium",
+            displayName = "Mistral Medium",
+            category = ModelCategory.MISTRAL_CLOUD,
+            modelIdPattern = Regex("""mistral-medium.*""", RegexOption.IGNORE_CASE)
+        ),
+        ModelFamilyDefinition(
+            id = "mistral-small",
+            displayName = "Mistral Small",
+            category = ModelCategory.MISTRAL_CLOUD,
+            modelIdPattern = Regex("""mistral-small.*""", RegexOption.IGNORE_CASE)
+        ),
+        ModelFamilyDefinition(
+            id = "codestral",
+            displayName = "Codestral",
+            category = ModelCategory.MISTRAL_CLOUD,
+            modelIdPattern = Regex("""codestral.*""", RegexOption.IGNORE_CASE)
+        ),
+        ModelFamilyDefinition(
+            id = "mistral-nemo",
+            displayName = "Mistral Nemo",
+            category = ModelCategory.MISTRAL_CLOUD,
+            modelIdPattern = Regex(""".*nemo.*""", RegexOption.IGNORE_CASE)
+        ),
+        ModelFamilyDefinition(
+            id = "pixtral",
+            displayName = "Pixtral",
+            category = ModelCategory.MISTRAL_CLOUD,
+            modelIdPattern = Regex("""pixtral.*""", RegexOption.IGNORE_CASE)
+        ),
+        ModelFamilyDefinition(
+            id = "ministral",
+            displayName = "Ministral",
+            category = ModelCategory.MISTRAL_CLOUD,
+            modelIdPattern = Regex("""ministral.*""", RegexOption.IGNORE_CASE)
+        ),
+
+        // CLAUDE CLOUD
+        ModelFamilyDefinition(
+            id = "claude-3-5-sonnet",
+            displayName = "Claude 3.5 Sonnet",
+            category = ModelCategory.CLAUDE_CLOUD,
+            modelIdPattern = Regex("""claude-3-5-sonnet.*""", RegexOption.IGNORE_CASE)
+        ),
+        ModelFamilyDefinition(
+            id = "claude-3-5-haiku",
+            displayName = "Claude 3.5 Haiku",
+            category = ModelCategory.CLAUDE_CLOUD,
+            modelIdPattern = Regex("""claude-3-5-haiku.*""", RegexOption.IGNORE_CASE)
+        ),
+        ModelFamilyDefinition(
+            id = "claude-3-opus",
+            displayName = "Claude 3 Opus",
+            category = ModelCategory.CLAUDE_CLOUD,
+            modelIdPattern = Regex("""claude-3-opus.*""", RegexOption.IGNORE_CASE)
         )
     )
 

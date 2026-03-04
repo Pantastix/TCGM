@@ -26,7 +26,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -50,6 +49,7 @@ private sealed interface ChatUiItem {
 @Composable
 fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
     val uiState by viewModel.uiState.collectAsState()
+    var providerDropdownExpanded by remember { mutableStateOf(false) }
     var modelDropdownExpanded by remember { mutableStateOf(false) }
     var showParameterDialog by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
@@ -71,7 +71,6 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                 flushAi()
                 groups.add(ChatUiItem.User(msg))
             } else if (msg.role != "system" && msg.role != "function") {
-                // Assuming everything else (model, assistant) is AI
                 currentAiMessages.add(msg)
             }
         }
@@ -89,52 +88,41 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
         }
     }
 
-    // Combine, Filter, and Group Models
-    val modelFamilies = remember(uiState.availableGeminiModels, uiState.availableOllamaModels) {
-        val families = mutableMapOf<String, MutableList<String>>() // Family Name -> List of Model IDs
+    // Model families for the CURRENT selected provider
+    val currentProviderStatus = uiState.aiProviders[uiState.selectedAiProvider]
+    val modelFamilies = remember(uiState.selectedAiProvider, currentProviderStatus?.availableModels) {
+        val families = mutableMapOf<String, MutableList<String>>()
+        val models = currentProviderStatus?.availableModels ?: emptyList()
+        val category = when(uiState.selectedAiProvider) {
+            AiProviderType.GEMINI_CLOUD -> de.pantastix.project.ai.ModelCategory.GEMINI_CLOUD
+            AiProviderType.OLLAMA_LOCAL -> de.pantastix.project.ai.ModelCategory.OLLAMA_LOCAL
+            AiProviderType.MISTRAL_CLOUD -> de.pantastix.project.ai.ModelCategory.MISTRAL_CLOUD
+            AiProviderType.CLAUDE_CLOUD -> de.pantastix.project.ai.ModelCategory.CLAUDE_CLOUD
+        }
 
-        // 1. Gemini Filtering
-        uiState.availableGeminiModels.forEach { model ->
-            val family = de.pantastix.project.ai.AiModelRegistry.resolveFamily(model, de.pantastix.project.ai.ModelCategory.GEMINI_CLOUD)
+        models.forEach { model ->
+            val family = de.pantastix.project.ai.AiModelRegistry.resolveFamily(model, category)
             if (family != null && family.filter(model)) {
                 families.getOrPut(family.displayName) { mutableListOf() }.add(model)
+            } else if (family == null) {
+                families.getOrPut("Andere") { mutableListOf() }.add(model)
             }
-        }
-
-        // 2. Ollama Filtering & Grouping
-        uiState.availableOllamaModels.forEach { model ->
-             val family = de.pantastix.project.ai.AiModelRegistry.resolveFamily(model, de.pantastix.project.ai.ModelCategory.OLLAMA_LOCAL)
-             if (family != null && family.filter(model)) {
-                 families.getOrPut(family.displayName) { mutableListOf() }.add(model)
-             }
         }
         
-        // Sort individual lists based on family comparator or default
-        families.mapValues { (familyName, models) ->
-            val sampleModel = models.firstOrNull() ?: return@mapValues models
-            // Try to find the family definition again to get the comparator (a bit inefficient but safe)
-            // We assume models in the list belong to the same family (which they should by design above)
-            val family = de.pantastix.project.ai.AiModelRegistry.families.find { it.displayName == familyName }
-            
-            if (family?.modelComparator != null) {
-                models.sortedWith(family.modelComparator)
+        families.mapValues { (familyName, familyModels) ->
+            val familyDef = de.pantastix.project.ai.AiModelRegistry.families.find { it.displayName == familyName }
+            if (familyDef?.modelComparator != null) {
+                familyModels.sortedWith(familyDef.modelComparator)
             } else {
-                models.sortedByDescending { it }
+                familyModels.sortedByDescending { it }
             }
         }
     }
 
-    val currentModelId = if (uiState.selectedAiProvider == AiProviderType.GEMINI_CLOUD) {
-        uiState.selectedGeminiModel
-    } else {
-        uiState.selectedOllamaModel
-    }
-    
-    val currentFamilyName = modelFamilies.entries.find { it.value.contains(currentModelId) }?.key 
-        ?: currentModelId.substringAfterLast("/").take(20)
+    val currentModelId = currentProviderStatus?.selectedModel ?: ""
+    val currentFamilyName = modelFamilies.entries.find { it.value.contains(currentModelId) }?.key ?: "Modell wählen"
 
-    val isReady = (uiState.selectedAiProvider == AiProviderType.GEMINI_CLOUD && uiState.geminiApiKey.isNotBlank()) ||
-                  (uiState.selectedAiProvider == AiProviderType.OLLAMA_LOCAL && uiState.ollamaHostUrl.isNotBlank())
+    val isReady = currentProviderStatus?.isConfigured == true
 
     Column(modifier = Modifier.fillMaxSize()) {
         // --- TOP BAR ---
@@ -157,18 +145,55 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                 )
             }
 
-            // Model Selector & Settings
+            // Provider & Model Selectors
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // 1. Provider Select
+                Box {
+                    AssistChip(
+                        onClick = { providerDropdownExpanded = true },
+                        label = { Text(currentProviderStatus?.label ?: "Provider") },
+                        leadingIcon = { Icon(Icons.Default.Cloud, contentDescription = null, modifier = Modifier.size(16.dp)) },
+                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    )
+
+                    DropdownMenu(
+                        expanded = providerDropdownExpanded,
+                        onDismissRequest = { providerDropdownExpanded = false }
+                    ) {
+                        uiState.aiProviders.values.forEach { provider ->
+                            DropdownMenuItem(
+                                text = { 
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier.size(8.dp).clip(CircleShape)
+                                                .background(if (provider.isConfigured) Color(0xFF4CAF50) else Color.Gray)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(provider.label)
+                                    }
+                                },
+                                onClick = {
+                                    viewModel.setAiProvider(provider.type)
+                                    providerDropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(Modifier.width(8.dp))
+
+                // 2. Model Family Select
                 Box {
                     Button(
                         onClick = { modelDropdownExpanded = true },
                         enabled = !uiState.isLoading && modelFamilies.isNotEmpty(),
                         shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp)
+                        contentPadding = PaddingValues(horizontal = 12.dp)
                     ) {
                         Icon(Icons.Filled.SmartToy, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = currentFamilyName.replace(" (Cloud)", "").replace(" (Local)", ""))
+                        Text(text = currentFamilyName)
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(Icons.Filled.ArrowDropDown, contentDescription = "Select Model")
                     }
@@ -177,23 +202,16 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                         expanded = modelDropdownExpanded,
                         onDismissRequest = { modelDropdownExpanded = false }
                     ) {
+                        if (modelFamilies.isEmpty()) {
+                            DropdownMenuItem(text = { Text("Keine Modelle geladen") }, onClick = {})
+                        }
                         modelFamilies.keys.forEach { familyName ->
-                            val isCloud = familyName.contains("(Cloud)") || familyName.startsWith("gemini", ignoreCase = true)
                             DropdownMenuItem(
-                                text = { 
-                                    Column {
-                                        Text(familyName.replace(" (Cloud)", "").replace(" (Local)", ""))
-                                        Text(
-                                            if (isCloud) "Cloud (Gemini)" else "Local (Ollama)",
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-                                        )
-                                    }
-                                },
+                                text = { Text(familyName) },
                                 onClick = {
                                     val firstModel = modelFamilies[familyName]?.firstOrNull()
                                     if (firstModel != null) {
-                                        viewModel.selectUnifiedModel(firstModel)
+                                        viewModel.selectModelForProvider(uiState.selectedAiProvider, firstModel)
                                     }
                                     modelDropdownExpanded = false
                                 }
@@ -204,7 +222,7 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                 
                 Spacer(Modifier.width(8.dp))
                 
-                IconButton(onClick = { showParameterDialog = true }) {
+                IconButton(onClick = { showParameterDialog = true }, enabled = currentFamilyName != "Modell wählen") {
                     Icon(Icons.Filled.Settings, contentDescription = "Parameters")
                 }
 
@@ -223,8 +241,8 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
 
         HorizontalDivider(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            thickness = 4.dp,
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+            thickness = 2.dp,
+            color = MaterialTheme.colorScheme.outlineVariant
         )
 
         // --- MESSAGE LIST ---
@@ -236,16 +254,22 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                     verticalArrangement = Arrangement.Center
                 ) {
                     Icon(
-                        Icons.Filled.SmartToy,
+                        Icons.Filled.Lock,
                         contentDescription = null,
                         modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
                     )
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        "Bitte konfiguriere einen AI Provider (Gemini API Key oder Ollama) in den Einstellungen.",
-                        style = MaterialTheme.typography.bodyLarge,
+                        "${currentProviderStatus?.label ?: "Dieser Provider"} ist noch nicht konfiguriert.",
+                        style = MaterialTheme.typography.titleMedium,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Text(
+                        "Bitte hinterlege einen API-Key in den Einstellungen.",
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             } else {
@@ -257,7 +281,6 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(groupedMessages) { item ->
-                             // Determine if this is the very last item in the list and we are still loading
                              val isLast = item == groupedMessages.last()
                              val isGenerating = isLast && uiState.isChatLoading
                              
@@ -268,7 +291,6 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                         }
                     }
                     
-                    // Error Display Overlay
                     if (uiState.error != null) {
                         Surface(
                             modifier = Modifier
@@ -280,26 +302,19 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.error)
                         ) {
                             Row(
-                                modifier = Modifier.padding(16.dp),
+                                modifier = Modifier.padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    Icons.Default.Warning,
-                                    contentDescription = "Error",
-                                    tint = MaterialTheme.colorScheme.error
-                                )
+                                Icon(Icons.Default.Warning, contentDescription = "Error", tint = MaterialTheme.colorScheme.error)
                                 Spacer(Modifier.width(8.dp))
                                 Text(
                                     text = uiState.error ?: "",
                                     color = MaterialTheme.colorScheme.onErrorContainer,
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodySmall
                                 )
-                                IconButton(onClick = { viewModel.clearError() }) {
-                                    Icon(
-                                        Icons.Default.Close,
-                                        contentDescription = "Close",
-                                        tint = MaterialTheme.colorScheme.onErrorContainer
-                                    )
+                                IconButton(onClick = { viewModel.clearError() }, modifier = Modifier.size(24.dp)) {
+                                    Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(16.dp))
                                 }
                             }
                         }
@@ -321,23 +336,14 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                     modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text(stringResource(MR.strings.chat_input_placeholder)) },
                     maxLines = 4,
-                    enabled = !uiState.isChatLoading,
+                    enabled = !uiState.isChatLoading && currentModelId.isNotBlank(),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = { viewModel.sendMessage() }),
                     shape = RoundedCornerShape(24.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.onSurface,
-                        cursorColor = MaterialTheme.colorScheme.primary
-                    ),
                     trailingIcon = {
                         IconButton(
                             onClick = { viewModel.sendMessage() },
-                            enabled = !uiState.isChatLoading && uiState.chatInput.isNotBlank(),
-                            colors = IconButtonDefaults.iconButtonColors(
-                                contentColor = MaterialTheme.colorScheme.primary,
-                                disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                            )
+                            enabled = !uiState.isChatLoading && uiState.chatInput.isNotBlank() && currentModelId.isNotBlank(),
                         ) {
                             Icon(Icons.Filled.Send, contentDescription = "Senden")
                         }
@@ -347,44 +353,38 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
         }
     }
     
-    // Dialog code
+    // Parameter Dialog
     if (showParameterDialog) {
         val currentVariants = modelFamilies[currentFamilyName] ?: emptyList()
         AlertDialog(
             onDismissRequest = { showParameterDialog = false },
-            title = { Text("Model Settings") },
+            title = { Text("Variante für $currentFamilyName") },
             text = {
                 Column {
                     if (currentVariants.size > 1) {
-                        Text("Modell-Variante wählen:", style = MaterialTheme.typography.titleSmall)
-                        Spacer(Modifier.height(8.dp))
                         currentVariants.forEach { variantId ->
-                            val displayVariant = if (variantId.contains("gemma-3")) {
-                                "gemma3:" + variantId.substringAfter("gemma-3-").substringBefore("-it")
-                            } else {
-                                variantId.substringAfterLast("/")
-                            }
+                            val displayVariant = variantId.substringAfterLast("/").substringAfterLast(":")
                             
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth().clickable { 
+                                    viewModel.selectModelForProvider(uiState.selectedAiProvider, variantId)
+                                }
                             ) {
                                 RadioButton(
                                     selected = currentModelId == variantId,
-                                    onClick = { viewModel.selectUnifiedModel(variantId) }
+                                    onClick = { viewModel.selectModelForProvider(uiState.selectedAiProvider, variantId) }
                                 )
                                 Text(displayVariant, modifier = Modifier.padding(start = 8.dp))
                             }
                         }
                     } else {
-                        Text("Aktuelles Modell: $currentModelId")
+                        Text("Aktuelles Modell: $currentModelId", style = MaterialTheme.typography.bodyMedium)
                     }
-                    Spacer(Modifier.height(16.dp))
-                    Text("Zukünftige Parameter (Temperature, etc.) kommen hier hinzu.")
                 }
             },
             confirmButton = {
-                Button(onClick = { showParameterDialog = false }) { Text("OK") }
+                Button(onClick = { showParameterDialog = false }) { Text("Schließen") }
             }
         )
     }
@@ -398,9 +398,8 @@ fun UserMessageItem(message: Content) {
         horizontalAlignment = Alignment.End
     ) {
         Surface(
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
-            shape = RoundedCornerShape(16.dp, 16.dp, 16.dp, 0.dp),
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+            shape = RoundedCornerShape(16.dp, 16.dp, 0.dp, 16.dp),
             modifier = Modifier.widthIn(max = 600.dp)
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
@@ -411,22 +410,14 @@ fun UserMessageItem(message: Content) {
                 )
             }
         }
-        Text(
-            text = "Du",
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(top = 4.dp, end = 4.dp),
-            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-        )
     }
 }
 
 @Composable
 fun AiMessageGroupItem(messages: List<Content>, isGenerating: Boolean) {
-    // Collect all unique non-blank thoughts and texts
     val thoughts = messages.mapNotNull { it.thought }.filter { it.isNotBlank() }
     val texts = messages.flatMap { it.parts }.mapNotNull { it.text }.filter { it.isNotBlank() }
 
-    // If nothing to show and not generating, return
     if (thoughts.isEmpty() && texts.isEmpty() && !isGenerating) return
 
     Column(
@@ -437,7 +428,6 @@ fun AiMessageGroupItem(messages: List<Content>, isGenerating: Boolean) {
         var isThoughtVisible by remember { mutableStateOf(false) }
         val hasThoughts = thoughts.isNotEmpty()
 
-        // 1. Header (Once per group)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -467,20 +457,13 @@ fun AiMessageGroupItem(messages: List<Content>, isGenerating: Boolean) {
                     modifier = Modifier.size(16.dp),
                     tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                 )
-                Text(
-                   text = "(${thoughts.size})",
-                   style = MaterialTheme.typography.labelSmall,
-                   color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                   modifier = Modifier.padding(start = 2.dp)
-                )
             }
         }
 
-        // 2. Thoughts (List of thoughts)
         if (hasThoughts) {
             AnimatedVisibility(visible = isThoughtVisible) {
                 Column {
-                    thoughts.forEachIndexed { index, thought ->
+                    thoughts.forEach { thought ->
                         Row(
                             modifier = Modifier
                                 .padding(start = 10.dp, top = 4.dp, bottom = 8.dp)
@@ -489,27 +472,22 @@ fun AiMessageGroupItem(messages: List<Content>, isGenerating: Boolean) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxHeight()
-                                    .width(3.dp)
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.4f), RoundedCornerShape(2.dp))
+                                    .width(2.dp)
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
                             )
                             Spacer(Modifier.width(12.dp))
                             MarkdownText(
                                 markdown = thought,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
                             )
-                        }
-                        if (index < thoughts.size - 1) {
-                            Spacer(Modifier.height(4.dp))
                         }
                     }
                 }
             }
         }
 
-        // 3. Answer Content (Texts)
         if (texts.isNotEmpty()) {
-            Spacer(Modifier.height(0.dp))
             texts.forEachIndexed { idx, text ->
                 if (idx > 0) Spacer(Modifier.height(8.dp))
                 MarkdownText(
@@ -522,7 +500,6 @@ fun AiMessageGroupItem(messages: List<Content>, isGenerating: Boolean) {
             TypingIndicator()
         }
         
-        // 4. Typing Indicator (bottom)
         if (isGenerating && texts.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
             TypingIndicator()
@@ -532,11 +509,11 @@ fun AiMessageGroupItem(messages: List<Content>, isGenerating: Boolean) {
 
 @Composable
 fun TypingIndicator(
-    dotSize: Dp = 8.dp,
-    color: Color = MaterialTheme.colorScheme.primary,
+    dotSize: Dp = 6.dp,
+    color: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
     delayUnit: Int = 300
 ) {
-    val maxOffset = 6f
+    val maxOffset = 4f
     
     @Composable
     fun Dot(offset: Int) {

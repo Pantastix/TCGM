@@ -77,6 +77,8 @@ val commonModule = module {
     single { GeminiService(client = get()) }
     single { GeminiCloudService(client = get()) }
     single { OllamaService(client = get()) }
+    single { de.pantastix.project.ai.provider.MistralService(client = get()) }
+    single { de.pantastix.project.ai.provider.ClaudeService(client = get()) }
     single { de.pantastix.project.service.TypeService(repository = get()) }
     single { de.pantastix.project.ai.migration.SupabaseMigrationManager() }
 
@@ -99,6 +101,8 @@ val commonModule = module {
             geminiService = get(),
             geminiCloudService = get(),
             ollamaService = get(),
+            mistralService = get(),
+            claudeService = get(),
             toolRegistry = get(),
             migrationManager = get<de.pantastix.project.ai.migration.SupabaseMigrationManager>(),
             typeService = get()
