@@ -43,6 +43,7 @@ interface CardRepository {
         currentPrice: Double?,
         lastPriceUpdate: String?,
         selectedPriceSource: String?,
+        gradedCopies: List<de.pantastix.project.model.GradedCopy> = emptyList()
     )
 
     suspend fun findExistingCard(setId: String, localId: String, language: String): PokemonCardInfo?
@@ -66,4 +67,10 @@ interface CardRepository {
     suspend fun deleteCardById(cardId: Long)
 
     suspend fun clearAllData()
+
+    // --- Portfolio Snapshots ---
+    suspend fun savePortfolioSnapshot(snapshot: de.pantastix.project.model.PortfolioSnapshot, items: List<de.pantastix.project.model.PortfolioSnapshotItem>)
+    suspend fun getAllSnapshots(): List<de.pantastix.project.model.PortfolioSnapshot>
+    suspend fun getSnapshotItems(date: String): List<de.pantastix.project.model.PortfolioSnapshotItem>
+    suspend fun deleteSnapshot(date: String)
 }

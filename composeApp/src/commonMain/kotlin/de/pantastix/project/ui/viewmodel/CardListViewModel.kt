@@ -14,6 +14,9 @@ import de.pantastix.project.model.Attack
 import de.pantastix.project.model.PokemonCard
 import de.pantastix.project.model.PokemonCardInfo
 import de.pantastix.project.model.SetInfo
+import de.pantastix.project.model.GradedCopy
+import de.pantastix.project.model.PortfolioSnapshot
+import de.pantastix.project.model.PortfolioSnapshotItem
 import de.pantastix.project.model.api.*
 import de.pantastix.project.model.gemini.*
 import de.pantastix.project.platform.getSystemLanguage
@@ -31,12 +34,14 @@ import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.*
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 import java.io.File
 import java.time.LocalDate
 import java.time.ZonedDateTime
 import java.time.format.DateTimeParseException
 import kotlin.system.exitProcess
-import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 enum class AppLanguage(val code: String, val displayName: String) {
@@ -123,7 +128,13 @@ data class UiState(
     val chatMessages: List<Content> = emptyList(),
     val chatInput: String = "",
     val isChatLoading: Boolean = false,
-    val currentThought: String? = null
+    val currentThought: String? = null,
+
+    // Portfolio Monitor
+    val portfolioSnapshots: List<PortfolioSnapshot> = emptyList(),
+    val selectedSnapshotDate: String? = null,
+    val selectedSnapshotItems: List<PortfolioSnapshotItem> = emptyList(),
+    val isPortfolioLoading: Boolean = false
 )
 
 @OptIn(ExperimentalTime::class)
@@ -618,6 +629,7 @@ class CardListViewModel(
 
             delay(500L)
 
+            createDailySnapshot()
             _uiState.update { it.copy(isLoading = false, bulkUpdateProgress = BulkUpdateProgress(inProgress = false)) }
             checkBulkUpdateEligibility()
         }
@@ -808,7 +820,8 @@ class CardListViewModel(
 
     fun confirmAndSaveCard(
         cardDetails: TcgDexCardResponse, languageCode: String, abbreviation: String?, price: Double?,
-        cardMarketLink: String, ownedCopies: Int, notes: String?, selectedPriceSource: String?
+        cardMarketLink: String, ownedCopies: Int, notes: String?, selectedPriceSource: String?,
+        gradedCopies: List<de.pantastix.project.model.GradedCopy> = emptyList()
     ) {
         viewModelScope.launch {
             setLoading(true)
@@ -820,22 +833,25 @@ class CardListViewModel(
                 return@launch
             }
 
-            val existingCard = activeCardRepository.findCardByTcgDexId(cardDetails.id, languageCode)
-            if (existingCard != null) {
+            val existingCardInfo = activeCardRepository.findCardByTcgDexId(cardDetails.id, languageCode)
+            if (existingCardInfo != null) {
+                val fullExistingCard = activeCardRepository.getFullCardDetails(existingCardInfo.id)
                 activeCardRepository.updateCardUserData(
-                    cardId = existingCard.id,
-                    ownedCopies = existingCard.ownedCopies + ownedCopies,
-                    notes = notes,
-                    currentPrice = price ?: existingCard.currentPrice,
-                    lastPriceUpdate = if (price != null) Clock.System.now().toString() else null,
-                    selectedPriceSource = selectedPriceSource
+                    cardId = existingCardInfo.id,
+                    ownedCopies = existingCardInfo.ownedCopies + ownedCopies,
+                    notes = notes ?: fullExistingCard?.notes,
+                    currentPrice = price ?: existingCardInfo.currentPrice,
+                    lastPriceUpdate = if (price != null) Clock.System.now().toString() else existingCardInfo.lastPriceUpdate,
+                    selectedPriceSource = selectedPriceSource ?: existingCardInfo.selectedPriceSource,
+                    gradedCopies = (fullExistingCard?.gradedCopies ?: emptyList()) + gradedCopies
                 )
             } else {
                 saveNewCard(
                     cardDetails, englishCardDetails ?: cardDetails, abbreviation, price, languageCode,
-                    cardMarketLink, ownedCopies, notes, selectedPriceSource
+                    cardMarketLink, ownedCopies, notes, selectedPriceSource, gradedCopies
                 )
             }
+            createDailySnapshot()
             setLoading(false)
             resetApiCardDetails()
         }
@@ -850,11 +866,12 @@ class CardListViewModel(
         }
     }
 
-    fun updateCard(cardId: Long, ownedCopies: Int, notes: String?, currentPrice: Double?, selectedPriceSource: String?) {
+    fun updateCard(cardId: Long, ownedCopies: Int, notes: String?, currentPrice: Double?, selectedPriceSource: String?, gradedCopies: List<de.pantastix.project.model.GradedCopy>) {
         viewModelScope.launch {
             setLoading(true)
-            activeCardRepository.updateCardUserData(cardId, ownedCopies, notes, currentPrice, if (currentPrice != null) Clock.System.now().toString() else null, selectedPriceSource)
+            activeCardRepository.updateCardUserData(cardId, ownedCopies, notes, currentPrice, if (currentPrice != null) Clock.System.now().toString() else null, selectedPriceSource, gradedCopies)
             loadCardInfos()
+            createDailySnapshot()
             selectCard(cardId)
             setLoading(false)
         }
@@ -874,7 +891,8 @@ class CardListViewModel(
 
     private suspend fun saveNewCard(
         localCardDetails: TcgDexCardResponse, englishCardDetails: TcgDexCardResponse, abbreviation: String?,
-        price: Double?, languageCode: String, marketLink: String, ownedCopies: Int, notes: String?, selectedPriceSource: String?
+        price: Double?, languageCode: String, marketLink: String, ownedCopies: Int, notes: String?, selectedPriceSource: String?,
+        gradedCopies: List<de.pantastix.project.model.GradedCopy> = emptyList()
     ) {
         val completeImageUrl = localCardDetails.image?.let { "$it/high.jpg" }
 
@@ -906,7 +924,8 @@ class CardListViewModel(
             } ?: emptyList(),
             setId = localCardDetails.set.id,
             variantsJson = localCardDetails.variants?.let { Json.encodeToString(it) },
-            legalJson = localCardDetails.legal?.let { Json.encodeToString(it) }
+            legalJson = localCardDetails.legal?.let { Json.encodeToString(it) },
+            gradedCopies = gradedCopies
         )
 
         activeCardRepository.insertFullPokemonCard(newCard)
@@ -1247,5 +1266,76 @@ class CardListViewModel(
 
     fun translateType(localTypeName: String): String {
         return typeService.translate(localTypeName, uiState.value.appLanguage.code)
+    }
+
+    fun loadPortfolioSnapshots() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isPortfolioLoading = true) }
+            val snapshots = activeCardRepository.getAllSnapshots()
+            _uiState.update { it.copy(portfolioSnapshots = snapshots, isPortfolioLoading = false) }
+            
+            // Auto-select latest snapshot if available
+            if (snapshots.isNotEmpty() && uiState.value.selectedSnapshotDate == null) {
+                selectSnapshot(snapshots.last().date)
+            }
+        }
+    }
+
+    fun selectSnapshot(date: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isPortfolioLoading = true, selectedSnapshotDate = date) }
+            val items = activeCardRepository.getSnapshotItems(date)
+            _uiState.update { it.copy(selectedSnapshotItems = items, isPortfolioLoading = false) }
+        }
+    }
+
+    private suspend fun createDailySnapshot() {
+        try {
+            val allCards = activeCardRepository.getCardInfos().first().mapNotNull { 
+                activeCardRepository.getFullCardDetails(it.id)
+            }
+            
+            if (allCards.isEmpty()) return
+
+            val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date.toString()
+            
+            var totalRawValue = 0.0
+            var totalGradedValue = 0.0
+            var cardCount = 0
+
+            val snapshotItems = allCards.map { card: PokemonCard ->
+                val rawValue = (card.currentPrice ?: 0.0) * card.ownedCopies
+                val gradedValue = card.gradedCopies.sumOf { it.value * it.count }
+                
+                totalRawValue += rawValue
+                totalGradedValue += gradedValue
+                cardCount += card.ownedCopies + card.gradedCopies.sumOf { it.count }
+
+                PortfolioSnapshotItem(
+                    date = today,
+                    cardId = card.id!!,
+                    nameLocal = card.nameLocal,
+                    setName = card.setName,
+                    imageUrl = card.imageUrl,
+                    rawPrice = card.currentPrice,
+                    rowCount = card.ownedCopies,
+                    gradedCopiesJson = if (card.gradedCopies.isNotEmpty()) Json.encodeToString(card.gradedCopies) else null
+                )
+            }
+
+            val snapshot = PortfolioSnapshot(
+                date = today,
+                totalValue = totalRawValue + totalGradedValue,
+                totalRawValue = totalRawValue,
+                totalGradedValue = totalGradedValue,
+                cardCount = cardCount,
+                updatedAt = Clock.System.now().toString()
+            )
+
+            activeCardRepository.savePortfolioSnapshot(snapshot, snapshotItems)
+            println("Portfolio Snapshot created for $today. Total Value: ${snapshot.totalValue}€")
+        } catch (e: Exception) {
+            println("Error creating portfolio snapshot: ${e.message}")
+        }
     }
 }

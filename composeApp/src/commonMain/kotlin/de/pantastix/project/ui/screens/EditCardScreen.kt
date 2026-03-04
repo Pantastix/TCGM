@@ -25,7 +25,7 @@ fun EditCardScreen(
     card: PokemonCard,
     isLoading: Boolean,
     apiDetails: TcgDexCardResponse?,
-    onSave: (id: Long, ownedCopies: Int, notes: String?, currentPrice: Double?, selectedPriceSource: String?) -> Unit,
+    onSave: (id: Long, ownedCopies: Int, notes: String?, currentPrice: Double?, selectedPriceSource: String?, gradedCopies: List<de.pantastix.project.model.GradedCopy>) -> Unit,
     onCancel: () -> Unit,
     onLoadPrices: (PokemonCard) -> Unit
 ) {
@@ -34,6 +34,7 @@ fun EditCardScreen(
     var priceInput by remember { mutableStateOf(card.currentPrice?.toString() ?: "") }
     var selectedPriceSchema by remember { mutableStateOf<PriceSchema?>(null) }
     var isHolo by remember { mutableStateOf(false) }
+    var gradedCopies by remember { mutableStateOf(card.gradedCopies) }
 
     LaunchedEffect(Unit) {
         onLoadPrices(card)
@@ -153,6 +154,13 @@ fun EditCardScreen(
                     )
                 }
 
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                de.pantastix.project.ui.components.GradedCopiesEditor(
+                    initialCopies = gradedCopies,
+                    onCopiesChanged = { gradedCopies = it }
+                )
+
                 Spacer(Modifier.weight(1f))
 
                 Row(
@@ -165,12 +173,6 @@ fun EditCardScreen(
                     Button(
                         onClick = {
                             card.id?.let { nonNullId ->
-//                                onSave(
-//                                    nonNullId,
-//                                    ownedCopiesInput.toIntOrNull() ?: 1,
-//                                    notesInput.ifBlank { null },
-//                                    priceInput.replace(",", ".").toDoubleOrNull()
-//                                )
                                 val priceSource = when {
                                     selectedPriceSchema != null -> {
                                         val baseName = selectedPriceSchema!!.name.lowercase()
@@ -184,7 +186,8 @@ fun EditCardScreen(
                                     ownedCopiesInput.toIntOrNull() ?: 1,
                                     notesInput.ifBlank { null },
                                     priceInput.replace(",", ".").toDoubleOrNull(),
-                                    priceSource
+                                    priceSource,
+                                    gradedCopies
                                 )
                             }
                         },

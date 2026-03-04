@@ -1,0 +1,25 @@
+-- 2.sqm - Migration von Version 1 auf Version 2 (Portfolio Snapshots & Graded Cards)
+
+ALTER TABLE PokemonCardEntity ADD COLUMN gradedCopiesJson TEXT;
+
+CREATE TABLE PortfolioSnapshot (
+    date TEXT PRIMARY KEY,
+    totalValue REAL NOT NULL,
+    totalRawValue REAL NOT NULL,
+    totalGradedValue REAL NOT NULL,
+    cardCount INTEGER NOT NULL,
+    updatedAt TEXT NOT NULL
+);
+
+CREATE TABLE PortfolioSnapshotItem (
+    date TEXT NOT NULL,
+    cardId INTEGER NOT NULL,
+    nameLocal TEXT NOT NULL,
+    setName TEXT NOT NULL,
+    imageUrl TEXT,
+    rawPrice REAL,
+    rowCount INTEGER NOT NULL,
+    gradedCopiesJson TEXT,
+    PRIMARY KEY (date, cardId),
+    FOREIGN KEY (date) REFERENCES PortfolioSnapshot(date) ON DELETE CASCADE
+);

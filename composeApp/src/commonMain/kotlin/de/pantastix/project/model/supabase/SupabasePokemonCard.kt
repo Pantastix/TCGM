@@ -28,5 +28,6 @@ data class SupabasePokemonCard(
     val variantsJson: String? = null,
     val abilitiesJson: String? = null,
     val attacksJson: String? = null,
-    val legalJson: String? = null
+    val legalJson: String? = null,
+    val gradedCopiesJson: String? = null
 )

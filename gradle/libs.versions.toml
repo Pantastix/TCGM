@@ -8,9 +8,9 @@ android-targetSdk = "35"
 androidx-activity = "1.10.1"
 androidx-lifecycle = "2.9.0"
 composeHotReload = "1.0.0-alpha10"
-composeMultiplatform = "1.9.0"
+composeMultiplatform = "1.9.2"
 compose-material3-experimental = "1.9.0-alpha04"
-kotlin = "2.1.21"
+kotlin = "2.3.10"
 kotlinx-coroutines = "1.10.2"
 sqldelight = "2.1.0"
 koin = "4.0.3"
@@ -68,7 +68,6 @@ moko-resources-test = { module = "dev.icerock.moko:resources-test", version.ref 
 
 # Material3
 compose-material3-experimental = { group = "org.jetbrains.compose.material3", name = "material3", version.ref = "compose-material3-experimental" }
-
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

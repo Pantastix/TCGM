@@ -241,4 +241,19 @@
 
     <!-- WIP Screen -->
     <string name="wip_description">This area is still under construction. Check back soon!</string>
+
+    <!-- Value Monitor -->
+    <string name="value_monitor_title">Value Monitor</string>
+    <string name="value_monitor_no_snapshots">No snapshots available yet.</string>
+    <string name="value_monitor_chart_title">Value Development</string>
+    <string name="value_monitor_search_placeholder">Search collection...</string>
+    <string name="value_monitor_details_prefix">Details</string>
+    <string name="value_monitor_summary_total">Total Value</string>
+    <string name="value_monitor_summary_graded">Graded</string>
+    <string name="value_monitor_summary_cards">Cards</string>
+    <string name="value_monitor_summary_positions">Positions</string>
+    <string name="value_monitor_range_week">Week</string>
+    <string name="value_monitor_range_month">Month</string>
+    <string name="value_monitor_range_year">Year</string>
+    <string name="value_monitor_interpolated_hint">Interpolated data</string>
 </resources>

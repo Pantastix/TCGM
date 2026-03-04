@@ -54,5 +54,16 @@ data class PokemonCard(
 
     // optionale Daten für die Datenbank
     val variantsJson: String? = null,
-    val legalJson: String? = null
-)
+    val legalJson: String? = null,
+    val gradedCopies: List<GradedCopy> = emptyList()
+    )
+
+    @Serializable
+    data class GradedCopy(
+    val vendor: String, // e.g. "PSA", "CGC"
+    val grade: String,  // e.g. "10", "9.5"
+    val count: Int,
+    val value: Double,
+    val priceSource: String? = null,
+    val lastUpdate: String? = null
+    )

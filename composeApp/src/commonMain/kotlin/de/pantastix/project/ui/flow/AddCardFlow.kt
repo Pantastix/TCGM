@@ -71,7 +71,7 @@ fun AddCardContent(
             englishCardDetails = uiState.englishApiCardDetails,
             setInfo = setInfo,
             isLoading = uiState.isLoading,
-            onConfirm = { details, name, abbreviation, price, marketLink, quantity, notes, selectedPriceSource ->
+            onConfirm = { details, name, abbreviation, price, marketLink, quantity, notes, selectedPriceSource, gradedCopies ->
                 viewModel.confirmAndSaveCard(
                     cardDetails = details.copy(name = name),
                     languageCode = uiState.searchedCardLanguage!!.code,
@@ -80,7 +80,8 @@ fun AddCardContent(
                     cardMarketLink = marketLink,
                     ownedCopies = quantity,
                     notes = notes,
-                    selectedPriceSource = selectedPriceSource
+                    selectedPriceSource = selectedPriceSource,
+                    gradedCopies = gradedCopies
                 )
                 onCardAdded()
             },

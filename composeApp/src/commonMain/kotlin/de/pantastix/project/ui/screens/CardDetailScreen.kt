@@ -265,6 +265,21 @@ private fun CollectionInfoSection(
         } ?: "-"
         DetailRow(label = stringResource(MR.strings.last_price_update), value = formattedDate, small = true)
 
+        // Graded Copies Sub-Section
+        if (card.gradedCopies.isNotEmpty()) {
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp)
+            Text("Graded Versions", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+            card.gradedCopies.forEach { graded ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("${graded.vendor} ${graded.grade}", style = MaterialTheme.typography.bodyMedium)
+                    Text("${graded.count}x • ${currencyFormat.format(graded.value)}", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
 
         Text(stringResource(MR.strings.card_details_notes), style = MaterialTheme.typography.titleSmall)
         Text(

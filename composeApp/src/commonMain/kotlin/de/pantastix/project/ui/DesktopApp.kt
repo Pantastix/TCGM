@@ -175,16 +175,16 @@ fun DesktopApp(
                             contentDescription = stringResource(MR.strings.nav_settings),
                         )
                     },
-                    label = {
-                        Text(
-                            stringResource(MR.strings.nav_settings),
-                            color = if (currentScreen == MainScreen.SETTINGS) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                Color.Unspecified
-                            }
-                        )
-                    },
+//                    label = {
+//                        Text(
+//                            stringResource(MR.strings.nav_settings),
+//                            color = if (currentScreen == MainScreen.SETTINGS) {
+//                                MaterialTheme.colorScheme.primary
+//                            } else {
+//                                Color.Unspecified
+//                            }
+//                        )
+//                    },
                     selected = currentScreen == MainScreen.SETTINGS,
                     onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.SETTINGS) },
                     colors = NavigationRailItemDefaults.colors(
@@ -211,7 +211,15 @@ fun DesktopApp(
                         onCardClick = { cardId -> viewModel.selectCard(cardId) }
                     )
 
-                    MainScreen.VALUE -> ValueScreen()
+                    MainScreen.VALUE -> {
+                        LaunchedEffect(Unit) {
+                            viewModel.loadPortfolioSnapshots()
+                        }
+                        de.pantastix.project.ui.screens.ValueMonitorScreen(
+                            uiState = uiState,
+                            onSnapshotSelected = { viewModel.selectSnapshot(it) }
+                        )
+                    }
                     MainScreen.SETTINGS -> SettingsScreen(
                         viewModel = viewModel,
                         onNavigateToGuide = { onScreenSelect(MainScreen.SUPABASE_GUIDE) }
@@ -241,8 +249,8 @@ fun DesktopApp(
                                 card = uiState.selectedCardDetails!!,
                                 isLoading = uiState.isEditingDetailsLoading,
                                 apiDetails = uiState.editingCardApiDetails,
-                                onSave = { id, copies, notes, price, priceSource ->
-                                    viewModel.updateCard(id, copies, notes, price, priceSource)
+                                onSave = { id, copies, notes, price, priceSource, gradedCopies ->
+                                    viewModel.updateCard(id, copies, notes, price, priceSource, gradedCopies)
                                     isEditing = false // Nach dem Speichern zurück in den Ansichtsmodus
                                     viewModel.clearEditingDetails() // Zustand aufräumen
                                 },

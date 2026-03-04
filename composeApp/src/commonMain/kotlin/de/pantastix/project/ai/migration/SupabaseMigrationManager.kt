@@ -6,7 +6,7 @@ import kotlinx.coroutines.delay
 
 class SupabaseMigrationManager : MigrationManager {
 
-    private val TARGET_VERSION = 2
+    private val TARGET_VERSION = 3
 
     override suspend fun getCurrentVersion(postgrest: Postgrest): Int {
         return try {
@@ -35,18 +35,11 @@ class SupabaseMigrationManager : MigrationManager {
                     })
                     
                     // Update version in DB
-                    if (nextVersion == 1) {
-                         postgrest.from("schema_version").upsert(buildJsonObject {
-                             put("id", 1)
-                             put("version", nextVersion)
-                         })
-                    } else {
-                         postgrest.from("schema_version").update({
-                             set("version", nextVersion)
-                         }) {
-                             filter { eq("id", 1) }
-                         }
-                    }
+                    postgrest.from("schema_version").upsert(buildJsonObject {
+                        put("id", 1)
+                        put("version", nextVersion)
+                    })
+                    
                     current = nextVersion
                     println("SupabaseMigration: Successfully migrated to $current")
                 } catch (e: Exception) {
@@ -97,6 +90,36 @@ class SupabaseMigrationManager : MigrationManager {
                 ('colorless', 'Farblos', 'Colorless', 'Incolore', '無'),
                 ('fairy', 'Fee', 'Fairy', 'Fée', 'フェアリー')
                 ON CONFLICT (id) DO NOTHING;
+                """.trimIndent()
+            }
+            3 -> {
+                """
+                -- Add gradedCopiesJson to PokemonCardEntity
+                ALTER TABLE public."PokemonCardEntity" ADD COLUMN IF NOT EXISTS "gradedCopiesJson" TEXT;
+
+                -- Aggregate Snapshot Table
+                CREATE TABLE IF NOT EXISTS public."PortfolioSnapshot" (
+                    "date" DATE PRIMARY KEY,
+                    "totalValue" DOUBLE PRECISION NOT NULL,
+                    "totalRawValue" DOUBLE PRECISION NOT NULL,
+                    "totalGradedValue" DOUBLE PRECISION NOT NULL,
+                    "cardCount" INTEGER NOT NULL,
+                    "updatedAt" TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                -- Detailed Snapshot Table
+                CREATE TABLE IF NOT EXISTS public."PortfolioSnapshotItem" (
+                    "date" DATE NOT NULL,
+                    "cardId" BIGINT NOT NULL,
+                    "nameLocal" TEXT NOT NULL,
+                    "setName" TEXT NOT NULL,
+                    "imageUrl" TEXT,
+                    "rawPrice" DOUBLE PRECISION,
+                    "rowCount" INTEGER NOT NULL,
+                    "gradedCopiesJson" TEXT,
+                    PRIMARY KEY ("date", "cardId"),
+                    FOREIGN KEY ("date") REFERENCES public."PortfolioSnapshot"("date") ON DELETE CASCADE
+                );
                 """.trimIndent()
             }
             else -> ""

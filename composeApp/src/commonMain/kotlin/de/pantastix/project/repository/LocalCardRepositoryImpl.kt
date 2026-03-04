@@ -143,7 +143,7 @@ class LocalCardRepositoryImpl(
                 PokemonCard(
                     id = it.id,
                     tcgDexCardId = it.tcgDexCardId,
-                    nameLocal = it.nameLocal, // KORRIGIERT
+                    nameLocal = it.nameLocal,
                     nameEn = it.nameEn,
                     language = it.language,
                     imageUrl = it.imageUrl,
@@ -164,7 +164,10 @@ class LocalCardRepositoryImpl(
                     retreatCost = it.retreatCost?.toInt(),
                     regulationMark = it.regulationMark,
                     abilities = abilities,
-                    attacks = attacks
+                    attacks = attacks,
+                    variantsJson = it.variantsJson,
+                    legalJson = it.legalJson,
+                    gradedCopies = it.gradedCopiesJson?.let { json -> jsonParser.decodeFromString(json) } ?: emptyList()
                 )
             }
         }
@@ -213,10 +216,11 @@ class LocalCardRepositoryImpl(
                 currentPrice = card.currentPrice,
                 lastPriceUpdate = card.lastPriceUpdate,
                 selectedPriceSource = card.selectedPriceSource,
-                variantsJson = card.variantsJson, // Muss aus einem passenden Feld im Modell kommen
+                variantsJson = card.variantsJson,
                 abilitiesJson = Json.encodeToString(ListSerializer(Ability.serializer()), card.abilities),
                 attacksJson = Json.encodeToString(ListSerializer(Attack.serializer()), card.attacks),
-                legalJson = card.legalJson // Muss aus einem passenden Feld im Modell kommen
+                legalJson = card.legalJson,
+                gradedCopiesJson = if (card.gradedCopies.isNotEmpty()) Json.encodeToString(card.gradedCopies) else null
             )
         }
     }
@@ -349,15 +353,17 @@ class LocalCardRepositoryImpl(
         currentPrice: Double?,
         lastPriceUpdate: String?,
         selectedPriceSource: String?,
+        gradedCopies: List<de.pantastix.project.model.GradedCopy>
     ) {
         withContext(ioDispatcher) {
             queries.updateCardUserData(
-                id = cardId,
                 ownedCopies = ownedCopies.toLong(),
                 notes = notes,
                 currentPrice = currentPrice,
                 lastPriceUpdate = lastPriceUpdate,
-                selectedPriceSource = selectedPriceSource
+                selectedPriceSource = selectedPriceSource,
+                gradedCopiesJson = if (gradedCopies.isNotEmpty()) Json.encodeToString(gradedCopies) else null,
+                id = cardId
             )
         }
     }
@@ -375,6 +381,76 @@ class LocalCardRepositoryImpl(
                 queries.clearAllSets()
                 println("Lokale Datenbank (Karten und Sets) wurde geleert.")
             }
+        }
+    }
+
+    // --- Snapshots ---
+
+    override suspend fun savePortfolioSnapshot(
+        snapshot: de.pantastix.project.model.PortfolioSnapshot,
+        items: List<de.pantastix.project.model.PortfolioSnapshotItem>
+    ) {
+        withContext(ioDispatcher) {
+            queries.transaction {
+                queries.insertSnapshot(
+                    date = snapshot.date,
+                    totalValue = snapshot.totalValue,
+                    totalRawValue = snapshot.totalRawValue,
+                    totalGradedValue = snapshot.totalGradedValue,
+                    cardCount = snapshot.cardCount.toLong(),
+                    updatedAt = snapshot.updatedAt
+                )
+                items.forEach { item ->
+                    queries.insertSnapshotItem(
+                        date = item.date,
+                        cardId = item.cardId,
+                        nameLocal = item.nameLocal,
+                        setName = item.setName,
+                        imageUrl = item.imageUrl,
+                        rawPrice = item.rawPrice,
+                        rowCount = item.rowCount.toLong(),
+                        gradedCopiesJson = item.gradedCopiesJson
+                    )
+                }
+            }
+        }
+    }
+
+    override suspend fun getAllSnapshots(): List<de.pantastix.project.model.PortfolioSnapshot> {
+        return withContext(ioDispatcher) {
+            queries.getSnapshots().executeAsList().map { 
+                de.pantastix.project.model.PortfolioSnapshot(
+                    date = it.date,
+                    totalValue = it.totalValue,
+                    totalRawValue = it.totalRawValue,
+                    totalGradedValue = it.totalGradedValue,
+                    cardCount = it.cardCount.toInt(),
+                    updatedAt = it.updatedAt
+                )
+            }
+        }
+    }
+
+    override suspend fun getSnapshotItems(date: String): List<de.pantastix.project.model.PortfolioSnapshotItem> {
+        return withContext(ioDispatcher) {
+            queries.getSnapshotItems(date).executeAsList().map {
+                de.pantastix.project.model.PortfolioSnapshotItem(
+                    date = it.date,
+                    cardId = it.cardId,
+                    nameLocal = it.nameLocal,
+                    setName = it.setName,
+                    imageUrl = it.imageUrl,
+                    rawPrice = it.rawPrice,
+                    rowCount = it.rowCount.toInt(),
+                    gradedCopiesJson = it.gradedCopiesJson
+                )
+            }
+        }
+    }
+
+    override suspend fun deleteSnapshot(date: String) {
+        withContext(ioDispatcher) {
+            queries.deleteSnapshot(date)
         }
     }
 }

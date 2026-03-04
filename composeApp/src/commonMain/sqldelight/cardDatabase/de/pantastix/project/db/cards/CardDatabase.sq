@@ -47,9 +47,36 @@ CREATE TABLE PokemonCardEntity (
     abilitiesJson TEXT,
     attacksJson TEXT,
     legalJson TEXT,
+    gradedCopiesJson TEXT,
 
     FOREIGN KEY(setId) REFERENCES SetEntity(setId),
     UNIQUE(tcgDexCardId, language)
+);
+
+--------------------------------------------------
+-- Portfolio-Snapshots
+--------------------------------------------------
+
+CREATE TABLE PortfolioSnapshot (
+    date TEXT PRIMARY KEY,
+    totalValue REAL NOT NULL,
+    totalRawValue REAL NOT NULL,
+    totalGradedValue REAL NOT NULL,
+    cardCount INTEGER NOT NULL,
+    updatedAt TEXT NOT NULL
+);
+
+CREATE TABLE PortfolioSnapshotItem (
+    date TEXT NOT NULL,
+    cardId INTEGER NOT NULL,
+    nameLocal TEXT NOT NULL,
+    setName TEXT NOT NULL,
+    imageUrl TEXT,
+    rawPrice REAL,
+    rowCount INTEGER NOT NULL,
+    gradedCopiesJson TEXT,
+    PRIMARY KEY (date, cardId),
+    FOREIGN KEY (date) REFERENCES PortfolioSnapshot(date) ON DELETE CASCADE
 );
 
 --------------------------------------------------
@@ -89,8 +116,27 @@ INSERT INTO PokemonCardEntity (
     setId, tcgDexCardId, nameLocal, nameEn, language, localId, imageUrl, cardMarketLink,
     ownedCopies, notes, rarity, hp, types, illustrator, stage, retreatCost,
     regulationMark, currentPrice, lastPriceUpdate, selectedPriceSource, variantsJson,
-    abilitiesJson, attacksJson, legalJson
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    abilitiesJson, attacksJson, legalJson, gradedCopiesJson
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+
+-- Snapshot Queries
+insertSnapshot:
+INSERT OR REPLACE INTO PortfolioSnapshot (date, totalValue, totalRawValue, totalGradedValue, cardCount, updatedAt)
+VALUES (?, ?, ?, ?, ?, ?);
+
+insertSnapshotItem:
+INSERT OR REPLACE INTO PortfolioSnapshotItem (date, cardId, nameLocal, setName, imageUrl, rawPrice, rowCount, gradedCopiesJson)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+getSnapshots:
+SELECT * FROM PortfolioSnapshot ORDER BY date ASC;
+
+getSnapshotItems:
+SELECT * FROM PortfolioSnapshotItem WHERE date = ?;
+
+deleteSnapshot:
+DELETE FROM PortfolioSnapshot WHERE date = ?;
 
 
 selectAllCardInfos:
@@ -135,7 +181,8 @@ SET ownedCopies = :ownedCopies,
     notes = :notes,
     currentPrice = :currentPrice,
     lastPriceUpdate = :lastPriceUpdate,
-    selectedPriceSource = :selectedPriceSource
+    selectedPriceSource = :selectedPriceSource,
+    gradedCopiesJson = :gradedCopiesJson
 WHERE id = :id;
 
 

@@ -44,6 +44,7 @@ fun FinalAddCardScreen(
         quantity: Int,
         notes: String?,
         selectedPriceSource: String?,
+        gradedCopies: List<de.pantastix.project.model.GradedCopy>
     ) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -53,6 +54,7 @@ fun FinalAddCardScreen(
     var notesInput by remember { mutableStateOf("") }
     var linkInput by remember { mutableStateOf("") }
     var userHasEditedLink by remember { mutableStateOf(false) }
+    var gradedCopies by remember { mutableStateOf<List<de.pantastix.project.model.GradedCopy>>(emptyList()) }
 
     var selectedPriceSchema by remember { mutableStateOf<PriceSchema?>(null) }
     var isHolo by remember { mutableStateOf(false) }
@@ -242,6 +244,13 @@ fun FinalAddCardScreen(
             modifier = Modifier.padding(vertical = 8.dp),
         )
 
+        de.pantastix.project.ui.components.GradedCopiesEditor(
+            initialCopies = gradedCopies,
+            onCopiesChanged = { gradedCopies = it }
+        )
+
+        Spacer(Modifier.height(8.dp))
+
         OutlinedTextField(
             value = notesInput,
             onValueChange = { notesInput = it },
@@ -283,6 +292,7 @@ fun FinalAddCardScreen(
                                 quantity,
                                 notesInput.ifBlank { null },
                                 priceSource,
+                                gradedCopies
                             )
                         },
                         modifier = Modifier.weight(1f)

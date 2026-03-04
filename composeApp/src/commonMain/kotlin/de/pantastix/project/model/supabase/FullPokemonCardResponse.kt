@@ -35,6 +35,7 @@ data class FullPokemonCardResponse(
     val abilitiesJson: String? = null,
     val attacksJson: String? = null,
     val legalJson: String? = null,
+    val gradedCopiesJson: String? = null,
     @SerialName("SetEntity")
     val setEntity: NestedSetEntity? = null
 )

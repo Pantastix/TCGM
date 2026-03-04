@@ -54,39 +54,11 @@ class SupabaseCardRepository(
             currentPrice = this.currentPrice,
             lastPriceUpdate = this.lastPriceUpdate,
             selectedPriceSource = this.selectedPriceSource,
-            variantsJson = null, // Nicht im PokemonCard Modell enthalten
+            variantsJson = this.variantsJson,
             abilitiesJson = jsonParser.encodeToString(ListSerializer(Ability.serializer()), this.abilities),
             attacksJson = jsonParser.encodeToString(ListSerializer(Attack.serializer()), this.attacks),
-            legalJson = null // Nicht im PokemonCard Modell enthalten
-        )
-    }
-
-    private fun SupabasePokemonCard.toPokemonCard(setName: String): PokemonCard {
-        return PokemonCard(
-            id = this.id,
-            tcgDexCardId = this.tcgDexCardId,
-            nameLocal = this.nameLocal,
-            nameEn = this.nameEn,
-            language = this.language,
-            imageUrl = this.imageUrl,
-            cardMarketLink = this.cardMarketLink,
-            ownedCopies = this.ownedCopies,
-            notes = this.notes,
-            setName = setName, // SetName is passed here
-            localId = this.localId,
-            currentPrice = this.currentPrice,
-            lastPriceUpdate = this.lastPriceUpdate,
-            selectedPriceSource = this.selectedPriceSource,
-            rarity = this.rarity,
-            hp = this.hp,
-            types = this.types?.split(",")?.map { it.trim() }?.filter { it.isNotBlank() } ?: emptyList(),
-            illustrator = this.illustrator,
-            stage = this.stage,
-            retreatCost = this.retreatCost,
-            regulationMark = this.regulationMark,
-            abilities = this.abilitiesJson?.let { jsonParser.decodeFromString(ListSerializer(Ability.serializer()), it) } ?: emptyList(),
-            attacks = this.attacksJson?.let { jsonParser.decodeFromString(ListSerializer(Attack.serializer()), it) } ?: emptyList(),
-            setId = this.setId,
+            legalJson = this.legalJson,
+            gradedCopiesJson = if (this.gradedCopies.isNotEmpty()) jsonParser.encodeToString(ListSerializer(GradedCopy.serializer()), this.gradedCopies) else null
         )
     }
 
@@ -113,9 +85,7 @@ class SupabaseCardRepository(
                 }
             }
 
-        println(result2.data)
         val fullCardData = result2.decodeSingleOrNull<FullPokemonCardResponse>()
-        println("Fetched card details: $fullCardData")
 
         return fullCardData?.let { data ->
             val setName = data.setEntity?.nameLocal ?: "Unknown Set"
@@ -144,7 +114,10 @@ class SupabaseCardRepository(
                 retreatCost = data.retreatCost,
                 regulationMark = data.regulationMark,
                 abilities = data.abilitiesJson?.let { jsonParser.decodeFromString(ListSerializer(Ability.serializer()), it) } ?: emptyList(),
-                attacks = data.attacksJson?.let { jsonParser.decodeFromString(ListSerializer(Attack.serializer()), it) } ?: emptyList()
+                attacks = data.attacksJson?.let { jsonParser.decodeFromString(ListSerializer(Attack.serializer()), it) } ?: emptyList(),
+                variantsJson = data.variantsJson,
+                legalJson = data.legalJson,
+                gradedCopies = data.gradedCopiesJson?.let { jsonParser.decodeFromString(ListSerializer(GradedCopy.serializer()), it) } ?: emptyList()
             )
         }
     }
@@ -171,6 +144,7 @@ class SupabaseCardRepository(
         currentPrice: Double?,
         lastPriceUpdate: String?,
         selectedPriceSource: String?,
+        gradedCopies: List<de.pantastix.project.model.GradedCopy>
     ) {
         postgrest.from(cardsTable).update({
             set("ownedCopies", ownedCopies)
@@ -178,6 +152,7 @@ class SupabaseCardRepository(
             set("currentPrice", currentPrice)
             set("lastPriceUpdate", lastPriceUpdate)
             set("selectedPriceSource", selectedPriceSource)
+            set("gradedCopiesJson", if (gradedCopies.isNotEmpty()) jsonParser.encodeToString(ListSerializer(GradedCopy.serializer()), gradedCopies) else null)
         }) {
             filter { eq("id", cardId) }
         }
@@ -192,10 +167,6 @@ class SupabaseCardRepository(
     }
 
     // --- SET-OPERATIONEN---
-//    override fun getAllSets(): Flow<List<SetInfo>> = flow {
-//        val data = postgrest.from(setsTable).select().decodeList<SetInfo>()
-//        emit(data)
-//    }
     override fun getAllSets(): Flow<List<SetInfo>> = _setsFlow.asStateFlow()
 
     override suspend fun fetchAllSetsOnce(): List<SetInfo> {
@@ -208,25 +179,13 @@ class SupabaseCardRepository(
             val result = postgrest.from(setsTable).select {
                 count(Count.EXACT)
             }
-
-            // Die countOrNull()-Erweiterungsfunktion liest das Ergebnis korrekt aus.
             val count = result.countOrNull()
             return count == 0L
         } catch (e: Exception) {
-            // Bei einem Fehler gehen wir sicherheitshalber davon aus, dass sie nicht leer ist.
             println("Fehler bei der Prüfung, ob die Set-Tabelle leer ist: ${e.message}")
             false
         }
     }
-
-//    override suspend fun syncSets(sets: List<SetInfo>) {
-//        sets.forEach { setInfo ->
-//            postgrest.from(setsTable).upsert(
-//                value = setInfo,
-//                onConflict = "setId"
-//            )
-//        }
-//    }
 
     private suspend fun refreshSets() {
         val data = postgrest.from(setsTable).select().decodeList<SetInfo>()
@@ -239,7 +198,6 @@ class SupabaseCardRepository(
         val setsToSave = sets.map { newSet ->
             val existingAbbreviation = oldSetsMap[newSet.setId]?.abbreviation
             if (!existingAbbreviation.isNullOrBlank()) {
-                // Wenn eine Abkürzung existiert, behalte sie.
                 newSet.copy(abbreviation = existingAbbreviation)
             } else {
                 newSet
@@ -390,6 +348,50 @@ class SupabaseCardRepository(
         } catch (e: Exception) {
             println("SupabaseCardRepository: Error searching sets: ${e.message}")
             emptyList()
+        }
+    }
+
+    // --- Portfolio Snapshots ---
+
+    override suspend fun savePortfolioSnapshot(
+        snapshot: de.pantastix.project.model.PortfolioSnapshot,
+        items: List<de.pantastix.project.model.PortfolioSnapshotItem>
+    ) {
+        try {
+            postgrest.from("PortfolioSnapshot").upsert(snapshot)
+            postgrest.from("PortfolioSnapshotItem").upsert(items)
+        } catch (e: Exception) {
+            println("SupabaseCardRepository: Error saving snapshot: ${e.message}")
+        }
+    }
+
+    override suspend fun getAllSnapshots(): List<de.pantastix.project.model.PortfolioSnapshot> {
+        return try {
+            postgrest.from("PortfolioSnapshot").select().decodeList<de.pantastix.project.model.PortfolioSnapshot>()
+        } catch (e: Exception) {
+            println("SupabaseCardRepository: Error fetching snapshots: ${e.message}")
+            emptyList()
+        }
+    }
+
+    override suspend fun getSnapshotItems(date: String): List<de.pantastix.project.model.PortfolioSnapshotItem> {
+        return try {
+            postgrest.from("PortfolioSnapshotItem").select {
+                filter { eq("date", date) }
+            }.decodeList<de.pantastix.project.model.PortfolioSnapshotItem>()
+        } catch (e: Exception) {
+            println("SupabaseCardRepository: Error fetching snapshot items: ${e.message}")
+            emptyList()
+        }
+    }
+
+    override suspend fun deleteSnapshot(date: String) {
+        try {
+            postgrest.from("PortfolioSnapshot").delete {
+                filter { eq("date", date) }
+            }
+        } catch (e: Exception) {
+            println("SupabaseCardRepository: Error deleting snapshot: ${e.message}")
         }
     }
 }
