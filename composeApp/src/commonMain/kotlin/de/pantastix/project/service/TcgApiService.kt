@@ -36,5 +36,7 @@ interface TcgApiService {
      * @param localId Die Nummer der Karte im Set (z.B. "051").
      * @return Ein [TcgDexCardResponse]-Objekt oder null bei einem Fehler.
      */
-    suspend fun getCardDetails(setId: String, localId: String, languageCode: String): TcgDexCardResponse?
-}
+    suspend fun getCardDetails(setId: String, localId: String, language: String): TcgDexCardResponse?
+
+    suspend fun getSetCards(setId: String): List<TcgDexCardResponse>
+    }

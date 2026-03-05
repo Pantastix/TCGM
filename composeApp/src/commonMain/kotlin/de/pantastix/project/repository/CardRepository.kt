@@ -63,6 +63,10 @@ interface CardRepository {
 
     suspend fun searchSets(query: String): List<SetInfo>
 
+    suspend fun getSetProgressList(): List<de.pantastix.project.model.SetProgress>
+
+    suspend fun getCardsBySet(setId: String): List<PokemonCardInfo>
+
     /** Löscht eine Karte anhand ihrer Sammlungs-ID. */
     suspend fun deleteCardById(cardId: Long)
 

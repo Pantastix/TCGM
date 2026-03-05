@@ -12,7 +12,8 @@ data class TcgDexSet(
     val name: String,
     val logo: String? = null,
     val symbol: String? = null, // Feld hinzugefügt
-    val cardCount: TcgDexCardCount? = null
+    val cardCount: TcgDexCardCount? = null,
+    val cards: List<TcgDexCardResponse>? = null // Neu: Liste aller Karten im Set
 )
 
 @Serializable

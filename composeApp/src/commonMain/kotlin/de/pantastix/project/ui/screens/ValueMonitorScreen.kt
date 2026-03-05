@@ -31,6 +31,7 @@ import de.pantastix.project.model.PortfolioSnapshotItem
 import de.pantastix.project.ui.components.ChartDataPoint
 import de.pantastix.project.ui.components.CustomValueLineChart
 import de.pantastix.project.ui.components.TimeRange
+import de.pantastix.project.ui.util.*
 import de.pantastix.project.ui.viewmodel.UiState
 import dev.icerock.moko.resources.compose.stringResource
 import de.pantastix.project.shared.resources.MR
@@ -65,13 +66,6 @@ sealed class SnapshotDisplayRow {
         override val name = "${item.nameLocal} (${graded.vendor} ${graded.grade})"
         override val setName = item.setName
     }
-}
-
-fun formatDate(isoDate: String): String {
-    return try {
-        val date = LocalDate.parse(isoDate)
-        date.format(DateTimeFormatter.ofPattern("dd.MM.yy"))
-    } catch (e: Exception) { isoDate }
 }
 
 fun formatLocalDate(date: LocalDate): String {
@@ -415,40 +409,6 @@ fun PortfolioSummary(snapshot: PortfolioSnapshot?) {
             modifier = Modifier.weight(1f),
             border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
         )
-    }
-}
-
-@Composable
-fun SummaryCard(
-    title: String, 
-    value: String, 
-    subtitle: String, 
-    modifier: Modifier, 
-    border: BorderStroke? = null
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        border = border,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelMedium,
-                color = LocalContentColor.current.copy(alpha = 0.7f)
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall,
-                color = LocalContentColor.current.copy(alpha = 0.6f)
-            )
-        }
     }
 }
 

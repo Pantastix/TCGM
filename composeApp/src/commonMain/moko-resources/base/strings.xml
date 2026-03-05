@@ -242,6 +242,25 @@
     <!-- WIP Screen -->
     <string name="wip_description">This area is still under construction. Check back soon!</string>
 
+    <!-- Set Overview -->
+    <string name="sets_nav_title">Sets</string>
+    <string name="sets_title_overview">My Sets</string>
+    <string name="sets_title_content">Set Content</string>
+    <string name="sets_sort_newest">Newest first</string>
+    <string name="sets_sort_oldest">Oldest first</string>
+    <string name="sets_sort_value">Highest Value</string>
+    <string name="sets_sort_name">Name A-Z</string>
+    <string name="sets_summary_total_value">Total Value</string>
+    <string name="sets_summary_total_cards">Cards</string>
+    <string name="sets_summary_all_sets">Over all sets</string>
+    <string name="sets_search_placeholder">Search sets...</string>
+    <string name="sets_unknown_date">Unknown Date</string>
+    <string name="sets_loading_cards">Loading cards...</string>
+    <string name="sets_empty_content">No cards found in this set.</string>
+
+    <!-- AI Disclaimer -->
+    <string name="ai_disclaimer">AI can make mistakes. Verify important info. (EU AI Act)</string>
+
     <!-- Value Monitor -->
     <string name="value_monitor_title">Value Monitor</string>
     <string name="value_monitor_no_snapshots">No snapshots available yet.</string>

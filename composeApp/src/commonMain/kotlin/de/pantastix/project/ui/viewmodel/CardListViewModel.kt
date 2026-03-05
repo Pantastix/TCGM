@@ -146,7 +146,11 @@ data class UiState(
     val portfolioSnapshots: List<PortfolioSnapshot> = emptyList(),
     val selectedSnapshotDate: String? = null,
     val selectedSnapshotItems: List<PortfolioSnapshotItem> = emptyList(),
-    val isPortfolioLoading: Boolean = false
+    val isPortfolioLoading: Boolean = false,
+
+    // Set Overview
+    val setProgressList: List<de.pantastix.project.model.SetProgress> = emptyList(),
+    val cardsBySet: List<PokemonCardInfo> = emptyList()
 )
 
 @OptIn(ExperimentalTime::class)
@@ -266,7 +270,7 @@ class CardListViewModel(
 
     private fun reinitializeTools() {
         registeredTools.clear()
-        registeredTools.addAll(toolRegistry.getAvailableTools(activeCardRepository))
+        registeredTools.addAll(toolRegistry.getAvailableTools(activeCardRepository, apiService))
     }
 
     fun setAiProvider(provider: AiProviderType) {
@@ -1311,6 +1315,24 @@ class CardListViewModel(
             _uiState.update { it.copy(isPortfolioLoading = true, selectedSnapshotDate = date) }
             val items = activeCardRepository.getSnapshotItems(date)
             _uiState.update { it.copy(selectedSnapshotItems = items, isPortfolioLoading = false) }
+        }
+    }
+
+    // --- Set Overview ---
+
+    fun loadSetProgressList() {
+        viewModelScope.launch {
+            setLoading(true, "Lade Set-Übersicht...")
+            val progressList = activeCardRepository.getSetProgressList()
+            _uiState.update { it.copy(setProgressList = progressList, isLoading = false) }
+        }
+    }
+
+    fun loadCardsBySet(setId: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, cardsBySet = emptyList()) }
+            val cards = activeCardRepository.getCardsBySet(setId)
+            _uiState.update { it.copy(cardsBySet = cards, isLoading = false) }
         }
     }
 

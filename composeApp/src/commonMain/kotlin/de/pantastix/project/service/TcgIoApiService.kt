@@ -82,5 +82,9 @@ class TcgIoApiService (val client: HttpClient // KORRIGIERT: Der Client wird jet
         throw UnsupportedOperationException("getCardDetails is not supported in PokemonTcgIoApiServiceImpl. Use TcgDexApiServiceImpl instead.")
     }
 
+    override suspend fun getSetCards(setId: String): List<TcgDexCardResponse> {
+        throw UnsupportedOperationException("getSetCards is not supported in PokemonTcgIoApiServiceImpl. Use TcgDexApiServiceImpl instead.")
+    }
+
 
 }

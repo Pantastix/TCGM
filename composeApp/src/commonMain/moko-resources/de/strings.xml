@@ -243,4 +243,23 @@
 
     <!-- WIP Screens -->
     <string name="wip_description">Dieser Bereich befindet sich noch im Bau. Schau bald wieder vorbei!</string>
+
+    <!-- Set Overview -->
+    <string name="sets_nav_title">Sets</string>
+    <string name="sets_title_overview">Meine Sets</string>
+    <string name="sets_title_content">Set-Inhalt</string>
+    <string name="sets_sort_newest">Neueste zuerst</string>
+    <string name="sets_sort_oldest">Älteste zuerst</string>
+    <string name="sets_sort_value">Höchster Wert</string>
+    <string name="sets_sort_name">Name A-Z</string>
+    <string name="sets_summary_total_value">Gesamtwert</string>
+    <string name="sets_summary_total_cards">Karten</string>
+    <string name="sets_summary_all_sets">Über alle Sets</string>
+    <string name="sets_search_placeholder">Sets durchsuchen...</string>
+    <string name="sets_unknown_date">Unbekanntes Datum</string>
+    <string name="sets_loading_cards">Lade Karten...</string>
+    <string name="sets_empty_content">Keine Karten in diesem Set gefunden.</string>
+
+    <!-- AI Disclaimer -->
+    <string name="ai_disclaimer">KI kann Fehler machen. Überprüfe wichtige Informationen. (EU AI Act)</string>
 </resources>

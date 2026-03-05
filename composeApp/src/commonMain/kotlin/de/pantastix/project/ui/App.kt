@@ -12,6 +12,7 @@ enum class MainScreen {
     COLLECTION,
     VALUE,
     CHAT,
+    SETS,
     SETTINGS,
     SUPABASE_GUIDE,
     EXPORT

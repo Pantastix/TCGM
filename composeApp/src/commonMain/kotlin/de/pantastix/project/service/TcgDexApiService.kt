@@ -173,6 +173,17 @@ class TcgDexApiService(
         return cardDetails
     }
 
+    override suspend fun getSetCards(setId: String): List<TcgDexCardResponse> {
+        return try {
+            // The set details endpoint contains all cards
+            val response = client.get("$baseUrl/de/sets/$setId").body<de.pantastix.project.model.api.TcgDexSet>()
+            response.cards ?: emptyList()
+        } catch (e: Exception) {
+            println("Fehler bei getSetCards für $setId: ${e.message}")
+            emptyList()
+        }
+    }
+
     /**
      * Private Hilfsfunktion, die nur die Basis-Kartendetails von der API abruft.
      */

@@ -260,11 +260,69 @@ class UpdateCardQuantityTool(private val repository: CardRepository) : AgentTool
         return buildJsonObject {
             put("success", true)
             put("card_name", cardInfo.nameLocal)
-            put("tcg_dex_id", tcgDexId)
+            put("tcg_id", tcgDexId)
             put("language", language)
             put("previous_count", cardInfo.ownedCopies)
             put("new_total_count", newCount)
             put("change_applied", change)
+        }.toString()
+    }
+}
+
+class GetMissingCardsTool(
+    private val repository: CardRepository,
+    private val apiService: de.pantastix.project.service.TcgApiService
+) : AgentTool {
+    override val name = "get_missing_cards"
+    override val description = "Identifiziert Karten eines Sets, die noch nicht in der Sammlung sind. WICHTIG: Nutze search_sets um die setId zu finden, bevor du dieses Tool nutzt."
+    override val parameterSchemaJson = """
+        {
+          "set_id": "String (Die eindeutige API-ID des Sets, z.B. 'sv3pt5')",
+          "rarity": "String? (Optional: Filtert fehlende Karten nach Seltenheit, z.B. 'Rare', 'Ultra Rare')"
+        }
+    """.trimIndent()
+
+    override val schema = Schema(
+        type = "OBJECT",
+        properties = mapOf(
+            "set_id" to Schema(type = "STRING", description = "The unique set ID (e.g., 'sv3pt5')."),
+            "rarity" to Schema(type = "STRING", description = "Optional: Filter missing cards by rarity.")
+        ),
+        required = listOf("set_id")
+    )
+
+    override suspend fun execute(parameters: Map<String, Any?>): String {
+        val setId = parameters["set_id"] as? String ?: return "{ \"error\": \"set_id fehlt.\" }"
+        val rarityFilter = parameters["rarity"] as? String
+
+        val apiCards = apiService.getSetCards(setId)
+        if (apiCards.isEmpty()) return "{ \"error\": \"Keine Karten für Set $setId gefunden oder API-Fehler.\" }"
+
+        val ownedCards = repository.getCardsBySet(setId)
+        val ownedTcgIds = ownedCards.map { it.tcgDexCardId }.toSet()
+
+        val missingCards = apiCards.filter { apiCard ->
+            !ownedTcgIds.contains(apiCard.id) && (rarityFilter == null || apiCard.rarity?.contains(rarityFilter, ignoreCase = true) == true)
+        }
+
+        return buildJsonObject {
+            put("set_id", setId)
+            put("total_cards_in_set", apiCards.size)
+            put("owned_unique_cards", ownedTcgIds.size)
+            put("missing_cards_count", missingCards.size)
+            putJsonArray("missing_samples") {
+                missingCards.take(15).forEach { card ->
+                    add(buildJsonObject {
+                        put("name", card.name)
+                        put("id", card.id)
+                        put("local_id", card.localId)
+                        put("rarity", card.rarity ?: "Unknown")
+                    })
+                }
+            }
+            if (missingCards.size > 15) {
+                put("note", "Es fehlen noch ${missingCards.size - 15} weitere Karten. Verfeinere die Suche mit dem rarity-Parameter.")
+            }
         }.toString()
     }
 }

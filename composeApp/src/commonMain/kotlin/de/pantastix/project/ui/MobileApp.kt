@@ -35,6 +35,12 @@ fun MobileApp(viewModel: CardListViewModel) {
                     onClick = { if (!uiState.isLoading) currentScreen = MainScreen.VALUE }
                 )
                 NavigationBarItem(
+                    icon = { Icon(Icons.Default.Layers, "Sets") },
+                    label = { Text("Sets") },
+                    selected = currentScreen == MainScreen.SETS,
+                    onClick = { if (!uiState.isLoading) currentScreen = MainScreen.SETS }
+                )
+                NavigationBarItem(
                     icon = { Icon(Icons.Default.Settings, stringResource(MR.strings.nav_settings)) },
                     label = { Text(stringResource(MR.strings.nav_settings)) },
                     selected = currentScreen == MainScreen.SETTINGS,
@@ -71,6 +77,10 @@ fun MobileApp(viewModel: CardListViewModel) {
                 )
                 MainScreen.SUPABASE_GUIDE -> SupabaseGuideScreen(
                     onBack = { currentScreen = MainScreen.SETTINGS }
+                )
+                MainScreen.SETS -> SetCollectionScreen(
+                    viewModel = viewModel,
+                    onNavigateToCardDetail = { /* TODO: Mobile navigation to details */ }
                 )
                 MainScreen.EXPORT -> ExportScreen(viewModel = viewModel)
                 MainScreen.CHAT -> ChatScreen()

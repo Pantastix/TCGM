@@ -122,8 +122,11 @@ class CombinedTcgApiService(
      * @param languageCode Der Sprachcode für die Kartendetails.
      * @return Ein [TcgDexCardResponse]-Objekt oder null bei einem Fehler.
      */
-    override suspend fun getCardDetails(setId: String, localId: String, languageCode: String): TcgDexCardResponse? {
-        return localApiService.getCardDetails(setId, localId, languageCode)
+    override suspend fun getCardDetails(setId: String, localId: String, language: String): TcgDexCardResponse? {
+        return localApiService.getCardDetails(setId, localId, language)
     }
 
+    override suspend fun getSetCards(setId: String): List<TcgDexCardResponse> {
+        return localApiService.getSetCards(setId)
+    }
 }

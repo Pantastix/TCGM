@@ -29,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import de.pantastix.project.ai.AiProviderType
@@ -325,10 +326,11 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
 
         // --- INPUT AREA ---
         if (isReady) {
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 OutlinedTextField(
                     value = uiState.chatInput,
@@ -348,6 +350,15 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                             Icon(Icons.Filled.Send, contentDescription = "Senden")
                         }
                     }
+                )
+                
+                Spacer(Modifier.height(8.dp))
+                
+                Text(
+                    text = stringResource(MR.strings.ai_disclaimer),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                    textAlign = TextAlign.Center
                 )
             }
         }

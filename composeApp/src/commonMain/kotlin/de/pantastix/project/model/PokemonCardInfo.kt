@@ -7,6 +7,7 @@ import kotlinx.serialization.Serializable
 data class PokemonCardInfo(
     val id: Long, // Die ID aus unserer Sammlungs-DB
     val tcgDexCardId: String,
+    val setId: String, // Neu hinzugefügt
     val language: String,
     val nameLocal: String,
     val setName: String,

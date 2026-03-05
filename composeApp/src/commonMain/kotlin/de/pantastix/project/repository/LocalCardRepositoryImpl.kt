@@ -121,6 +121,7 @@ class LocalCardRepositoryImpl(
                     PokemonCardInfo(
                         id = result.id,
                         tcgDexCardId = result.tcgDexCardId,
+                        setId = result.setId,
                         language = result.language,
                         nameLocal = result.nameLocal,
                         setName = result.setName,
@@ -176,13 +177,13 @@ class LocalCardRepositoryImpl(
     override suspend fun findCardByTcgDexId(tcgDexId: String, language: String): PokemonCardInfo? {
         return withContext(ioDispatcher) {
             queries.findCardByTcgDexIdAndLanguage(tcgDexId, language).executeAsOneOrNull()?.let { entity ->
-                // Mappen auf das Info-Objekt für den Check im ViewModel.
                 PokemonCardInfo(
                     id = entity.id,
                     tcgDexCardId = entity.tcgDexCardId,
+                    setId = entity.setId,
                     language = entity.language,
                     nameLocal = entity.nameLocal,
-                    setName = "", // Nicht relevant für diesen Check
+                    setName = "", 
                     imageUrl = entity.imageUrl,
                     ownedCopies = entity.ownedCopies.toInt(),
                     currentPrice = entity.currentPrice,
@@ -228,13 +229,13 @@ class LocalCardRepositoryImpl(
     override suspend fun findExistingCard(setId: String, localId: String, language: String): PokemonCardInfo? {
         return withContext(ioDispatcher) {
             queries.findCardBySetAndLocalIdAndLanguage(setId, localId, language).executeAsOneOrNull()?.let { entity ->
-                // Wir mappen das Ergebnis auf PokemonCardInfo. Alle Felder sind für den Check verfügbar.
                 PokemonCardInfo(
                     id = entity.id,
                     tcgDexCardId = entity.tcgDexCardId,
+                    setId = entity.setId,
                     language = entity.language,
                     nameLocal = entity.nameLocal,
-                    setName = "", // Nicht nötig für diesen Check
+                    setName = "", 
                     imageUrl = entity.imageUrl,
                     ownedCopies = entity.ownedCopies.toInt(),
                     currentPrice = entity.currentPrice,
@@ -271,10 +272,7 @@ class LocalCardRepositoryImpl(
         illustrator: String?,
         limit: Int
     ): List<PokemonCardInfo> {
-        println("LocalCardRepository: Searching for '$query', type='$type', sort='$sort', setId='$setId', rarity='$rarity', limit=$limit")
-        
         return withContext(ioDispatcher) {
-            // Find all translated names for the given type to make search language independent
             val typeSearchTerms = if (!type.isNullOrBlank()) {
                 val refs = getAllTypeReferences()
                 val matchedRef = refs.find { ref ->
@@ -284,14 +282,10 @@ class LocalCardRepositoryImpl(
                 matchedRef?.getAllNames() ?: listOf(type)
             } else null
 
-            // SQLDelight doesn't support dynamic OR for list of terms easily in advancedSearch without custom SQL
-            // So we fetch all and filter in memory for the complex type OR logic, or we use a simplified approach.
-            // For local, performance is usually fine to filter types in memory if typeSearchTerms is not null.
-            
             val results = queries.advancedSearch(
                 query = query,
                 setId = setId,
-                type = if (typeSearchTerms != null) null else null, // We handle type manually below if multiple terms
+                type = null, 
                 rarity = rarity,
                 illustrator = illustrator
             ).executeAsList().filter { entity ->
@@ -302,6 +296,7 @@ class LocalCardRepositoryImpl(
                 PokemonCardInfo(
                     id = result.id,
                     tcgDexCardId = result.tcgDexCardId,
+                    setId = result.setId,
                     language = result.language,
                     nameLocal = result.nameLocal,
                     setName = result.setName,
@@ -313,18 +308,15 @@ class LocalCardRepositoryImpl(
                 )
             }
             
-            // In-Memory Sortierung, da komplexe SQL-Sortierung schwierig ist
             val sorted = when(sort) {
                 "name_asc" -> results.sortedBy { it.nameLocal }
                 "name_desc" -> results.sortedByDescending { it.nameLocal }
                 "price_asc" -> results.sortedBy { it.currentPrice ?: 0.0 }
                 "price_desc" -> results.sortedByDescending { it.currentPrice ?: 0.0 }
-                else -> results // Default SQL order (Release Date DESC)
+                else -> results 
             }
             
-            val limited = sorted.take(limit)
-            println("LocalCardRepository: Found ${limited.size} cards (limited from ${sorted.size})")
-            limited
+            sorted.take(limit)
         }
     }
 
@@ -341,6 +333,44 @@ class LocalCardRepositoryImpl(
                     cardCountOfficial = entity.cardCountOfficial.toInt(),
                     cardCountTotal = entity.cardCountTotal.toInt(),
                     releaseDate = entity.releaseDate
+                )
+            }
+        }
+    }
+
+    override suspend fun getSetProgressList(): List<de.pantastix.project.model.SetProgress> {
+        return withContext(ioDispatcher) {
+            queries.getSetProgress().executeAsList().map { result ->
+                de.pantastix.project.model.SetProgress(
+                    setId = result.setId,
+                    name = result.nameLocal,
+                    logoUrl = result.logoUrl,
+                    cardCountOfficial = result.cardCountOfficial.toInt(),
+                    releaseDate = result.releaseDate,
+                    ownedUniqueCount = result.ownedUniqueCount,
+                    totalPhysicalCount = result.totalPhysicalCount?.toLong() ?: 0L,
+                    artRarePlusCount = result.artRarePlusCount?.toLong() ?: 0L,
+                    totalValue = result.totalValue ?: 0.0
+                )
+            }
+        }
+    }
+
+    override suspend fun getCardsBySet(setId: String): List<PokemonCardInfo> {
+        return withContext(ioDispatcher) {
+            queries.selectCardsBySet(setId).executeAsList().map { result ->
+                PokemonCardInfo(
+                    id = result.id,
+                    tcgDexCardId = result.tcgDexCardId,
+                    setId = result.setId,
+                    language = result.language,
+                    nameLocal = result.nameLocal,
+                    setName = result.setName,
+                    imageUrl = result.imageUrl,
+                    ownedCopies = result.ownedCopies.toInt(),
+                    currentPrice = result.currentPrice,
+                    selectedPriceSource = result.selectedPriceSource,
+                    lastPriceUpdate = result.lastPriceUpdate
                 )
             }
         }
@@ -379,7 +409,6 @@ class LocalCardRepositoryImpl(
             queries.transaction {
                 queries.clearAllPokemonCards()
                 queries.clearAllSets()
-                println("Lokale Datenbank (Karten und Sets) wurde geleert.")
             }
         }
     }

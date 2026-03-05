@@ -143,6 +143,7 @@ selectAllCardInfos:
 SELECT
     PokemonCardEntity.id,
     PokemonCardEntity.tcgDexCardId,
+    PokemonCardEntity.setId,
     PokemonCardEntity.language,
     PokemonCardEntity.nameLocal,
     PokemonCardEntity.imageUrl,
@@ -189,6 +190,9 @@ WHERE id = :id;
 searchCardsByName:
 SELECT
     PokemonCardEntity.id,
+    PokemonCardEntity.tcgDexCardId,
+    PokemonCardEntity.setId,
+    PokemonCardEntity.language,
     PokemonCardEntity.nameLocal,
     PokemonCardEntity.imageUrl,
     PokemonCardEntity.ownedCopies,
@@ -206,6 +210,7 @@ advancedSearch:
 SELECT
     PokemonCardEntity.id,
     PokemonCardEntity.tcgDexCardId,
+    PokemonCardEntity.setId,
     PokemonCardEntity.language,
     PokemonCardEntity.nameLocal,
     PokemonCardEntity.nameEn,
@@ -235,6 +240,44 @@ WHERE lower(nameLocal) LIKE '%' || lower(:query) || '%'
    OR lower(abbreviation) LIKE '%' || lower(:query) || '%'
    OR lower(setId) LIKE '%' || lower(:query) || '%'
 ORDER BY releaseDate DESC;
+
+getSetProgress:
+SELECT
+    SetEntity.setId,
+    SetEntity.nameLocal,
+    SetEntity.logoUrl,
+    SetEntity.cardCountOfficial,
+    SetEntity.releaseDate,
+    COUNT(PokemonCardEntity.id) AS ownedUniqueCount,
+    SUM(PokemonCardEntity.ownedCopies) AS totalPhysicalCount,
+    SUM(CASE 
+        WHEN PokemonCardEntity.rarity LIKE '%Rare%' AND PokemonCardEntity.rarity NOT IN ('Common', 'Uncommon', 'Rare') THEN PokemonCardEntity.ownedCopies 
+        ELSE 0 
+    END) AS artRarePlusCount,
+    SUM(COALESCE(PokemonCardEntity.currentPrice, 0) * PokemonCardEntity.ownedCopies) AS totalValue
+FROM SetEntity
+LEFT JOIN PokemonCardEntity ON SetEntity.setId = PokemonCardEntity.setId
+GROUP BY SetEntity.setId
+ORDER BY SetEntity.releaseDate DESC;
+
+selectCardsBySet:
+SELECT
+    PokemonCardEntity.id,
+    PokemonCardEntity.tcgDexCardId,
+    PokemonCardEntity.setId,
+    PokemonCardEntity.language,
+    PokemonCardEntity.nameLocal,
+    PokemonCardEntity.imageUrl,
+    PokemonCardEntity.ownedCopies,
+    PokemonCardEntity.currentPrice,
+    PokemonCardEntity.selectedPriceSource,
+    PokemonCardEntity.lastPriceUpdate,
+    PokemonCardEntity.localId,
+    SetEntity.nameLocal AS setName
+FROM PokemonCardEntity
+JOIN SetEntity ON PokemonCardEntity.setId = SetEntity.setId
+WHERE PokemonCardEntity.setId = ?
+ORDER BY PokemonCardEntity.localId ASC;
 
 deleteCardById:
 DELETE FROM PokemonCardEntity WHERE id = ?;

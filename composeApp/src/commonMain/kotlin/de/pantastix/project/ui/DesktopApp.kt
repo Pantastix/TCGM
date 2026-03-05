@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Collections
 import androidx.compose.material.icons.filled.ImportExport
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -109,6 +110,32 @@ fun DesktopApp(
                     onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.VALUE) },
                     colors = NavigationRailItemDefaults.colors(
                         indicatorColor = if (currentScreen == MainScreen.VALUE) MaterialTheme.colorScheme.primary.copy(
+                            alpha = 0.1f
+                        ) else Color.Transparent
+                    )
+                )
+
+                NavigationRailItem(
+                    icon = {
+                        Icon(
+                            Icons.Default.Layers,
+                            contentDescription = "Sets",
+                        )
+                    },
+                    label = {
+                        Text(
+                            "Sets",
+                            color = if (currentScreen == MainScreen.SETS) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                Color.Unspecified
+                            }
+                        )
+                    },
+                    selected = currentScreen == MainScreen.SETS,
+                    onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.SETS) },
+                    colors = NavigationRailItemDefaults.colors(
+                        indicatorColor = if (currentScreen == MainScreen.SETS) MaterialTheme.colorScheme.primary.copy(
                             alpha = 0.1f
                         ) else Color.Transparent
                     )
@@ -227,6 +254,14 @@ fun DesktopApp(
 
                     MainScreen.SUPABASE_GUIDE -> SupabaseGuideScreen(
                         onBack = { onScreenSelect(MainScreen.SETTINGS) }
+                    )
+
+                    MainScreen.SETS -> SetCollectionScreen(
+                        viewModel = viewModel,
+                        onNavigateToCardDetail = { cardId ->
+                            viewModel.selectCard(cardId)
+                            onScreenSelect(MainScreen.COLLECTION)
+                        }
                     )
 
                     MainScreen.EXPORT -> ExportScreen(viewModel = viewModel)
