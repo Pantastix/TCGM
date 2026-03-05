@@ -19,6 +19,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.input.key.*
+import coil3.compose.AsyncImage
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -290,6 +292,17 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                                  is ChatUiItem.AiGroup -> AiMessageGroupItem(item.messages, isGenerating)
                              }
                         }
+                        
+                        // NEW: Pending Actions
+                        if (uiState.pendingChatActions.isNotEmpty()) {
+                            item {
+                                PendingActionsCard(
+                                    actions = uiState.pendingChatActions,
+                                    onConfirm = { viewModel.confirmPendingActions(true) },
+                                    onCancel = { viewModel.confirmPendingActions(false) }
+                                )
+                            }
+                        }
                     }
                     
                     if (uiState.error != null) {
@@ -335,12 +348,28 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                 OutlinedTextField(
                     value = uiState.chatInput,
                     onValueChange = { viewModel.onChatInputChanged(it) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onPreviewKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyDown && event.key == Key.Enter) {
+                                if (event.isShiftPressed) {
+                                    // Shift + Enter: Standardverhalten (neue Zeile) zulassen
+                                    false
+                                } else {
+                                    // Enter ohne Shift: Nachricht senden
+                                    if (uiState.chatInput.isNotBlank() && !uiState.isChatLoading && currentModelId.isNotBlank()) {
+                                        viewModel.sendMessage()
+                                    }
+                                    true // Event konsumieren
+                                }
+                            } else {
+                                false
+                            }
+                        },
                     placeholder = { Text(stringResource(MR.strings.chat_input_placeholder)) },
                     maxLines = 4,
                     enabled = !uiState.isChatLoading && currentModelId.isNotBlank(),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(onSend = { viewModel.sendMessage() }),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
                     shape = RoundedCornerShape(24.dp),
                     trailingIcon = {
                         IconButton(
@@ -514,6 +543,114 @@ fun AiMessageGroupItem(messages: List<Content>, isGenerating: Boolean) {
         if (isGenerating && texts.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
             TypingIndicator()
+        }
+    }
+}
+
+@Composable
+fun PendingActionsCard(
+    actions: List<de.pantastix.project.ui.viewmodel.PendingChatAction>,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Inventory,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Geplante Änderungen",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            Spacer(Modifier.height(12.dp))
+            
+            actions.forEach { action ->
+                Row(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Card Image
+                    Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(4.dp)).background(Color.Gray.copy(alpha = 0.2f))) {
+                        if (action.imageUrl != null) {
+                            AsyncImage(
+                                model = "${action.imageUrl}/low.jpg",
+                                contentDescription = action.cardName,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                    
+                    Spacer(Modifier.width(12.dp))
+                    
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(action.cardName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "${action.currentCount} → ${action.newCount} Exemplare",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    
+                    if (action.newCount == 0) {
+                        Text(
+                            "WIRD ENTFERNT",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold
+                        )
+                    } else if (action.change > 0) {
+                        Text(
+                            "+${action.change}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color(0xFF4CAF50),
+                            fontWeight = FontWeight.Bold
+                        )
+                    } else {
+                        Text(
+                            "${action.change}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+            
+            Spacer(Modifier.height(16.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onCancel,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Abbrechen")
+                }
+                Button(
+                    onClick = onConfirm,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Bestätigen")
+                }
+            }
         }
     }
 }

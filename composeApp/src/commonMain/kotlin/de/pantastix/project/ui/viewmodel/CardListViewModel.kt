@@ -93,6 +93,19 @@ data class AiProviderStatus(
     val selectedModel: String = ""
 )
 
+data class PendingChatAction(
+    val cardId: Long,
+    val cardName: String,
+    val imageUrl: String? = null,
+    val currentCount: Int,
+    val newCount: Int,
+    val change: Int
+)
+
+enum class ExportAttribute {
+    NAME, TYPE, NUMBER, SET, PRICE, QUANTITY, IMAGE
+}
+
 data class UiState(
     val isInitialized: Boolean = false,
     val cardInfos: List<PokemonCardInfo> = emptyList(),
@@ -141,6 +154,7 @@ data class UiState(
     val chatInput: String = "",
     val isChatLoading: Boolean = false,
     val currentThought: String? = null,
+    val pendingChatActions: List<PendingChatAction> = emptyList(),
 
     // Portfolio Monitor
     val portfolioSnapshots: List<PortfolioSnapshot> = emptyList(),
@@ -150,7 +164,17 @@ data class UiState(
 
     // Set Overview
     val setProgressList: List<de.pantastix.project.model.SetProgress> = emptyList(),
-    val cardsBySet: List<PokemonCardInfo> = emptyList()
+    val cardsBySet: List<PokemonCardInfo> = emptyList(),
+    
+    // Set Sync
+    val setsSyncProgress: Float = 0f,
+    val isSyncingSets: Boolean = false,
+    val syncStatusMessage: String? = null,
+
+    // Export
+    val selectedCardsForExport: Set<Long> = emptySet(),
+    val availableAttributesForExport: List<ExportAttribute> = emptyList(),
+    val selectedAttributesForExport: List<ExportAttribute> = ExportAttribute.entries.toList()
 )
 
 @OptIn(ExperimentalTime::class)
@@ -166,6 +190,7 @@ class CardListViewModel(
     private val toolRegistry: de.pantastix.project.ai.tool.ToolRegistry,
     private val migrationManager: de.pantastix.project.ai.migration.MigrationManager,
     private val typeService: de.pantastix.project.service.TypeService,
+    private val exportService: de.pantastix.project.service.ExportService,
     private val viewModelScope: CoroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher)
 ) {
     private val _uiState = MutableStateFlow(UiState())
@@ -223,9 +248,45 @@ class CardListViewModel(
                         loadingMessage = null
                     )
                 }
+                
+                // Start background set sync
+                syncSetDetailsInBackground()
             } else {
                 _uiState.update { it.copy(isLoading = false, loadingMessage = null) }
             }
+        }
+    }
+
+    private fun syncSetDetailsInBackground() {
+        viewModelScope.launch {
+            val allSets = activeCardRepository.fetchAllSetsOnce()
+            val setsToSync = allSets.filter { it.abbreviation.isNullOrBlank() || it.releaseDate == null }
+            
+            if (setsToSync.isEmpty()) return@launch
+
+            _uiState.update { it.copy(isSyncingSets = true, setsSyncProgress = 0f, syncStatusMessage = "Lade Set-Details...") }
+
+            setsToSync.forEachIndexed { index, set ->
+                _uiState.update { it.copy(
+                    syncStatusMessage = "Lade: ${set.nameLocal}",
+                    setsSyncProgress = index.toFloat() / setsToSync.size
+                )}
+                
+                val details = apiService.getSetDetails(set.setId, uiState.value.appLanguage.code)
+                if (details != null) {
+                    activeCardRepository.updateSetDetails(
+                        setId = set.setId,
+                        abbreviation = details.abbreviation?.official,
+                        releaseDate = details.releaseDate
+                    )
+                }
+                // Rate limiting protection
+                delay(200)
+            }
+
+            _uiState.update { it.copy(isSyncingSets = false, setsSyncProgress = 1f, syncStatusMessage = "Sets aktualisiert") }
+            delay(3000)
+            _uiState.update { it.copy(syncStatusMessage = null) }
         }
     }
 
@@ -270,7 +331,36 @@ class CardListViewModel(
 
     private fun reinitializeTools() {
         registeredTools.clear()
-        registeredTools.addAll(toolRegistry.getAvailableTools(activeCardRepository, apiService))
+        registeredTools.addAll(toolRegistry.getAvailableTools(activeCardRepository, apiService) { action ->
+            _uiState.update { it.copy(pendingChatActions = it.pendingChatActions + action) }
+        })
+    }
+
+    fun confirmPendingActions(confirmed: Boolean) {
+        viewModelScope.launch {
+            if (confirmed) {
+                setLoading(true, "Aktualisiere Inventar...")
+                uiState.value.pendingChatActions.forEach { action ->
+                    val card = activeCardRepository.getFullCardDetails(action.cardId)
+                    if (card != null) {
+                        activeCardRepository.updateCardUserData(
+                            cardId = action.cardId,
+                            ownedCopies = action.newCount,
+                            notes = card.notes,
+                            currentPrice = card.currentPrice,
+                            lastPriceUpdate = card.lastPriceUpdate,
+                            selectedPriceSource = card.selectedPriceSource,
+                            gradedCopies = card.gradedCopies
+                        )
+                    }
+                }
+                loadCardInfos()
+                createDailySnapshot()
+                _uiState.update { it.copy(pendingChatActions = emptyList(), isLoading = false) }
+            } else {
+                _uiState.update { it.copy(pendingChatActions = emptyList()) }
+            }
+        }
     }
 
     fun setAiProvider(provider: AiProviderType) {
@@ -430,6 +520,7 @@ class CardListViewModel(
         }
 
         val tools = registeredTools.toList()
+        var stopAfterThisResponse = false
         
         var currentHistory = uiState.value.chatMessages.map { content ->
             val role = when (content.role) {
@@ -461,8 +552,16 @@ class CardListViewModel(
         var loopCount = 0
         val maxLoops = 10
 
-        while (loopCount < maxLoops) {
+        loop@ while (loopCount < maxLoops) {
              println("[AI LOOP] Starting iteration ${loopCount + 1}/$maxLoops")
+             
+             if (stopAfterThisResponse) {
+                 if (loopCount > 0) {
+                     println("[AI LOOP] Breaking. Stop requested.")
+                     break
+                 }
+             }
+
              val lastMsg = currentHistory.lastOrNull()
              val promptToUse = if (loopCount == 0 && lastMsg?.role == ChatRole.USER) lastMsg.content else ""
              val historyToUse = if (loopCount == 0) currentHistory.dropLast(1) else currentHistory
@@ -506,6 +605,11 @@ class CardListViewModel(
                              isFirstChunk = false
                          }
                          is de.pantastix.project.ai.AiResponse.ToolCall -> {
+                             // SAFETY: Ignore tools if we already marked for stop
+                             if (stopAfterThisResponse || uiState.value.pendingChatActions.isNotEmpty()) {
+                                 println("[AI LOOP] AI tried to call tool ${response.toolName} despite pending confirmation. Ignoring.")
+                                 return@collect 
+                             }
                              response.thought?.let { fullThoughtAccumulator += it }
                              response.thoughtSignature?.let { fullThoughtSignatureAccumulator = it }
                              _uiState.update { it.copy(currentThought = fullThoughtAccumulator.ifBlank { null }) }
@@ -519,7 +623,6 @@ class CardListViewModel(
                  }
              } catch (e: Exception) {
                  println("[AI LOOP EXCEPTION] ${e.message}")
-                 e.printStackTrace()
                  _uiState.update { it.copy(isChatLoading = false, error = e.message) }
                  break
              }
@@ -565,7 +668,8 @@ class CardListViewModel(
                  val tool = tools.find { it.name == toolCallRes.toolName }
                  if (tool != null) {
                      val toolResult = tool.execute(toolCallRes.parameters)
-                     
+                     val toolJson = try { Json.decodeFromString<JsonObject>(toolResult) } catch(e: Exception) { null }
+
                      // 3. Add tool response to history
                      currentHistory = currentHistory + ChatMessage(
                          role = ChatRole.TOOL, 
@@ -580,11 +684,7 @@ class CardListViewModel(
                          parts = listOf(Part(
                              functionResponse = FunctionResponse(
                                  name = toolCallRes.toolName,
-                                 response = try { 
-                                     Json.decodeFromString<JsonObject>(toolResult) 
-                                 } catch(e: Exception) { 
-                                     buildJsonObject { put("result", toolResult) } 
-                                 }
+                                 response = toolJson ?: buildJsonObject { put("result", toolResult) }
                              ),
                              thoughtSignature = toolCallMsg.thoughtSignature
                          ))
@@ -806,6 +906,19 @@ class CardListViewModel(
         fetchAndProcessCardDetails(detailsJob, language)
     }
 
+    fun fetchCardDetailsByNumberAndAbbreviation(cardNumber: String, abbreviation: String, language: CardLanguage) {
+        viewModelScope.launch {
+            setLoading(true, "Suche mit Kürzel...")
+            val setInfo = activeCardRepository.getSetByAbbreviation(abbreviation.trim())
+            if (setInfo == null) {
+                _uiState.update { it.copy(error = "Kürzel nicht gefunden.", isLoading = false) }
+                return@launch
+            }
+            val detailsJob = async { apiService.getCardDetails(setInfo.setId, cardNumber.trim(), language.code) }
+            fetchAndProcessCardDetails(detailsJob, language)
+        }
+    }
+
     fun fetchCardDetailsByNameAndNumber(cardName: String, cardNumberInput: String, language: CardLanguage) {
         viewModelScope.launch {
             setLoading(true, "Suche Karte...")
@@ -865,7 +978,7 @@ class CardListViewModel(
                 }
             } else {
                 val englishDetailsJob = async {
-                    apiService.getCardDetails(details.set.id, details.localId, CardLanguage.ENGLISH.code)
+                    apiService.getCardDetails(details.set?.id ?: "", details.localId, CardLanguage.ENGLISH.code)
                 }
                 val englishDetails = englishDetailsJob.await()
                 _uiState.update {
@@ -963,8 +1076,8 @@ class CardListViewModel(
             cardMarketLink = marketLink,
             ownedCopies = ownedCopies,
             notes = notes,
-            setName = localCardDetails.set.name,
-            localId = "${localCardDetails.localId} / ${localCardDetails.set.cardCount?.official ?: '?'}",
+            setName = localCardDetails.set?.name ?: "",
+            localId = "${localCardDetails.localId} / ${localCardDetails.set?.cardCount?.official ?: '?'}",
             currentPrice = price,
             lastPriceUpdate = if (price != null) Clock.System.now().toString() else null,
             selectedPriceSource = selectedPriceSource,
@@ -979,7 +1092,7 @@ class CardListViewModel(
             attacks = localCardDetails.attacks?.mapNotNull {
                 it.name?.let { name -> Attack(it.cost, name, it.effect, it.damage) }
             } ?: emptyList(),
-            setId = localCardDetails.set.id,
+            setId = localCardDetails.set?.id ?: "",
             variantsJson = localCardDetails.variants?.let { Json.encodeToString(it) },
             legalJson = localCardDetails.legal?.let { Json.encodeToString(it) },
             gradedCopies = gradedCopies
@@ -1281,6 +1394,83 @@ class CardListViewModel(
                     }
                 }
                 .collect { cardInfos -> _uiState.update { it.copy(cardInfos = cardInfos) } }
+        }
+    }
+
+    fun toggleCardSelectionForExport(cardId: Long) {
+        _uiState.update { state ->
+            val current = state.selectedCardsForExport
+            val next = if (current.contains(cardId)) current - cardId else current + cardId
+            state.copy(selectedCardsForExport = next)
+        }
+    }
+
+    fun toggleAttributeSelectionForExport(attribute: ExportAttribute) {
+        // No longer used with dual list, but keeping for compatibility if needed
+    }
+
+    fun moveAttributeToSelected(attribute: ExportAttribute) {
+        _uiState.update { state ->
+            val available = state.availableAttributesForExport - attribute
+            val selected = state.selectedAttributesForExport + attribute
+            state.copy(availableAttributesForExport = available, selectedAttributesForExport = selected)
+        }
+    }
+
+    fun moveAttributeToAvailable(attribute: ExportAttribute) {
+        _uiState.update { state ->
+            val selected = state.selectedAttributesForExport - attribute
+            val available = state.availableAttributesForExport + attribute
+            state.copy(availableAttributesForExport = available, selectedAttributesForExport = selected)
+        }
+    }
+
+    fun moveAttributeUp(attribute: ExportAttribute) {
+        _uiState.update { state ->
+            val list = state.selectedAttributesForExport.toMutableList()
+            val index = list.indexOf(attribute)
+            if (index > 0) {
+                list.removeAt(index)
+                list.add(index - 1, attribute)
+            }
+            state.copy(selectedAttributesForExport = list)
+        }
+    }
+
+    fun moveAttributeDown(attribute: ExportAttribute) {
+        _uiState.update { state ->
+            val list = state.selectedAttributesForExport.toMutableList()
+            val index = list.indexOf(attribute)
+            if (index < list.size - 1) {
+                list.removeAt(index)
+                list.add(index + 1, attribute)
+            }
+            state.copy(selectedAttributesForExport = list)
+        }
+    }
+
+    fun selectAllCardsForExport() {
+        _uiState.update { state ->
+            state.copy(selectedCardsForExport = state.cardInfos.map { it.id }.toSet())
+        }
+    }
+
+    fun clearCardSelectionForExport() {
+        _uiState.update { state ->
+            state.copy(selectedCardsForExport = emptySet())
+        }
+    }
+
+    fun startExportToPdf() {
+        viewModelScope.launch {
+            val selectedIds = uiState.value.selectedCardsForExport
+            val attributes = uiState.value.selectedAttributesForExport
+            if (selectedIds.isEmpty()) return@launch
+
+            setLoading(true, "Bereite PDF vor...")
+            val cards = selectedIds.mapNotNull { activeCardRepository.getFullCardDetails(it) }
+            exportService.exportToPdf(cards, attributes)
+            setLoading(false)
         }
     }
 

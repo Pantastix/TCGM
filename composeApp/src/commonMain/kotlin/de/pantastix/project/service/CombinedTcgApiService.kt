@@ -129,4 +129,8 @@ class CombinedTcgApiService(
     override suspend fun getSetCards(setId: String): List<TcgDexCardResponse> {
         return localApiService.getSetCards(setId)
     }
+
+    override suspend fun getSetDetails(setId: String, language: String): de.pantastix.project.model.api.TcgDexSet? {
+        return localApiService.getSetDetails(setId, language)
+    }
 }

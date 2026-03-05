@@ -2,6 +2,7 @@ package de.pantastix.project.ui
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -62,146 +63,147 @@ fun DesktopApp(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
-        Row {
-            NavigationRail {
-                NavigationRailItem(
-                    icon = {
-                        Icon(
-                            Icons.Default.Collections,
-                            contentDescription = stringResource(MR.strings.nav_collection),
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(modifier = Modifier.weight(1f)) {
+                NavigationRail {
+                    NavigationRailItem(
+                        icon = {
+                            Icon(
+                                Icons.Default.Collections,
+                                contentDescription = stringResource(MR.strings.nav_collection),
+                            )
+                        },
+                        label = {
+                            Text(
+                                stringResource(MR.strings.nav_collection),
+                                color = if (currentScreen == MainScreen.COLLECTION) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    Color.Unspecified
+                                }
+                            )
+                        },
+                        selected = currentScreen == MainScreen.COLLECTION,
+                        onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.COLLECTION) },
+                        colors = NavigationRailItemDefaults.colors(
+                            indicatorColor = if (currentScreen == MainScreen.COLLECTION) MaterialTheme.colorScheme.primary.copy(
+                                alpha = 0.1f
+                            ) else Color.Transparent
                         )
-                    },
-                    label = {
-                        Text(
-                            stringResource(MR.strings.nav_collection),
-                            color = if (currentScreen == MainScreen.COLLECTION) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                Color.Unspecified
-                            }
-                        )
-                    },
-                    selected = currentScreen == MainScreen.COLLECTION,
-                    onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.COLLECTION) },
-                    colors = NavigationRailItemDefaults.colors(
-                        indicatorColor = if (currentScreen == MainScreen.COLLECTION) MaterialTheme.colorScheme.primary.copy(
-                            alpha = 0.1f
-                        ) else Color.Transparent
                     )
-                )
-                NavigationRailItem(
-                    icon = {
-                        Icon(
-                            Icons.Default.Analytics,
-                            contentDescription = stringResource(MR.strings.nav_value),
+                    NavigationRailItem(
+                        icon = {
+                            Icon(
+                                Icons.Default.Analytics,
+                                contentDescription = stringResource(MR.strings.nav_value),
+                            )
+                        },
+                        label = {
+                            Text(
+                                stringResource(MR.strings.nav_value),
+                                color = if (currentScreen == MainScreen.VALUE) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    Color.Unspecified
+                                }
+                            )
+                        },
+                        selected = currentScreen == MainScreen.VALUE,
+                        onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.VALUE) },
+                        colors = NavigationRailItemDefaults.colors(
+                            indicatorColor = if (currentScreen == MainScreen.VALUE) MaterialTheme.colorScheme.primary.copy(
+                                alpha = 0.1f
+                            ) else Color.Transparent
                         )
-                    },
-                    label = {
-                        Text(
-                            stringResource(MR.strings.nav_value),
-                            color = if (currentScreen == MainScreen.VALUE) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                Color.Unspecified
-                            }
-                        )
-                    },
-                    selected = currentScreen == MainScreen.VALUE,
-                    onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.VALUE) },
-                    colors = NavigationRailItemDefaults.colors(
-                        indicatorColor = if (currentScreen == MainScreen.VALUE) MaterialTheme.colorScheme.primary.copy(
-                            alpha = 0.1f
-                        ) else Color.Transparent
                     )
-                )
 
-                NavigationRailItem(
-                    icon = {
-                        Icon(
-                            Icons.Default.Layers,
-                            contentDescription = "Sets",
+                    NavigationRailItem(
+                        icon = {
+                            Icon(
+                                Icons.Default.Layers,
+                                contentDescription = "Sets",
+                            )
+                        },
+                        label = {
+                            Text(
+                                "Sets",
+                                color = if (currentScreen == MainScreen.SETS) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    Color.Unspecified
+                                }
+                            )
+                        },
+                        selected = currentScreen == MainScreen.SETS,
+                        onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.SETS) },
+                        colors = NavigationRailItemDefaults.colors(
+                            indicatorColor = if (currentScreen == MainScreen.SETS) MaterialTheme.colorScheme.primary.copy(
+                                alpha = 0.1f
+                            ) else Color.Transparent
                         )
-                    },
-                    label = {
-                        Text(
-                            "Sets",
-                            color = if (currentScreen == MainScreen.SETS) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                Color.Unspecified
-                            }
-                        )
-                    },
-                    selected = currentScreen == MainScreen.SETS,
-                    onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.SETS) },
-                    colors = NavigationRailItemDefaults.colors(
-                        indicatorColor = if (currentScreen == MainScreen.SETS) MaterialTheme.colorScheme.primary.copy(
-                            alpha = 0.1f
-                        ) else Color.Transparent
                     )
-                )
 
-                NavigationRailItem(
-                    icon = {
-                        Icon(
-                            Icons.Default.ImportExport,
-                            contentDescription = stringResource(MR.strings.nav_export),
+                    NavigationRailItem(
+                        icon = {
+                            Icon(
+                                Icons.Default.ImportExport,
+                                contentDescription = stringResource(MR.strings.nav_export),
+                            )
+                        },
+                        label = {
+                            Text(
+                                stringResource(MR.strings.nav_export),
+                                color = if (currentScreen == MainScreen.EXPORT) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    Color.Unspecified
+                                }
+                            )
+                        },
+                        selected = currentScreen == MainScreen.EXPORT,
+                        onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.EXPORT) },
+                        colors = NavigationRailItemDefaults.colors(
+                            indicatorColor = if (currentScreen == MainScreen.EXPORT) MaterialTheme.colorScheme.primary.copy(
+                                alpha = 0.1f
+                            ) else Color.Transparent
                         )
-                    },
-                    label = {
-                        Text(
-                            stringResource(MR.strings.nav_export),
-                            color = if (currentScreen == MainScreen.EXPORT) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                Color.Unspecified
-                            }
-                        )
-                    },
-                    selected = currentScreen == MainScreen.EXPORT,
-                    onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.EXPORT) },
-                    colors = NavigationRailItemDefaults.colors(
-                        indicatorColor = if (currentScreen == MainScreen.EXPORT) MaterialTheme.colorScheme.primary.copy(
-                            alpha = 0.1f
-                        ) else Color.Transparent
                     )
-                )
 
-                NavigationRailItem(
-                    icon = {
-                        Icon(
-                            Icons.Default.Chat,
-                            contentDescription = stringResource(MR.strings.nav_chat),
+                    NavigationRailItem(
+                        icon = {
+                            Icon(
+                                Icons.Default.Chat,
+                                contentDescription = stringResource(MR.strings.nav_chat),
+                            )
+                        },
+                        label = {
+                            Text(
+                                stringResource(MR.strings.nav_chat),
+                                color = if (currentScreen == MainScreen.CHAT) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    Color.Unspecified
+                                }
+                            )
+                        },
+                        selected = currentScreen == MainScreen.CHAT,
+                        onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.CHAT) },
+                        colors = NavigationRailItemDefaults.colors(
+                            indicatorColor = if (currentScreen == MainScreen.CHAT) MaterialTheme.colorScheme.primary.copy(
+                                alpha = 0.1f
+                            ) else Color.Transparent
                         )
-                    },
-                    label = {
-                        Text(
-                            stringResource(MR.strings.nav_chat),
-                            color = if (currentScreen == MainScreen.CHAT) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                Color.Unspecified
-                            }
-                        )
-                    },
-                    selected = currentScreen == MainScreen.CHAT,
-                    onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.CHAT) },
-                    colors = NavigationRailItemDefaults.colors(
-                        indicatorColor = if (currentScreen == MainScreen.CHAT) MaterialTheme.colorScheme.primary.copy(
-                            alpha = 0.1f
-                        ) else Color.Transparent
                     )
-                )
 
-                Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.weight(1f))
 
-                NavigationRailItem(
-                    icon = {
-                        Icon(
-                            Icons.Default.Settings,
-                            contentDescription = stringResource(MR.strings.nav_settings),
-                        )
-                    },
+                    NavigationRailItem(
+                        icon = {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = stringResource(MR.strings.nav_settings),
+                            )
+                        },
 //                    label = {
 //                        Text(
 //                            stringResource(MR.strings.nav_settings),
@@ -212,136 +214,171 @@ fun DesktopApp(
 //                            }
 //                        )
 //                    },
-                    selected = currentScreen == MainScreen.SETTINGS,
-                    onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.SETTINGS) },
-                    colors = NavigationRailItemDefaults.colors(
-                        indicatorColor = if (currentScreen == MainScreen.SETTINGS) MaterialTheme.colorScheme.primary.copy(
-                            alpha = 0.1f
-                        ) else Color.Transparent
-                    )
-                )
-            }
-
-            VerticalDivider(
-                modifier = Modifier
-                    .fillMaxHeight(),
-                thickness = 4.dp,
-                color = MaterialTheme.colorScheme.primary
-            )
-
-
-            Box(modifier = Modifier.weight(1f)) {
-                when (currentScreen) {
-                    MainScreen.COLLECTION -> CardCollectionScreen(
-                        viewModel = viewModel,
-                        onAddCardClick = { showAddCardDialog = true },
-                        onCardClick = { cardId -> viewModel.selectCard(cardId) }
-                    )
-
-                    MainScreen.VALUE -> {
-                        LaunchedEffect(Unit) {
-                            viewModel.loadPortfolioSnapshots()
-                        }
-                        de.pantastix.project.ui.screens.ValueMonitorScreen(
-                            uiState = uiState,
-                            onSnapshotSelected = { viewModel.selectSnapshot(it) }
+                        selected = currentScreen == MainScreen.SETTINGS,
+                        onClick = { if (!uiState.isLoading) onScreenSelect(MainScreen.SETTINGS) },
+                        colors = NavigationRailItemDefaults.colors(
+                            indicatorColor = if (currentScreen == MainScreen.SETTINGS) MaterialTheme.colorScheme.primary.copy(
+                                alpha = 0.1f
+                            ) else Color.Transparent
                         )
-                    }
-                    MainScreen.SETTINGS -> SettingsScreen(
-                        viewModel = viewModel,
-                        onNavigateToGuide = { onScreenSelect(MainScreen.SUPABASE_GUIDE) }
                     )
+                }
 
-                    MainScreen.SUPABASE_GUIDE -> SupabaseGuideScreen(
-                        onBack = { onScreenSelect(MainScreen.SETTINGS) }
-                    )
+                VerticalDivider(
+                    modifier = Modifier
+                        .fillMaxHeight(),
+                    thickness = 4.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
 
-                    MainScreen.SETS -> SetCollectionScreen(
-                        viewModel = viewModel,
-                        onNavigateToCardDetail = { cardId ->
-                            viewModel.selectCard(cardId)
-                            onScreenSelect(MainScreen.COLLECTION)
+
+                Box(modifier = Modifier.weight(1f)) {
+                    when (currentScreen) {
+                        MainScreen.COLLECTION -> CardCollectionScreen(
+                            viewModel = viewModel,
+                            onAddCardClick = { showAddCardDialog = true },
+                            onCardClick = { cardId -> viewModel.selectCard(cardId) }
+                        )
+
+                        MainScreen.VALUE -> {
+                            LaunchedEffect(Unit) {
+                                viewModel.loadPortfolioSnapshots()
+                            }
+                            de.pantastix.project.ui.screens.ValueMonitorScreen(
+                                uiState = uiState,
+                                onSnapshotSelected = { viewModel.selectSnapshot(it) }
+                            )
                         }
-                    )
 
-                    MainScreen.EXPORT -> ExportScreen(viewModel = viewModel)
-                    MainScreen.CHAT -> ChatScreen()
+                        MainScreen.SETTINGS -> SettingsScreen(
+                            viewModel = viewModel,
+                            onNavigateToGuide = { onScreenSelect(MainScreen.SUPABASE_GUIDE) }
+                        )
+
+                        MainScreen.SUPABASE_GUIDE -> SupabaseGuideScreen(
+                            onBack = { onScreenSelect(MainScreen.SETTINGS) }
+                        )
+
+                        MainScreen.SETS -> SetCollectionScreen(
+                            viewModel = viewModel,
+                            onNavigateToCardDetail = { cardId ->
+                                viewModel.selectCard(cardId)
+                                onScreenSelect(MainScreen.COLLECTION)
+                            }
+                        )
+
+                        MainScreen.EXPORT -> ExportScreen(viewModel = viewModel)
+                        MainScreen.CHAT -> ChatScreen()
+                    }
+                }
+
+                // Animierte Detailansicht auf der rechten Seite (rechte Spalte)
+                if (detailPaneWidth > 0.dp) {
+                    Row(
+                        modifier = Modifier.width(detailPaneWidth) // Feste, animierte Breite
+                    ) {
+                        HorizontalDivider(
+                            modifier = Modifier.fillMaxHeight().width(1.dp),
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                        )
+                        key(uiState.selectedCardDetails?.id) {
+                            if (isEditing) {
+                                EditCardScreen(
+                                    card = uiState.selectedCardDetails!!,
+                                    isLoading = uiState.isEditingDetailsLoading,
+                                    apiDetails = uiState.editingCardApiDetails,
+                                    onSave = { id, copies, notes, price, priceSource, gradedCopies ->
+                                        viewModel.updateCard(id, copies, notes, price, priceSource, gradedCopies)
+                                        isEditing = false // Nach dem Speichern zurück in den Ansichtsmodus
+                                        viewModel.clearEditingDetails() // Zustand aufräumen
+                                    },
+                                    onCancel = { isEditing = false }, // Zurück in den Ansichtsmodus
+                                    onLoadPrices = viewModel::fetchPriceDetailsForEditing
+                                )
+                            } else {
+                                CardDetailScreen(
+                                    card = uiState.selectedCardDetails,
+                                    isLoading = uiState.isLoading,
+                                    onBack = { viewModel.clearSelectedCard() },
+                                    onEdit = { isEditing = true }, // Wechselt in den Bearbeitungsmodus
+                                    onDelete = { viewModel.deleteSelectedCard() }, // Ruft die neue Löschfunktion auf
+                                    onRefreshPrice = { cardToRefresh -> viewModel.refreshCardPrice(cardToRefresh) },
+                                    translateType = { viewModel.translateType(it) }
+                                )
+
+                            }
+                        }
+                    }
                 }
             }
 
-            // Animierte Detailansicht auf der rechten Seite (rechte Spalte)
-            if (detailPaneWidth > 0.dp) {
-                Row(
-                    modifier = Modifier.width(detailPaneWidth) // Feste, animierte Breite
+            // Footer / Status Bar
+            if (uiState.syncStatusMessage != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
-                    HorizontalDivider(
-                        modifier = Modifier.fillMaxHeight().width(1.dp),
-                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-                    )
-                    key(uiState.selectedCardDetails?.id) {
-                        if (isEditing) {
-                            EditCardScreen(
-                                card = uiState.selectedCardDetails!!,
-                                isLoading = uiState.isEditingDetailsLoading,
-                                apiDetails = uiState.editingCardApiDetails,
-                                onSave = { id, copies, notes, price, priceSource, gradedCopies ->
-                                    viewModel.updateCard(id, copies, notes, price, priceSource, gradedCopies)
-                                    isEditing = false // Nach dem Speichern zurück in den Ansichtsmodus
-                                    viewModel.clearEditingDetails() // Zustand aufräumen
-                                },
-                                onCancel = { isEditing = false }, // Zurück in den Ansichtsmodus
-                                onLoadPrices = viewModel::fetchPriceDetailsForEditing
+                    Row(
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            text = uiState.syncStatusMessage ?: "",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.width(300.dp),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                        if (uiState.isSyncingSets) {
+                            androidx.compose.material3.LinearProgressIndicator(
+                                progress = { uiState.setsSyncProgress },
+                                modifier = Modifier.width(200.dp).height(4.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
                             )
-                        } else {
-                            CardDetailScreen(
-                                card = uiState.selectedCardDetails,
-                                isLoading = uiState.isLoading,
-                                onBack = { viewModel.clearSelectedCard() },
-                                onEdit = { isEditing = true }, // Wechselt in den Bearbeitungsmodus
-                                onDelete = { viewModel.deleteSelectedCard() }, // Ruft die neue Löschfunktion auf
-                                onRefreshPrice = { cardToRefresh -> viewModel.refreshCardPrice(cardToRefresh) },
-                                translateType = { viewModel.translateType(it) }
-                            )
-
                         }
-                    }
-                }
+                    }                }
             }
         }
-    }
 
-    uiState.updateInfo?.let { update ->
-        AlertDialog(
-            modifier = Modifier.border(4.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.large),
-            onDismissRequest = { /* Modal */ },
-            title = { Text("Update verfügbar!") },
-            text = { Text("Eine neue Version (${update.version}) ist verfügbar. Möchten Sie sie jetzt installieren?") },
-            confirmButton = {
-                if (update.platform in listOf(Platform.Windows, Platform.Mac, Platform.Linux)) {
-                    Button(onClick = { viewModel.startUpdate(update.downloadUrl) }) {
-                        Text("Jetzt aktualisieren")
+        uiState.updateInfo?.let { update ->
+            AlertDialog(
+                modifier = Modifier.border(4.dp, MaterialTheme.colorScheme.primary, MaterialTheme.shapes.large),
+                onDismissRequest = { /* Modal */ },
+                title = { Text("Update verfügbar!") },
+                text = { Text("Eine neue Version (${update.version}) ist verfügbar. Möchten Sie sie jetzt installieren?") },
+                confirmButton = {
+                    if (update.platform in listOf(Platform.Windows, Platform.Mac, Platform.Linux)) {
+                        Button(onClick = { viewModel.startUpdate(update.downloadUrl) }) {
+                            Text("Jetzt aktualisieren")
+                        }
+                    } else { // Für Android etc.
+                        Button(onClick = { uriHandler.openUri(update.downloadUrl) }) {
+                            Text("Herunterladen")
+                        }
                     }
-                } else { // Für Android etc.
-                    Button(onClick = { uriHandler.openUri(update.downloadUrl) }) {
-                        Text("Herunterladen")
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        viewModel.dismissUpdateDialog()
+                    }) {
+                        Text("Später")
                     }
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    viewModel.dismissUpdateDialog()
-                }) {
-                    Text("Später")
-                }
-            }
-        )
-    }
+            )
+        }
 
 
-    if (showAddCardDialog) {
-        AddCardFlow(
-            viewModel = viewModel,
-            onDismiss = { showAddCardDialog = false }
-        )
+        if (showAddCardDialog) {
+            AddCardFlow(
+                viewModel = viewModel,
+                onDismiss = { showAddCardDialog = false }
+            )
+        }
     }
 }

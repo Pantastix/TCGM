@@ -6,4 +6,5 @@ import org.koin.dsl.module
 
 val androidModule = module {
     single { DatabaseDriverFactory(androidContext()) }
+    single<de.pantastix.project.service.ExportService> { de.pantastix.project.service.AndroidExportService() }
 }

@@ -105,7 +105,8 @@ val commonModule = module {
             claudeService = get(),
             toolRegistry = get(),
             migrationManager = get<de.pantastix.project.ai.migration.SupabaseMigrationManager>(),
-            typeService = get()
+            typeService = get(),
+            exportService = get()
         )
     }
 }

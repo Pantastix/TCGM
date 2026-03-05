@@ -4,11 +4,7 @@ import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import de.pantastix.project.coroutines.ioDispatcher
 import de.pantastix.project.db.cards.CardDatabaseQueries
-import de.pantastix.project.model.Ability
-import de.pantastix.project.model.Attack
-import de.pantastix.project.model.PokemonCard
-import de.pantastix.project.model.PokemonCardInfo
-import de.pantastix.project.model.SetInfo
+import de.pantastix.project.model.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -26,49 +22,26 @@ class LocalCardRepositoryImpl(
             .asFlow()
             .mapToList(ioDispatcher)
             .map { entities ->
-                entities.map { entity ->
-                    SetInfo(
-                        id = entity.id.toInt(),
-                        setId = entity.setId,
-                        abbreviation = entity.abbreviation,
-                        nameLocal = entity.nameLocal,
-                        nameEn = entity.nameEn,
-                        logoUrl = entity.logoUrl,
-                        cardCountOfficial = entity.cardCountOfficial.toInt(),
-                        cardCountTotal = entity.cardCountTotal.toInt(),
-                        releaseDate = entity.releaseDate
-                    )
-                }
+                entities.map { it.toSetInfo() }
             }
     }
 
     override suspend fun fetchAllSetsOnce(): List<SetInfo> {
         return withContext(ioDispatcher) {
-            queries.selectAllSets().executeAsList().map { entity ->
-                SetInfo(
-                    id = entity.id.toInt(),
-                    setId = entity.setId,
-                    abbreviation = entity.abbreviation,
-                    nameLocal = entity.nameLocal,
-                    nameEn = entity.nameEn,
-                    logoUrl = entity.logoUrl,
-                    cardCountOfficial = entity.cardCountOfficial.toInt(),
-                    cardCountTotal = entity.cardCountTotal.toInt(),
-                    releaseDate = entity.releaseDate
-                )
-            }
+            queries.selectAllSets().executeAsList().map { it.toSetInfo() }
         }
     }
 
     override suspend fun isSetStorageEmpty(): Boolean {
-        return queries.selectAllSets().executeAsList().isEmpty()
+        return withContext(ioDispatcher) {
+            queries.selectAllSets().executeAsList().isEmpty()
+        }
     }
 
     override suspend fun syncSets(sets: List<SetInfo>) {
         withContext(ioDispatcher) {
             queries.transaction {
                 sets.forEach { setInfo ->
-                    // Behalte das vorhandene Kürzel, falls es schon existiert
                     val existingAbbr = queries.selectSetById(setInfo.setId).executeAsOneOrNull()?.abbreviation
                     queries.insertOrReplaceSet(
                         id = setInfo.id.toLong(),
@@ -92,22 +65,36 @@ class LocalCardRepositoryImpl(
         }
     }
 
+    override suspend fun updateSetDetails(setId: String, abbreviation: String?, releaseDate: String?) {
+        withContext(ioDispatcher) {
+            queries.updateSetDetails(abbreviation = abbreviation, releaseDate = releaseDate, setId = setId)
+        }
+    }
+
     override suspend fun getSetsByOfficialCount(count: Int): List<SetInfo> {
         return withContext(ioDispatcher) {
-            queries.selectSetsByOfficialCount(count.toLong()).executeAsList().map { entity ->
-                SetInfo(
-                    id = entity.id.toInt(),
-                    setId = entity.setId,
-                    abbreviation = entity.abbreviation,
-                    nameLocal = entity.nameLocal,
-                    nameEn = entity.nameEn,
-                    logoUrl = entity.logoUrl,
-                    cardCountOfficial = entity.cardCountOfficial.toInt(),
-                    cardCountTotal = entity.cardCountTotal.toInt(),
-                    releaseDate = entity.releaseDate
-                )
-            }
+            queries.selectSetsByOfficialCount(count.toLong()).executeAsList().map { it.toSetInfo() }
         }
+    }
+
+    override suspend fun getSetByAbbreviation(abbreviation: String): SetInfo? {
+        return withContext(ioDispatcher) {
+            queries.selectSetByAbbreviation(abbreviation).executeAsOneOrNull()?.toSetInfo()
+        }
+    }
+
+    private fun de.pantastix.project.db.cards.SetEntity.toSetInfo(): SetInfo {
+        return SetInfo(
+            id = id.toInt(),
+            setId = setId,
+            abbreviation = abbreviation,
+            nameLocal = nameLocal,
+            nameEn = nameEn,
+            logoUrl = logoUrl,
+            cardCountOfficial = cardCountOfficial.toInt(),
+            cardCountTotal = cardCountTotal.toInt(),
+            releaseDate = releaseDate
+        )
     }
 
     // --- Pokémon-Karten-Implementierungen ---
@@ -322,19 +309,7 @@ class LocalCardRepositoryImpl(
 
     override suspend fun searchSets(query: String): List<SetInfo> {
         return withContext(ioDispatcher) {
-            queries.searchSets(query).executeAsList().map { entity ->
-                SetInfo(
-                    id = entity.id.toInt(),
-                    setId = entity.setId,
-                    abbreviation = entity.abbreviation,
-                    nameLocal = entity.nameLocal,
-                    nameEn = entity.nameEn,
-                    logoUrl = entity.logoUrl,
-                    cardCountOfficial = entity.cardCountOfficial.toInt(),
-                    cardCountTotal = entity.cardCountTotal.toInt(),
-                    releaseDate = entity.releaseDate
-                )
-            }
+            queries.searchSets(query).executeAsList().map { it.toSetInfo() }
         }
     }
 

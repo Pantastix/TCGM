@@ -3,6 +3,7 @@ package de.pantastix.project.service
 import de.pantastix.project.model.SetInfo
 import de.pantastix.project.model.api.PokemonTcgIoSetResponse
 import de.pantastix.project.model.api.TcgDexCardResponse
+import de.pantastix.project.model.api.TcgDexSet
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
@@ -84,6 +85,10 @@ class TcgIoApiService (val client: HttpClient // KORRIGIERT: Der Client wird jet
 
     override suspend fun getSetCards(setId: String): List<TcgDexCardResponse> {
         throw UnsupportedOperationException("getSetCards is not supported in PokemonTcgIoApiServiceImpl. Use TcgDexApiServiceImpl instead.")
+    }
+
+    override suspend fun getSetDetails(setId: String, language: String): TcgDexSet? {
+        return null
     }
 
 

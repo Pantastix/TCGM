@@ -29,6 +29,7 @@ import org.koin.dsl.module
 
 val desktopModule = module {
     single<DatabaseDriverFactory> { DatabaseDriverFactory() }
+    single<de.pantastix.project.service.ExportService> { de.pantastix.project.service.DesktopExportService() }
 }
 
 fun main() = application {

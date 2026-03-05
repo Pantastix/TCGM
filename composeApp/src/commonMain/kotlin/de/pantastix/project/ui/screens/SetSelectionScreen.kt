@@ -19,12 +19,15 @@ import de.pantastix.project.shared.resources.MR
 import de.pantastix.project.ui.viewmodel.CardLanguage
 import de.pantastix.project.ui.viewmodel.CardListViewModel
 import dev.icerock.moko.resources.compose.stringResource
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 
 // NEU: Enum zur Steuerung der Suchmethode
 enum class SearchMode {
-    BY_NAME_AND_NUMBER, BY_SET
+    BY_NAME_AND_NUMBER, BY_SET, BY_ABBREVIATION
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SetSelectionScreen(
     viewModel: CardListViewModel
@@ -54,12 +57,17 @@ fun SetSelectionScreen(
             Tab(
                 selected = selectedSearchMode == SearchMode.BY_NAME_AND_NUMBER,
                 onClick = { selectedSearchMode = SearchMode.BY_NAME_AND_NUMBER },
-                text = { Text(stringResource(MR.strings.set_selection_tab_by_name)) }
+                text = { Text("Name/Nr") }
             )
             Tab(
                 selected = selectedSearchMode == SearchMode.BY_SET,
                 onClick = { selectedSearchMode = SearchMode.BY_SET },
-                text = { Text(stringResource(MR.strings.set_selection_tab_by_set)) }
+                text = { Text("Set") }
+            )
+            Tab(
+                selected = selectedSearchMode == SearchMode.BY_ABBREVIATION,
+                onClick = { selectedSearchMode = SearchMode.BY_ABBREVIATION },
+                text = { Text("Kürzel") }
             )
         }
 
@@ -67,6 +75,67 @@ fun SetSelectionScreen(
         when (selectedSearchMode) {
             SearchMode.BY_NAME_AND_NUMBER -> SearchByNameAndNumber(viewModel)
             SearchMode.BY_SET -> SearchBySet(viewModel)
+            SearchMode.BY_ABBREVIATION -> SearchByAbbreviation(viewModel)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun SearchByAbbreviation(viewModel: CardListViewModel) {
+    val uiState by viewModel.uiState.collectAsState()
+    var cardNumber by remember { mutableStateOf("") }
+    var abbreviation by remember { mutableStateOf("") }
+    var selectedLanguage by remember { mutableStateOf(CardLanguage.GERMAN) }
+    var isLangDropdownExpanded by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        // Sprachauswahl
+        ExposedDropdownMenuBox(expanded = isLangDropdownExpanded, onExpandedChange = { isLangDropdownExpanded = it }) {
+            OutlinedTextField(
+                value = selectedLanguage.displayName,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(stringResource(MR.strings.set_selection_language_label)) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = isLangDropdownExpanded) },
+                modifier = Modifier.menuAnchor().fillMaxWidth()
+            )
+            ExposedDropdownMenu(
+                expanded = isLangDropdownExpanded,
+                onDismissRequest = { isLangDropdownExpanded = false }) {
+                CardLanguage.entries.forEach { lang ->
+                    DropdownMenuItem(text = { Text(lang.displayName) }, onClick = {
+                        selectedLanguage = lang
+                        isLangDropdownExpanded = false
+                    })
+                }
+            }
+        }
+        // Kartennummer
+        OutlinedTextField(
+            value = cardNumber,
+            onValueChange = { cardNumber = it },
+            label = { Text("Kartennummer (z.B. 4)") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        // Set-Kürzel
+        OutlinedTextField(
+            value = abbreviation,
+            onValueChange = { abbreviation = it },
+            label = { Text("Set-Kürzel (z.B. BS)") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(16.dp))
+        // Such-Button
+        if (uiState.isLoading) {
+            LoadingIndicator()
+        } else {
+            Button(
+                onClick = {
+                    viewModel.fetchCardDetailsByNumberAndAbbreviation(cardNumber, abbreviation, selectedLanguage)
+                },
+                enabled = abbreviation.isNotBlank() && cardNumber.isNotBlank()
+            ) { Text(stringResource(MR.strings.set_selection_search_button)) }
         }
     }
 }

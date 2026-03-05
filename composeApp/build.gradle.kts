@@ -106,6 +106,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.swing)
             implementation(libs.sqldelight.sqlite.driver)
             implementation(libs.ktor.client.cio) // Ktor Client für Desktop
+            implementation(libs.openpdf)
         }
     }
 }

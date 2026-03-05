@@ -8,12 +8,19 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class TcgDexSet(
-    val id: String,
-    val name: String,
+    val id: String? = null,
+    val name: String? = null,
     val logo: String? = null,
-    val symbol: String? = null, // Feld hinzugefügt
+    val symbol: String? = null,
     val cardCount: TcgDexCardCount? = null,
-    val cards: List<TcgDexCardResponse>? = null // Neu: Liste aller Karten im Set
+    val cards: List<TcgDexCardResponse>? = null,
+    val abbreviation: TcgDexSetAbbreviation? = null,
+    val releaseDate: String? = null
+)
+
+@Serializable
+data class TcgDexSetAbbreviation(
+    val official: String? = null
 )
 
 @Serializable

@@ -65,7 +65,7 @@ fun AddCardContent(
     if (uiState.apiCardDetails == null) {
         SetSelectionScreen(viewModel = viewModel)
     } else {
-        val setInfo = uiState.sets.find { it.setId == uiState.apiCardDetails!!.set.id }
+        val setInfo = uiState.sets.find { it.setId == uiState.apiCardDetails!!.set?.id }
         FinalAddCardScreen(
             cardDetails = uiState.apiCardDetails!!,
             englishCardDetails = uiState.englishApiCardDetails,

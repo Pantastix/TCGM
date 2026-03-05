@@ -65,23 +65,23 @@ class TcgDexApiService(
             val enSetsRaw = enSetsDeferred.await() // Die englische Liste ist die Master-Liste.
 
             // 2. Erstelle eine Map der lokalen Sets für schnellen Zugriff über die ID.
-            val localSetMap = localSets.associateBy { it.id }
+            val localSetMap = localSets.filter { it.id != null }.associateBy { it.id!! }
 
             val filterRegex = Regex("^A\\d+[a-zA-Z]?$")
-            val enSets = enSetsRaw.filterNot { filterRegex.matches(it.id) }
+            val enSets = enSetsRaw.filter { it.id != null && !filterRegex.matches(it.id!!) }
 
             // 3. Iteriere durch die englische Master-Liste und kombiniere sie mit den lokalen Daten.
             enSets.mapIndexed { index, enSet ->
                 val localSet = localSetMap[enSet.id]
 
                 // Wende die Namensnormalisierung an
-                val normalizedEnName = normalizeSetName(enSet.name)
+                val normalizedEnName = normalizeSetName(enSet.name ?: "Unknown")
                 val normalizedLocalName = localSet?.name?.let { normalizeSetName(it) } ?: normalizedEnName
 
                 // Erstelle das SetInfo-Objekt.
                 SetInfo(
                     id = index,
-                    setId = enSet.id,
+                    setId = enSet.id!!,
                     abbreviation = null,
                     nameLocal = normalizedLocalName,
                     nameEn = normalizedEnName,
@@ -124,15 +124,16 @@ class TcgDexApiService(
         val rawSets = fetchSetData(language)
 
         val filterRegex = Regex("^A\\d+[a-zA-Z]?$")
-        val filteredSets = rawSets.filterNot { filterRegex.matches(it.id) }
+        val filteredSets = rawSets.filter { it.id != null && !filterRegex.matches(it.id!!) }
 
         return filteredSets.mapIndexed { index, set ->
+            val name = set.name ?: "Unknown"
             SetInfo(
                 id = index,
-                setId = set.id,
+                setId = set.id!!,
                 abbreviation = null,
-                nameLocal = set.name,
-                nameEn = set.name,
+                nameLocal = name,
+                nameEn = name,
                 logoUrl = set.logo ?: set.symbol,
                 cardCountOfficial = set.cardCount?.official ?: 0,
                 cardCountTotal = set.cardCount?.total ?: 0,
@@ -181,6 +182,15 @@ class TcgDexApiService(
         } catch (e: Exception) {
             println("Fehler bei getSetCards für $setId: ${e.message}")
             emptyList()
+        }
+    }
+
+    override suspend fun getSetDetails(setId: String, language: String): TcgDexSet? {
+        return try {
+            client.get("$baseUrl/$language/sets/$setId").body<TcgDexSet>()
+        } catch (e: Exception) {
+            println("Fehler bei getSetDetails für $language/$setId: ${e.message}")
+            null
         }
     }
 

@@ -39,4 +39,6 @@ interface TcgApiService {
     suspend fun getCardDetails(setId: String, localId: String, language: String): TcgDexCardResponse?
 
     suspend fun getSetCards(setId: String): List<TcgDexCardResponse>
+
+    suspend fun getSetDetails(setId: String, language: String): de.pantastix.project.model.api.TcgDexSet?
     }

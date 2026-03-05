@@ -17,6 +17,7 @@ interface CardRepository {
     suspend fun isSetStorageEmpty(): Boolean
     suspend fun syncSets(sets: List<SetInfo>)
     suspend fun getSetsByOfficialCount(count: Int): List<SetInfo>
+    suspend fun getSetByAbbreviation(abbreviation: String): SetInfo?
 
 
     // --- Pokémon-Karten-Operationen ---
@@ -25,6 +26,7 @@ interface CardRepository {
     suspend fun findCardByTcgDexId(tcgDexId: String, language: String): PokemonCardInfo?
 
     suspend fun updateSetAbbreviation(setId: String, abbreviation: String)
+    suspend fun updateSetDetails(setId: String, abbreviation: String?, releaseDate: String?)
 
     /**
      * Fügt eine neue, vollständig definierte Karte hinzu.

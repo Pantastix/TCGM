@@ -9,14 +9,15 @@ class ToolRegistry {
      */
     fun getAvailableTools(
         repository: CardRepository, 
-        apiService: de.pantastix.project.service.TcgApiService
+        apiService: de.pantastix.project.service.TcgApiService,
+        onActionProposed: (de.pantastix.project.ui.viewmodel.PendingChatAction) -> Unit
     ): List<AgentTool> {
         return listOf(
             SearchCardsTool(repository),
             GetInventoryStatsTool(repository),
             SearchSetsTool(repository),
-            UpdateCardQuantityTool(repository),
-            GetMissingCardsTool(repository, apiService)
+            GetMissingCardsTool(repository, apiService),
+            UpdateCardQuantityTool(repository, onActionProposed)
         )
     }
 }

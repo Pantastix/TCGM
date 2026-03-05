@@ -2,6 +2,8 @@ package de.pantastix.project.ai.tool
 
 import de.pantastix.project.repository.CardRepository
 import de.pantastix.project.model.gemini.Schema
+import de.pantastix.project.model.PokemonCardInfo
+import de.pantastix.project.ui.viewmodel.PendingChatAction
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.*
 
@@ -109,12 +111,11 @@ class SearchCardsTool(private val repository: CardRepository) : AgentTool {
                 filtered.forEach {
                     add(buildJsonObject {
                         put("name", it.nameLocal)
-                        put("id", it.tcgDexCardId)
+                        put("tcg_dex_id", it.tcgDexCardId)
+                        put("card_id", it.id) // Interne ID für update_card_quantity
                         put("set", it.setName)
-                        put("rarity", "") // Info not currently in PokemonCardInfo view, need to check Repository mapping if critical
                         put("price", it.currentPrice ?: 0.0)
                         put("copies", it.ownedCopies)
-                        // WICHTIG: Image URL für Markdown Embedding zurückgeben
                         if (it.imageUrl != null) {
                             put("imageUrl", it.imageUrl)
                         }
@@ -213,62 +214,6 @@ class GetInventoryStatsTool(private val repository: CardRepository) : AgentTool 
     }
 }
 
-class UpdateCardQuantityTool(private val repository: CardRepository) : AgentTool {
-    override val name = "update_card_quantity"
-    override val description = "Aktualisiert die Anzahl der Exemplare einer Karte in der Sammlung. Gibt die neue Gesamtanzahl zurück."
-    override val parameterSchemaJson = """
-        {
-          "tcg_dex_card_id": "String (Die eindeutige API-ID der Karte, z.B. 'sv1-1', aus search_cards)",
-          "language": "String? (Sprachcode, Standard: de)",
-          "change": "Int (Betrag der Änderung, z.B. +1 oder -2)"
-        }
-    """.trimIndent()
-
-    override val schema = Schema(
-        type = "OBJECT",
-        properties = mapOf(
-            "tcg_dex_card_id" to Schema(type = "STRING", description = "The unique card ID (e.g., 'sv3pt5-1')."),
-            "language" to Schema(type = "STRING", description = "The language of the card (e.g., 'de', 'en'). Defaults to 'de'."),
-            "change" to Schema(type = "INTEGER", description = "The amount to add or subtract (e.g., 1, -1).")
-        ),
-        required = listOf("tcg_dex_card_id", "change")
-    )
-
-    override suspend fun execute(parameters: Map<String, Any?>): String {
-        val tcgDexId = parameters["tcg_dex_card_id"] as? String ?: return "{ \"error\": \"ID fehlt.\" }"
-        val language = parameters["language"] as? String ?: "de"
-        val change = (parameters["change"] as? Number)?.toInt() ?: 0
-
-        if (change == 0) return "{ \"error\": \"Keine Änderung angegeben.\" }"
-
-        val cardInfo = repository.findCardByTcgDexId(tcgDexId, language)
-            ?: return "{ \"error\": \"Karte nicht in der Sammlung gefunden (ID: $tcgDexId, Lang: $language).\" }"
-
-        val fullCard = repository.getFullCardDetails(cardInfo.id) ?: return "{ \"error\": \"Konnte Kartendetails nicht laden.\" }"
-        val newCount = (cardInfo.ownedCopies + change).coerceAtLeast(0)
-
-        repository.updateCardUserData(
-            cardId = cardInfo.id,
-            ownedCopies = newCount,
-            notes = fullCard.notes,
-            currentPrice = fullCard.currentPrice,
-            lastPriceUpdate = fullCard.lastPriceUpdate,
-            selectedPriceSource = fullCard.selectedPriceSource,
-            gradedCopies = fullCard.gradedCopies
-        )
-
-        return buildJsonObject {
-            put("success", true)
-            put("card_name", cardInfo.nameLocal)
-            put("tcg_id", tcgDexId)
-            put("language", language)
-            put("previous_count", cardInfo.ownedCopies)
-            put("new_total_count", newCount)
-            put("change_applied", change)
-        }.toString()
-    }
-}
-
 class GetMissingCardsTool(
     private val repository: CardRepository,
     private val apiService: de.pantastix.project.service.TcgApiService
@@ -323,6 +268,62 @@ class GetMissingCardsTool(
             if (missingCards.size > 15) {
                 put("note", "Es fehlen noch ${missingCards.size - 15} weitere Karten. Verfeinere die Suche mit dem rarity-Parameter.")
             }
+        }.toString()
+    }
+}
+
+class UpdateCardQuantityTool(
+    private val repository: CardRepository,
+    private val onActionProposed: (PendingChatAction) -> Unit
+) : AgentTool {
+    override val name = "update_card_quantity"
+    override val description = "Ändert die Anzahl einer Karte in der Sammlung (hinzufügen oder entfernen). Nutze search_cards um die 'card_id' und die aktuelle 'copies' Anzahl zu finden. Jede Änderung muss vom Nutzer bestätigt werden."
+    override val parameterSchemaJson = """
+        {
+          "card_id": "Long (Die interne ID der Karte)",
+          "change": "Int (Positive Zahl zum Hinzufügen, negative zum Entfernen, z.B. 1 oder -1)"
+        }
+    """.trimIndent()
+
+    override val schema = Schema(
+        type = "OBJECT",
+        properties = mapOf(
+            "card_id" to Schema(type = "INTEGER", description = "The internal card ID from search_cards."),
+            "change" to Schema(type = "INTEGER", description = "The number of copies to add (positive) or remove (negative).")
+        ),
+        required = listOf("card_id", "change")
+    )
+
+    override suspend fun execute(parameters: Map<String, Any?>): String {
+        val cardId = (parameters["card_id"] as? Number)?.toLong() ?: return "{ \"error\": \"card_id fehlt oder ungültig.\" }"
+        val change = (parameters["change"] as? Number)?.toInt() ?: return "{ \"error\": \"change fehlt oder ungültig.\" }"
+
+        val card = repository.getFullCardDetails(cardId) ?: return "{ \"error\": \"Karte mit ID $cardId nicht gefunden.\" }"
+        
+        val currentCount = card.ownedCopies
+        val newCount = (currentCount + change).coerceAtLeast(0)
+        
+        if (newCount == currentCount) {
+             return "{ \"result\": \"Keine Änderung notwendig. Aktuelle Anzahl: $currentCount\" }"
+        }
+
+        val action = PendingChatAction(
+            cardId = cardId,
+            cardName = card.nameLocal,
+            imageUrl = card.imageUrl,
+            currentCount = currentCount,
+            newCount = newCount,
+            change = change
+        )
+
+        onActionProposed(action)
+
+        return buildJsonObject {
+            put("status", "proposed")
+            put("card_name", card.nameLocal)
+            put("current_count", currentCount)
+            put("proposed_count", newCount)
+            put("message", "Änderung von ${if (change > 0) "+" else ""}$change Exemplar(en) wurde zur Bestätigung vorgemerkt.")
         }.toString()
     }
 }

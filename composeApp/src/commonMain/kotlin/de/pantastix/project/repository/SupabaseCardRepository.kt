@@ -145,9 +145,42 @@ class SupabaseCardRepository(
 
     override suspend fun findCardByTcgDexId(tcgDexId: String, language: String): PokemonCardInfo? {
         return try {
-            getCardInfos().first().find { it.tcgDexCardId == tcgDexId && it.language == language }
+            println("SupabaseCardRepository: findCardByTcgDexId($tcgDexId, $language)")
+            val response = postgrest.from(cardsTable).select(
+                columns = Columns.list("*", "SetEntity(nameLocal)")
+            ) {
+                filter {
+                    eq("tcgDexCardId", tcgDexId)
+                    eq("language", language)
+                }
+                limit(1)
+            }
+
+            val results = response.decodeList<FullPokemonCardResponse>()
+            if (results.isEmpty()) {
+                println("SupabaseCardRepository: Card not found: $tcgDexId")
+                return null
+            }
+            
+            val data = results.first()
+            val setName = data.setEntity?.nameLocal ?: "Unknown Set"
+
+            PokemonCardInfo(
+                id = data.id,
+                tcgDexCardId = data.tcgDexCardId,
+                setId = data.setId,
+                language = data.language,
+                nameLocal = data.nameLocal,
+                setName = setName,
+                imageUrl = data.imageUrl,
+                ownedCopies = data.ownedCopies,
+                currentPrice = data.currentPrice,
+                selectedPriceSource = data.selectedPriceSource,
+                lastPriceUpdate = data.lastPriceUpdate
+            )
         } catch (e: Exception) {
             if (e is CancellationException) throw e
+            println("SupabaseCardRepository: Error in findCardByTcgDexId: ${e.message}")
             null
         }
     }
@@ -270,6 +303,18 @@ class SupabaseCardRepository(
         }
     }
 
+    override suspend fun getSetByAbbreviation(abbreviation: String): SetInfo? {
+        return try {
+            postgrest.from(setsTable).select {
+                filter { ilike("abbreviation", abbreviation) }
+                limit(1)
+            }.decodeSingleOrNull<SetInfo>()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            null
+        }
+    }
+
     override suspend fun updateSetAbbreviation(setId: String, abbreviation: String) {
         try {
             postgrest.from(setsTable).update({
@@ -283,11 +328,59 @@ class SupabaseCardRepository(
         }
     }
 
-    override suspend fun findExistingCard(setId: String, localId: String, language: String): PokemonCardInfo? {
-        return try {
-            getCardInfos().first().find { it.setId == setId && it.tcgDexCardId.endsWith(localId) && it.language == language }
+    override suspend fun updateSetDetails(setId: String, abbreviation: String?, releaseDate: String?) {
+        try {
+            postgrest.from(setsTable).update({
+                set("abbreviation", abbreviation)
+                set("releaseDate", releaseDate)
+            }) {
+                filter { eq("setId", setId) }
+            }
+            refreshSets()
         } catch (e: Exception) {
             if (e is CancellationException) throw e
+        }
+    }
+
+    override suspend fun findExistingCard(setId: String, localId: String, language: String): PokemonCardInfo? {
+        return try {
+            println("SupabaseCardRepository: findExistingCard($setId, $localId, $language)")
+            val response = postgrest.from(cardsTable).select(
+                columns = Columns.list("*", "SetEntity(nameLocal)")
+            ) {
+                filter {
+                    eq("setId", setId)
+                    eq("localId", localId)
+                    eq("language", language)
+                }
+                limit(1)
+            }
+
+            val results = response.decodeList<FullPokemonCardResponse>()
+            if (results.isEmpty()) {
+                println("SupabaseCardRepository: Card not found: set=$setId, localId=$localId")
+                return null
+            }
+            
+            val data = results.first()
+            val setName = data.setEntity?.nameLocal ?: "Unknown Set"
+
+            PokemonCardInfo(
+                id = data.id,
+                tcgDexCardId = data.tcgDexCardId,
+                setId = data.setId,
+                language = data.language,
+                nameLocal = data.nameLocal,
+                setName = setName,
+                imageUrl = data.imageUrl,
+                ownedCopies = data.ownedCopies,
+                currentPrice = data.currentPrice,
+                selectedPriceSource = data.selectedPriceSource,
+                lastPriceUpdate = data.lastPriceUpdate
+            )
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            println("SupabaseCardRepository: Error in findExistingCard: ${e.message}")
             null
         }
     }

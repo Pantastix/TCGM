@@ -91,6 +91,9 @@ INSERT OR REPLACE INTO SetEntity (
 updateSetAbbreviation:
 UPDATE SetEntity SET abbreviation = :abbreviation WHERE setId = :setId;
 
+updateSetDetails:
+UPDATE SetEntity SET abbreviation = :abbreviation, releaseDate = :releaseDate WHERE setId = :setId;
+
 selectAllSets:
 SELECT * FROM SetEntity ORDER BY releaseDate ASC;
 
@@ -99,6 +102,9 @@ SELECT * FROM SetEntity WHERE setId = ?;
 
 deleteSetById:
 DELETE FROM SetEntity WHERE setId = ?;
+
+selectSetByAbbreviation:
+SELECT * FROM SetEntity WHERE abbreviation = :abbreviation LIMIT 1;
 
 selectSetsByOfficialCount:
 SELECT * FROM SetEntity WHERE cardCountOfficial = ?;
