@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import de.pantastix.project.platform.Platform
+import de.pantastix.project.platform.getAppVersion
 import de.pantastix.project.shared.resources.MR
 import de.pantastix.project.ui.flow.AddCardFlow
 import de.pantastix.project.ui.screens.*
@@ -313,36 +314,35 @@ fun DesktopApp(
             }
 
             // Footer / Status Bar
-            if (uiState.syncStatusMessage != null) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+            ) {
+                Row(
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Row(
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Spacer(Modifier.weight(1f))
-                        Text(
-                            text = uiState.syncStatusMessage ?: "",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.width(300.dp),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.End,
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        text = uiState.syncStatusMessage ?: "v${getAppVersion()}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.width(300.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                    if (uiState.isSyncingSets) {
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { uiState.setsSyncProgress },
+                            modifier = Modifier.width(200.dp).height(4.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
                         )
-                        if (uiState.isSyncingSets) {
-                            androidx.compose.material3.LinearProgressIndicator(
-                                progress = { uiState.setsSyncProgress },
-                                modifier = Modifier.width(200.dp).height(4.dp),
-                                color = MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                            )
-                        }
-                    }                }
+                    }
+                }
             }
         }
 
