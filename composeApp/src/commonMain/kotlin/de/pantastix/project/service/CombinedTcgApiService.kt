@@ -133,4 +133,8 @@ class CombinedTcgApiService(
     override suspend fun getSetDetails(setId: String, language: String): de.pantastix.project.model.api.TcgDexSet? {
         return localApiService.getSetDetails(setId, language)
     }
-}
+
+    override suspend fun searchCardsByName(name: String, language: String, setId: String?): List<de.pantastix.project.model.api.TcgDexCardSearchResult> {
+        return localApiService.searchCardsByName(name, language, setId)
+    }
+    }

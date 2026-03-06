@@ -41,4 +41,13 @@ interface TcgApiService {
     suspend fun getSetCards(setId: String): List<TcgDexCardResponse>
 
     suspend fun getSetDetails(setId: String, language: String): de.pantastix.project.model.api.TcgDexSet?
+
+    /**
+     * Sucht nach Karten basierend auf ihrem Namen über die API.
+     * @param name Der Name der Karte (z.B. "Gengar").
+     * @param language Der Sprachcode.
+     * @param setId Optional: Das Set, in dem gesucht werden soll.
+     * @return Eine Liste von Suchergebnissen.
+     */
+    suspend fun searchCardsByName(name: String, language: String, setId: String? = null): List<de.pantastix.project.model.api.TcgDexCardSearchResult>
     }

@@ -7,6 +7,23 @@ import de.pantastix.project.ui.viewmodel.PendingChatAction
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.*
 
+// Helper functions for robust parameter parsing
+private fun parseId(value: Any?): Long? {
+    return when (value) {
+        is Number -> value.toLong()
+        is String -> value.toLongOrNull()
+        else -> null
+    }
+}
+
+private fun parseInt(value: Any?): Int? {
+    return when (value) {
+        is Number -> value.toInt()
+        is String -> value.toIntOrNull()
+        else -> null
+    }
+}
+
 class SearchSetsTool(private val repository: CardRepository) : AgentTool {
     override val name = "search_sets"
     override val description = "Sucht nach Kartensets basierend auf Name, ID oder Abkürzung. Nützlich, um die korrekte 'setId' für andere Tools zu finden."
@@ -53,8 +70,8 @@ class SearchSetsTool(private val repository: CardRepository) : AgentTool {
 }
 
 class SearchCardsTool(private val repository: CardRepository) : AgentTool {
-    override val name = "search_cards"
-    override val description = "Sucht Karten in der Sammlung. Unterstützt Filter nach Name, Set, Typ (sprachunabhängig, z.B. 'Water' oder 'Wasser'), Seltenheit und Künstler."
+    override val name = "search_my_inventory"
+    override val description = "Sucht AUSSCHLIESSLICH in der bereits vorhandenen Sammlung des Nutzers. Nutze dies, um zu prüfen, ob der Nutzer eine Karte bereits besitzt, wie viele er hat oder um Statistiken zu eigenen Karten zu erhalten."
     override val parameterSchemaJson = """
         {
           "query": "String? (Name)",
@@ -88,7 +105,7 @@ class SearchCardsTool(private val repository: CardRepository) : AgentTool {
         val rarity = parameters["rarity"] as? String
         val illustrator = parameters["illustrator"] as? String
         val sort = parameters["sort"] as? String
-        val limit = (parameters["limit"] as? Number)?.toInt() ?: 20
+        val limit = parseInt(parameters["limit"]) ?: 20
 
         // Allow search if at least one filter OR a sort order is provided
         if (query.isNullOrBlank() && setId.isNullOrBlank() && type.isNullOrBlank() && 
@@ -112,12 +129,14 @@ class SearchCardsTool(private val repository: CardRepository) : AgentTool {
                     add(buildJsonObject {
                         put("name", it.nameLocal)
                         put("tcg_dex_id", it.tcgDexCardId)
-                        put("card_id", it.id) // Interne ID für update_card_quantity
+                        put("card_id", it.id) // Interne ID für update_card
                         put("set", it.setName)
                         put("price", it.currentPrice ?: 0.0)
                         put("copies", it.ownedCopies)
+                        put("language", it.language)
+                        put("price_source", it.selectedPriceSource ?: "trend")
                         if (it.imageUrl != null) {
-                            put("imageUrl", it.imageUrl)
+                            put("image_url", it.imageUrl)
                         }
                     })
                 }
@@ -277,43 +296,46 @@ class UpdateCardQuantityTool(
     private val onActionProposed: (PendingChatAction) -> Unit
 ) : AgentTool {
     override val name = "update_card_quantity"
-    override val description = "Ändert die Anzahl einer Karte in der Sammlung (hinzufügen oder entfernen). Nutze search_cards um die 'card_id' und die aktuelle 'copies' Anzahl zu finden. Jede Änderung muss vom Nutzer bestätigt werden."
+    override val description = "Ändert die Anzahl einer Karte in der Sammlung (hinzufügen oder entfernen). Nutze search_my_inventory um die 'card_id' zu finden. WICHTIG: Du kannst den Preis einer existierenden Karte NICHT ändern. Jede Änderung muss vom Nutzer bestätigt werden."
     override val parameterSchemaJson = """
         {
           "card_id": "Long (Die interne ID der Karte)",
-          "change": "Int (Positive Zahl zum Hinzufügen, negative zum Entfernen, z.B. 1 oder -1)"
+          "change": "Int (Mengenänderung, z.B. +1 oder -1)"
         }
     """.trimIndent()
 
     override val schema = Schema(
         type = "OBJECT",
         properties = mapOf(
-            "card_id" to Schema(type = "INTEGER", description = "The internal card ID from search_cards."),
+            "card_id" to Schema(type = "INTEGER", description = "The internal card ID from search_my_inventory."),
             "change" to Schema(type = "INTEGER", description = "The number of copies to add (positive) or remove (negative).")
         ),
         required = listOf("card_id", "change")
     )
 
     override suspend fun execute(parameters: Map<String, Any?>): String {
-        val cardId = (parameters["card_id"] as? Number)?.toLong() ?: return "{ \"error\": \"card_id fehlt oder ungültig.\" }"
-        val change = (parameters["change"] as? Number)?.toInt() ?: return "{ \"error\": \"change fehlt oder ungültig.\" }"
+        val cardId = parseId(parameters["card_id"]) ?: return "{ \"error\": \"card_id fehlt oder ungültig.\" }"
+        val change = parseInt(parameters["change"]) ?: return "{ \"error\": \"change fehlt oder ungültig.\" }"
 
         val card = repository.getFullCardDetails(cardId) ?: return "{ \"error\": \"Karte mit ID $cardId nicht gefunden.\" }"
         
         val currentCount = card.ownedCopies
-        val newCount = (currentCount + change).coerceAtLeast(0)
+        val updatedCount = (currentCount + change).coerceAtLeast(0)
         
-        if (newCount == currentCount) {
-             return "{ \"result\": \"Keine Änderung notwendig. Aktuelle Anzahl: $currentCount\" }"
+        if (updatedCount == currentCount) {
+             return "{ \"result\": \"Keine Änderung der Anzahl notwendig. Aktuelle Anzahl: $currentCount\" }"
         }
 
         val action = PendingChatAction(
+            actionType = de.pantastix.project.ui.viewmodel.PendingActionType.UPDATE,
             cardId = cardId,
             cardName = card.nameLocal,
             imageUrl = card.imageUrl,
             currentCount = currentCount,
-            newCount = newCount,
-            change = change
+            newCount = updatedCount,
+            change = change,
+            selectedPriceSource = card.selectedPriceSource,
+            language = card.language
         )
 
         onActionProposed(action)
@@ -322,8 +344,171 @@ class UpdateCardQuantityTool(
             put("status", "proposed")
             put("card_name", card.nameLocal)
             put("current_count", currentCount)
-            put("proposed_count", newCount)
+            put("proposed_count", updatedCount)
             put("message", "Änderung von ${if (change > 0) "+" else ""}$change Exemplar(en) wurde zur Bestätigung vorgemerkt.")
+        }.toString()
+    }
+}
+
+class SearchApiCardTool(
+    private val apiService: de.pantastix.project.service.TcgApiService
+) : AgentTool {
+    override val name = "search_external_api"
+    override val description = "Sucht Kartendetails und Preise in der weltweiten Pokémon-Kartendatenbank. Nutze dies NUR, wenn 'search_my_inventory' kein Ergebnis geliefert hat und du eine neue Karte zur Sammlung hinzufügen möchtest."
+    override val parameterSchemaJson = """
+        {
+          "set_id": "String (Die eindeutige API-ID des Sets, z.B. 'sv3')",
+          "local_id": "String (Die Nummer der Karte im Set, z.B. '051')",
+          "language": "String? (Sprachcode, z.B. 'de' oder 'en'. Standard: 'en')"
+        }
+    """.trimIndent()
+
+    override val schema = Schema(
+        type = "OBJECT",
+        properties = mapOf(
+            "set_id" to Schema(type = "STRING", description = "The unique set ID."),
+            "local_id" to Schema(type = "STRING", description = "The card number within the set."),
+            "language" to Schema(type = "STRING", description = "Language code (de, en, etc.). Default: en.")
+        ),
+        required = listOf("set_id", "local_id")
+    )
+
+    override suspend fun execute(parameters: Map<String, Any?>): String {
+        val setId = parameters["set_id"] as? String ?: return "{ \"error\": \"set_id fehlt.\" }"
+        val localId = parameters["local_id"] as? String ?: return "{ \"error\": \"local_id fehlt.\" }"
+        val language = parameters["language"] as? String ?: "en"
+
+        val details = apiService.getCardDetails(setId, localId, language) ?: return "{ \"error\": \"Karte nicht bei API gefunden.\" }"
+
+        return buildJsonObject {
+            put("tcg_dex_id", details.id)
+            put("name", details.name)
+            put("set_name", details.set?.name ?: "")
+            put("rarity", details.rarity ?: "")
+            put("image_url", details.image ?: "")
+            put("pricing", buildJsonObject {
+                details.pricing?.cardmarket?.let { cm ->
+                    put("trend", cm.trend ?: 0.0)
+                    put("trend_holo", cm.`trend-holo` ?: 0.0)
+                    put("avg1", cm.avg1 ?: 0.0)
+                    put("avg30", cm.avg30 ?: 0.0)
+                    put("low", cm.low ?: 0.0)
+                }
+            })
+        }.toString()
+    }
+}
+
+class SearchExternalCardByNameTool(
+    private val apiService: de.pantastix.project.service.TcgApiService
+) : AgentTool {
+    override val name = "search_external_api_by_name"
+    override val description = "Sucht Karten in der weltweiten Pokémon-Kartendatenbank anhand ihres Namens. Kann optional auf ein bestimmtes Set eingeschränkt werden."
+    override val parameterSchemaJson = """
+        {
+          "name": "String (Der Name der Karte, z.B. 'Gengar')",
+          "set_id": "String? (Optional: Die ID des Sets, z.B. 'sv3')",
+          "language": "String? (Sprachcode, z.B. 'de' oder 'en'. Standard: 'en')"
+        }
+    """.trimIndent()
+
+    override val schema = Schema(
+        type = "OBJECT",
+        properties = mapOf(
+            "name" to Schema(type = "STRING", description = "The name of the card to search for."),
+            "set_id" to Schema(type = "STRING", description = "Optional: Limit search to this Set ID."),
+            "language" to Schema(type = "STRING", description = "Language code (de, en, etc.). Default: en.")
+        ),
+        required = listOf("name")
+    )
+
+    override suspend fun execute(parameters: Map<String, Any?>): String {
+        val name = parameters["name"] as? String ?: return "{ \"error\": \"name fehlt.\" }"
+        val setId = parameters["set_id"] as? String
+        val language = parameters["language"] as? String ?: "en"
+
+        val results = apiService.searchCardsByName(name, language, setId)
+
+        return buildJsonObject {
+            putJsonArray("results") {
+                results.forEach { card ->
+                    add(buildJsonObject {
+                        put("id", card.id)
+                        put("name", card.name)
+                        put("image_url", card.image ?: "")
+                        
+                        // Use localId from API if available, otherwise fallback to parsing id
+                        val finalLocalId = card.localId ?: card.id.split("-").lastOrNull() ?: ""
+                        val finalSetId = if (card.id.contains("-")) card.id.substringBefore("-") else ""
+
+                        put("set_id", finalSetId)
+                        put("local_id", finalLocalId)
+                    })
+                }
+            }
+            put("count", results.size)
+            put("note", "Nutze die 'set_id' und 'local_id' aus diesen Ergebnissen für 'search_external_api' um Preise zu erhalten oder 'propose_add_card' um sie hinzuzufügen.")
+        }.toString()
+    }
+}
+
+class ProposeAddCardTool(
+    private val apiService: de.pantastix.project.service.TcgApiService,
+    private val onActionProposed: (PendingChatAction) -> Unit
+) : AgentTool {
+    override val name = "propose_add_card"
+    override val description = "Schlägt vor, eine neue Karte zur Sammlung hinzuzufügen. Nutze vorher 'search_api_card' um Details zu finden."
+    override val parameterSchemaJson = """
+        {
+          "set_id": "String",
+          "local_id": "String",
+          "count": "Int (Anzahl der Exemplare)",
+          "price_source": "String? (trend, trend-holo, avg1, avg30, low. Standard: trend)",
+          "language": "String? (Standard: en)"
+        }
+    """.trimIndent()
+
+    override val schema = Schema(
+        type = "OBJECT",
+        properties = mapOf(
+            "set_id" to Schema(type = "STRING"),
+            "local_id" to Schema(type = "STRING"),
+            "count" to Schema(type = "INTEGER"),
+            "price_source" to Schema(type = "STRING", description = "The price source to use (trend, avg30, etc.)."),
+            "language" to Schema(type = "STRING")
+        ),
+        required = listOf("set_id", "local_id", "count")
+    )
+
+    override suspend fun execute(parameters: Map<String, Any?>): String {
+        val setId = parameters["set_id"] as? String ?: return "{ \"error\": \"set_id fehlt.\" }"
+        val localId = parameters["local_id"] as? String ?: return "{ \"error\": \"local_id fehlt.\" }"
+        val count = parseInt(parameters["count"]) ?: 1
+        val priceSource = parameters["price_source"] as? String ?: "trend"
+        val language = parameters["language"] as? String ?: "en"
+
+        val details = apiService.getCardDetails(setId, localId, language) ?: return "{ \"error\": \"Karte bei API nicht gefunden.\" }"
+
+        val action = PendingChatAction(
+            actionType = de.pantastix.project.ui.viewmodel.PendingActionType.ADD,
+            apiDetails = details,
+            cardName = details.name,
+            imageUrl = details.image,
+            currentCount = 0,
+            newCount = count,
+            change = count,
+            selectedPriceSource = priceSource,
+            language = language
+        )
+
+        onActionProposed(action)
+
+        return buildJsonObject {
+            put("status", "proposed")
+            put("card_name", details.name)
+            put("count", count)
+            put("price_source", priceSource)
+            put("message", "Hinzufügen von $count Exemplar(en) wurde zur Bestätigung vorgemerkt.")
         }.toString()
     }
 }

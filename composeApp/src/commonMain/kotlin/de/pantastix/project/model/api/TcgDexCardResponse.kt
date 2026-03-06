@@ -7,7 +7,9 @@ import kotlinx.serialization.Transient
 @Serializable
 data class TcgDexCardSearchResult(
     val id: String,
-    val name: String
+    val localId: String? = null,
+    val name: String,
+    val image: String? = null
 )
 
 /**

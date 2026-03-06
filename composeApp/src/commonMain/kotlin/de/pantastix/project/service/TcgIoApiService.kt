@@ -87,9 +87,11 @@ class TcgIoApiService (val client: HttpClient // KORRIGIERT: Der Client wird jet
         throw UnsupportedOperationException("getSetCards is not supported in PokemonTcgIoApiServiceImpl. Use TcgDexApiServiceImpl instead.")
     }
 
-    override suspend fun getSetDetails(setId: String, language: String): TcgDexSet? {
+    override suspend fun getSetDetails(setId: String, language: String): de.pantastix.project.model.api.TcgDexSet? {
         return null
     }
 
-
-}
+    override suspend fun searchCardsByName(name: String, language: String, setId: String?): List<de.pantastix.project.model.api.TcgDexCardSearchResult> {
+        return emptyList()
+    }
+    }

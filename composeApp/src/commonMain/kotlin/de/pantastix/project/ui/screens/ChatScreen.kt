@@ -298,6 +298,7 @@ fun ChatScreen(viewModel: CardListViewModel = koinInject()) {
                             item {
                                 PendingActionsCard(
                                     actions = uiState.pendingChatActions,
+                                    isLoading = uiState.isLoading,
                                     onConfirm = { viewModel.confirmPendingActions(true) },
                                     onCancel = { viewModel.confirmPendingActions(false) }
                                 )
@@ -550,6 +551,7 @@ fun AiMessageGroupItem(messages: List<Content>, isGenerating: Boolean) {
 @Composable
 fun PendingActionsCard(
     actions: List<de.pantastix.project.ui.viewmodel.PendingChatAction>,
+    isLoading: Boolean = false,
     onConfirm: () -> Unit,
     onCancel: () -> Unit
 ) {
@@ -596,15 +598,43 @@ fun PendingActionsCard(
                     Spacer(Modifier.width(12.dp))
                     
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(action.cardName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(action.cardName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                            if (action.actionType == de.pantastix.project.ui.viewmodel.PendingActionType.ADD) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primaryContainer,
+                                    shape = RoundedCornerShape(4.dp)
+                                ) {
+                                    Text(
+                                        text = "NEU",
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+                        }
+                        val detailText = if (action.actionType == de.pantastix.project.ui.viewmodel.PendingActionType.ADD) {
+                             "Hinzufügen: ${action.newCount} Exemplar(e) (${action.selectedPriceSource})"
+                        } else {
+                             "${action.currentCount} → ${action.newCount} Exemplare"
+                        }
                         Text(
-                            "${action.currentCount} → ${action.newCount} Exemplare",
+                            detailText,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     
-                    if (action.newCount == 0) {
+                    if (action.actionType == de.pantastix.project.ui.viewmodel.PendingActionType.ADD) {
+                         Text(
+                            "+${action.newCount}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = Color(0xFF4CAF50),
+                            fontWeight = FontWeight.Bold
+                        )
+                    } else if (action.newCount == 0) {
                         Text(
                             "WIRD ENTFERNT",
                             style = MaterialTheme.typography.labelSmall,
@@ -638,17 +668,27 @@ fun PendingActionsCard(
                 OutlinedButton(
                     onClick = onCancel,
                     modifier = Modifier.weight(1f),
+                    enabled = !isLoading,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
                     Text("Abbrechen")
                 }
                 Button(
                     onClick = onConfirm,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    enabled = !isLoading
                 ) {
-                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Bestätigen")
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Bestätigen")
+                    }
                 }
             }
         }

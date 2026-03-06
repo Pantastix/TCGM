@@ -8,6 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -25,7 +26,7 @@ import coil3.compose.AsyncImage
 sealed class MarkdownBlock {
     data class Text(val content: AnnotatedString) : MarkdownBlock()
     data class Image(val url: String, val alt: String) : MarkdownBlock()
-    data class Table(val headers: List<AnnotatedString>, val rows: List<List<AnnotatedString>>) : MarkdownBlock()
+    data class Table(val headers: List<List<MarkdownBlock>>, val rows: List<List<List<MarkdownBlock>>>) : MarkdownBlock()
     data class Header(val level: Int, val content: AnnotatedString) : MarkdownBlock()
     data object Divider : MarkdownBlock()
 }
@@ -39,7 +40,7 @@ fun MarkdownText(
 ) {
     val blocks = remember(markdown, color) { parseMarkdown(markdown, color) }
     
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         blocks.forEach { block ->
             when (block) {
                 is MarkdownBlock.Text -> {
@@ -53,7 +54,7 @@ fun MarkdownText(
                     MarkdownImage(url = block.url, alt = block.alt)
                 }
                 is MarkdownBlock.Table -> {
-                    MarkdownTable(block, color)
+                    MarkdownTable(block, color, style)
                 }
                 is MarkdownBlock.Header -> {
                     val headerStyle = when (block.level) {
@@ -69,12 +70,12 @@ fun MarkdownText(
                         style = headerStyle,
                         color = color,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                        modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
                     )
                 }
                 is MarkdownBlock.Divider -> {
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 8.dp),
+                        modifier = Modifier.padding(vertical = 4.dp),
                         color = color.copy(alpha = 0.2f)
                     )
                 }
@@ -84,11 +85,11 @@ fun MarkdownText(
 }
 
 @Composable
-private fun MarkdownTable(table: MarkdownBlock.Table, color: Color) {
+private fun MarkdownTable(table: MarkdownBlock.Table, color: Color, textStyle: androidx.compose.ui.text.TextStyle) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
+            .padding(vertical = 4.dp)
             .border(1.dp, color.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
     ) {
         // Header
@@ -96,16 +97,15 @@ private fun MarkdownTable(table: MarkdownBlock.Table, color: Color) {
             modifier = Modifier
                 .fillMaxWidth()
                 .background(color.copy(alpha = 0.05f))
-                .padding(8.dp)
+                .padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            table.headers.forEach { header ->
-                Text(
-                    text = header,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = color
-                )
+            table.headers.forEach { cellBlocks ->
+                Column(modifier = Modifier.weight(1f)) {
+                    cellBlocks.forEach { block ->
+                        RenderCellBlock(block, color, textStyle, isHeader = true)
+                    }
+                }
             }
         }
         
@@ -116,15 +116,15 @@ private fun MarkdownTable(table: MarkdownBlock.Table, color: Color) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(8.dp)
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                row.forEach { cell ->
-                    Text(
-                        text = cell,
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = color
-                    )
+                row.forEach { cellBlocks ->
+                    Column(modifier = Modifier.weight(1f)) {
+                        cellBlocks.forEach { block ->
+                            RenderCellBlock(block, color, textStyle, isHeader = false)
+                        }
+                    }
                 }
             }
             if (index < table.rows.size - 1) {
@@ -135,22 +135,50 @@ private fun MarkdownTable(table: MarkdownBlock.Table, color: Color) {
 }
 
 @Composable
+private fun RenderCellBlock(block: MarkdownBlock, color: Color, textStyle: androidx.compose.ui.text.TextStyle, isHeader: Boolean) {
+    when (block) {
+        is MarkdownBlock.Text -> {
+            Text(
+                text = block.content,
+                style = if (isHeader) 
+                    MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                else 
+                    textStyle.copy(fontSize = MaterialTheme.typography.bodySmall.fontSize),
+                color = color
+            )
+        }
+        is MarkdownBlock.Image -> {
+            MarkdownImage(url = block.url, alt = block.alt)
+        }
+        else -> {}
+    }
+}
+
+@Composable
 private fun HorizontalDivider(modifier: Modifier = Modifier, color: Color) {
     Box(modifier = modifier.fillMaxWidth().height(1.dp).background(color))
 }
 
 @Composable
 private fun MarkdownImage(url: String, alt: String) {
+    val processedUrl = remember(url) {
+        if (url.contains("assets.tcgdex.net") && !url.contains(".jpg") && !url.contains(".png")) {
+            if (url.endsWith("/")) "${url}high.jpg" else "$url/high.jpg"
+        } else {
+            url
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
+            .padding(vertical = 0.dp)
     ) {
         AsyncImage(
-            model = url,
+            model = processedUrl,
             contentDescription = alt,
             modifier = Modifier
-                .heightIn(max = 300.dp)
+                .heightIn(max = 200.dp)
                 .clip(RoundedCornerShape(8.dp)),
             contentScale = ContentScale.Fit
         )
@@ -233,13 +261,13 @@ private fun parseMarkdown(markdown: String, baseColor: Color): List<MarkdownBloc
 
 private fun parseTableBlock(lines: List<String>, baseColor: Color): MarkdownBlock.Table {
     val rawHeaders = lines[0].trim().trim('|').split("|").map { it.trim() }
-    val headers = rawHeaders.map { buildAnnotatedMarkdown(it, baseColor) }
+    val headers = rawHeaders.map { parseTextBlockWithImages(it, baseColor) }
     
-    val rows = mutableListOf<List<AnnotatedString>>()
+    val rows = mutableListOf<List<List<MarkdownBlock>>>()
     // Skip header and separator (lines[1])
     for (j in 2 until lines.size) {
         val rawCells = lines[j].trim().trim('|').split("|").map { it.trim() }
-        val cells = rawCells.map { buildAnnotatedMarkdown(it, baseColor) }
+        val cells = rawCells.map { parseTextBlockWithImages(it, baseColor) }
         rows.add(cells)
     }
     
@@ -253,7 +281,7 @@ private fun parseTextBlockWithImages(text: String, baseColor: Color): List<Markd
     var lastIndex = 0
     imageRegex.findAll(text).forEach { match ->
         val textBefore = text.substring(lastIndex, match.range.first)
-        if (textBefore.isNotBlank()) {
+        if (textBefore.isNotEmpty()) {
             blocks.add(MarkdownBlock.Text(buildAnnotatedMarkdown(textBefore, baseColor)))
         }
         
@@ -264,9 +292,11 @@ private fun parseTextBlockWithImages(text: String, baseColor: Color): List<Markd
         lastIndex = match.range.last + 1
     }
     
-    val remainingText = text.substring(lastIndex)
-    if (remainingText.isNotBlank()) {
-        blocks.add(MarkdownBlock.Text(buildAnnotatedMarkdown(remainingText, baseColor)))
+    if (lastIndex < text.length) {
+        val remainingText = text.substring(lastIndex)
+        if (remainingText.isNotEmpty()) {
+            blocks.add(MarkdownBlock.Text(buildAnnotatedMarkdown(remainingText, baseColor)))
+        }
     }
     
     return blocks

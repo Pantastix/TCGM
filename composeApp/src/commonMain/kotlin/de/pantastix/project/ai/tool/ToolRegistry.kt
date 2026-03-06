@@ -17,7 +17,10 @@ class ToolRegistry {
             GetInventoryStatsTool(repository),
             SearchSetsTool(repository),
             GetMissingCardsTool(repository, apiService),
-            UpdateCardQuantityTool(repository, onActionProposed)
+            UpdateCardQuantityTool(repository, onActionProposed),
+            SearchApiCardTool(apiService),
+            SearchExternalCardByNameTool(apiService),
+            ProposeAddCardTool(apiService, onActionProposed)
         )
     }
 }

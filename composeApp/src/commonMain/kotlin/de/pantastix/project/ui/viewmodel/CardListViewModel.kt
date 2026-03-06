@@ -93,13 +93,19 @@ data class AiProviderStatus(
     val selectedModel: String = ""
 )
 
+enum class PendingActionType { ADD, UPDATE }
+
 data class PendingChatAction(
-    val cardId: Long,
+    val actionType: PendingActionType = PendingActionType.UPDATE,
+    val cardId: Long? = null,
+    val apiDetails: TcgDexCardResponse? = null,
     val cardName: String,
     val imageUrl: String? = null,
     val currentCount: Int,
     val newCount: Int,
-    val change: Int
+    val change: Int,
+    val selectedPriceSource: String? = "trend",
+    val language: String = "en"
 )
 
 enum class ExportAttribute {
@@ -260,7 +266,7 @@ class CardListViewModel(
     private fun syncSetDetailsInBackground() {
         viewModelScope.launch {
             val allSets = activeCardRepository.fetchAllSetsOnce()
-            val setsToSync = allSets.filter { it.abbreviation.isNullOrBlank() || it.releaseDate == null }
+            val setsToSync = allSets.filter { it.abbreviation.isNullOrBlank() }
             
             if (setsToSync.isEmpty()) return@launch
 
@@ -336,31 +342,126 @@ class CardListViewModel(
         })
     }
 
+    private fun generateCardMarketLink(
+        cardDetails: TcgDexCardResponse,
+        englishCardDetails: TcgDexCardResponse?,
+        setInfo: SetInfo?,
+        abbreviationInput: String?
+    ): String {
+        fun slugify(input: String) = input.replace("'", "")
+            .replace(" ", "-")
+            .replace(":", "")
+            .replace("&", "")
+            .replace(Regex("--+"), "-")
+
+        val versionSuffix = cardDetails.cardmarketVersion?.let { version ->
+            val totalVersions = cardDetails.totalCardmarketVersions ?: 1
+            if (totalVersions > 1) "-V$version" else ""
+        } ?: ""
+
+        val cardNameToUse = englishCardDetails?.name ?: cardDetails.name
+        val slugifiedCardNameWithVersion = "${slugify(cardNameToUse)}${versionSuffix}"
+
+        val finalAbbreviation = if (!abbreviationInput.isNullOrBlank()) {
+            abbreviationInput.uppercase()
+        } else {
+            cardDetails.set?.id?.uppercase() ?: ""
+        }
+
+        return "https://www.cardmarket.com/de/Pokemon/Products/Singles/" +
+                "${slugify(setInfo?.nameEn ?: (cardDetails.set?.name ?: "Unknown"))}/" +
+                "${slugifiedCardNameWithVersion}-${finalAbbreviation}${cardDetails.localId}"
+    }
+
     fun confirmPendingActions(confirmed: Boolean) {
         viewModelScope.launch {
             if (confirmed) {
                 setLoading(true, "Aktualisiere Inventar...")
                 uiState.value.pendingChatActions.forEach { action ->
-                    val card = activeCardRepository.getFullCardDetails(action.cardId)
-                    if (card != null) {
-                        activeCardRepository.updateCardUserData(
-                            cardId = action.cardId,
-                            ownedCopies = action.newCount,
-                            notes = card.notes,
-                            currentPrice = card.currentPrice,
-                            lastPriceUpdate = card.lastPriceUpdate,
-                            selectedPriceSource = card.selectedPriceSource,
-                            gradedCopies = card.gradedCopies
-                        )
+                    when (action.actionType) {
+                        PendingActionType.UPDATE -> {
+                            val cardId = action.cardId ?: return@forEach
+                            val card = activeCardRepository.getFullCardDetails(cardId)
+                            if (card != null) {
+                                activeCardRepository.updateCardUserData(
+                                    cardId = cardId,
+                                    ownedCopies = action.newCount,
+                                    notes = card.notes,
+                                    currentPrice = card.currentPrice,
+                                    lastPriceUpdate = card.lastPriceUpdate,
+                                    selectedPriceSource = card.selectedPriceSource,
+                                    gradedCopies = card.gradedCopies
+                                )
+                            }
+                        }
+                        PendingActionType.ADD -> {
+                            val apiDetails = action.apiDetails ?: return@forEach
+                            val englishDetails = if (action.language == CardLanguage.ENGLISH.code) {
+                                apiDetails
+                            } else {
+                                apiService.getCardDetails(apiDetails.set?.id ?: "", apiDetails.localId, CardLanguage.ENGLISH.code)
+                            }
+                            
+                            val setInfo = activeCardRepository.fetchAllSetsOnce().find { it.setId == apiDetails.set?.id }
+                            val cmLink = generateCardMarketLink(apiDetails, englishDetails, setInfo, setInfo?.abbreviation)
+
+                            confirmAndSaveCard(
+                                cardDetails = apiDetails,
+                                languageCode = action.language,
+                                abbreviation = apiDetails.set?.id,
+                                price = extractPriceFromDetails(apiDetails, action.selectedPriceSource ?: "trend"),
+                                cardMarketLink = cmLink,
+                                ownedCopies = action.newCount,
+                                notes = "Hinzugefügt via Poké-Agent",
+                                selectedPriceSource = action.selectedPriceSource,
+                                providedEnglishDetails = englishDetails
+                            )
+                        }
                     }
                 }
                 loadCardInfos()
                 createDailySnapshot()
-                _uiState.update { it.copy(pendingChatActions = emptyList(), isLoading = false) }
+                
+                updateHistoryWithResult("success", "Vom Nutzer bestätigt und ausgeführt.")
             } else {
-                _uiState.update { it.copy(pendingChatActions = emptyList()) }
+                updateHistoryWithResult("cancelled", "Vom Nutzer abgelehnt.")
             }
+            
+            val triggerText = if (confirmed) {
+                "[System] Die Aktion wurde erfolgreich ausgeführt."
+            } else {
+                "[System] Die Aktion wurde vom Nutzer abgelehnt."
+            }
+            val triggerMessage = Content(role = "user", parts = listOf(Part(text = triggerText)))
+            
+            _uiState.update { it.copy(
+                pendingChatActions = emptyList(), 
+                isLoading = false, 
+                isChatLoading = true,
+                chatMessages = it.chatMessages + triggerMessage
+            ) }
+            processAILoop()
         }
+    }
+
+    private fun updateHistoryWithResult(status: String, message: String) {
+        val updatedMessages = uiState.value.chatMessages.map { content ->
+            if (content.role == "function") {
+                val newParts = content.parts.map { part ->
+                    val funcRes = part.functionResponse
+                    if (funcRes != null && funcRes.response.toString().contains("proposed")) {
+                        part.copy(functionResponse = funcRes.copy(
+                            response = buildJsonObject {
+                                put("status", status)
+                                put("message", message)
+                            }
+                        ))
+                    } else part
+                }
+                content.copy(parts = newParts)
+            } else content
+        }
+        _uiState.update { it.copy(chatMessages = updatedMessages) }
     }
 
     fun setAiProvider(provider: AiProviderType) {
@@ -473,6 +574,7 @@ class CardListViewModel(
         if (input.isBlank() || uiState.value.isChatLoading) return
 
         viewModelScope.launch {
+            println("[USER INPUT] $input")
             val userMessage = Content(role = "user", parts = listOf(Part(text = input)))
             _uiState.update {
                 it.copy(
@@ -498,13 +600,17 @@ class CardListViewModel(
         
         val systemPrompt = """
             Du bist Poké-Agent, ein hilfreicher Assistent für Pokémon-Karten-Sammler.
-            Deine Aufgabe ist es, Fragen zur Sammlung des Nutzers zu beantworten, indem du die bereitgestellten Tools nutzt.
             
             WICHTIGE REGELN:
-            1. Nutze IMMER 'search_sets' oder 'search_cards', bevor du Fakten behauptest. Rate nicht.
-            2. Wenn du über eine spezifische Karte sprichst und im Tool-Ergebnis eine 'imageUrl' siehst, binde sie als Markdown-Bild ein: ![Kartenname](imageUrl).
-            3. Wenn du nach dem Wert oder der Anzahl fragst, nutze 'get_inventory_stats' (für alles oder pro Set) oder 'search_cards' (für Einzelkarten).
-            4. Formatiere Preise immer als Währung (z.B. "12,50 €").
+            1. Antworte KURZ und PRÄZISE. Vermeide Begriffe wie "kaufen" oder "Kaufbestätigung". Nutze stattdessen "zur Sammlung hinzufügen" oder "hinzufügen".
+            2. Nutze IMMER 'search_sets' oder 'search_my_inventory', bevor du Fakten behauptest. Rate nicht.
+            3. Wenn du eine Karte hinzufügen möchtest, prüfe erst mit 'search_my_inventory', ob sie existiert.
+               - Falls ja: Nutze 'update_card_quantity' um NUR die Anzahl zu ändern. Du kannst den Preis einer existierenden Karte NICHT ändern.
+               - Falls nein: Nutze 'search_external_api_by_name' (optional mit set_id zum Filtern) oder 'search_external_api' und dann 'propose_add_card'.
+            4. Wenn ein Tool-Ergebnis eine 'image_url' enthält, binde sie als Markdown ein: ![Kartenname](image_url). Achte STRENG darauf, die URL-Klammer zu schließen!
+            5. Nutze Markdown-Tabellen (z.B. | Card 1 | Card 2 |) NUR, wenn du 2 oder mehr Karten NEBENEINANDER anzeigen möchtest. 
+            6. Nutze NIEMALS eine Tabelle für nur eine einzelne Karte. Zeige sie dann einfach untereinander an.
+            7. Formatiere Preise immer als Währung (z.B. "12,50 €").
         """.trimIndent()
         
         val config = AiConfig(
@@ -552,33 +658,29 @@ class CardListViewModel(
         var loopCount = 0
         val maxLoops = 10
 
-        loop@ while (loopCount < maxLoops) {
-             println("[AI LOOP] Starting iteration ${loopCount + 1}/$maxLoops")
-             
-             if (stopAfterThisResponse) {
-                 if (loopCount > 0) {
-                     println("[AI LOOP] Breaking. Stop requested.")
-                     break
-                 }
-             }
+        try {
+            loop@ while (loopCount < maxLoops) {
+                 println("[AI LOOP] Starting iteration ${loopCount + 1}/$maxLoops")
+                 
+                 val lastMsg = currentHistory.lastOrNull()
+                 val promptToUse = if (loopCount == 0 && lastMsg?.role == ChatRole.USER) lastMsg.content else ""
+                 val historyToUse = if (loopCount == 0) currentHistory.dropLast(1) else currentHistory
+                 
+                 // If we are stopping after this, don't provide tools to force a final text response
+                 val toolsToUse = if (stopAfterThisResponse) emptyList() else tools
 
-             val lastMsg = currentHistory.lastOrNull()
-             val promptToUse = if (loopCount == 0 && lastMsg?.role == ChatRole.USER) lastMsg.content else ""
-             val historyToUse = if (loopCount == 0) currentHistory.dropLast(1) else currentHistory
-             
-             var receivedToolCall: de.pantastix.project.ai.AiResponse.ToolCall? = null
-             var isFirstChunk = true
-             var fullTextAccumulator = ""
-             var fullThoughtAccumulator = ""
-             var fullThoughtSignatureAccumulator = ""
+                 var receivedToolCall: de.pantastix.project.ai.AiResponse.ToolCall? = null
+                 var isFirstChunk = true
+                 var fullTextAccumulator = ""
+                 var fullThoughtAccumulator = ""
+                 var fullThoughtSignatureAccumulator = ""
 
-             try {
-                 service.streamResponse(promptToUse, historyToUse, config, tools).collect { response ->
+                 service.streamResponse(promptToUse, historyToUse, config, toolsToUse).collect { response ->
                      when (response) {
                          is de.pantastix.project.ai.AiResponse.Text -> {
                              fullTextAccumulator += response.content
                              response.thought?.let { fullThoughtAccumulator += it }
-                             response.thoughtSignature?.let { fullThoughtSignatureAccumulator = it } // Signature is usually one-off
+                             response.thoughtSignature?.let { fullThoughtSignatureAccumulator = it }
                              
                              val newContent = Content(
                                  role = "model",
@@ -605,9 +707,7 @@ class CardListViewModel(
                              isFirstChunk = false
                          }
                          is de.pantastix.project.ai.AiResponse.ToolCall -> {
-                             // SAFETY: Ignore tools if we already marked for stop
                              if (stopAfterThisResponse || uiState.value.pendingChatActions.isNotEmpty()) {
-                                 println("[AI LOOP] AI tried to call tool ${response.toolName} despite pending confirmation. Ignoring.")
                                  return@collect 
                              }
                              response.thought?.let { fullThoughtAccumulator += it }
@@ -616,98 +716,93 @@ class CardListViewModel(
                              receivedToolCall = response
                          }
                          is de.pantastix.project.ai.AiResponse.Error -> {
-                              println("[AI ERROR CALLBACK] ${response.message}")
                               _uiState.update { it.copy(error = response.message) }
                          }
                      }
                  }
-             } catch (e: Exception) {
-                 println("[AI LOOP EXCEPTION] ${e.message}")
-                 _uiState.update { it.copy(isChatLoading = false, error = e.message) }
-                 break
-             }
-             
-             if (receivedToolCall != null) {
-                 val toolCallRes = receivedToolCall!!
-                 println("[AI EXECUTING TOOL] ${toolCallRes.toolName} with args: ${toolCallRes.parameters}")
                  
-                 // 1. Add tool call to history (CRITICAL: preserve thoughtSignature)
-                 val toolCallMsg = ChatMessage(
-                     role = ChatRole.ASSISTANT, 
-                     content = fullTextAccumulator,
-                     thoughtSignature = fullThoughtSignatureAccumulator.ifBlank { toolCallRes.thoughtSignature },
-                     toolCall = de.pantastix.project.ai.ToolCallData(name = toolCallRes.toolName, args = toolCallRes.parameters)
-                 )
-                 currentHistory = currentHistory + toolCallMsg
-                 
-                 // 2. Add tool call to UI state (Replace last message if we already showed streaming thoughts)
-                 val toolCallContent = Content(
-                     role = "model",
-                     parts = listOfNotNull(
-                         if (fullTextAccumulator.isNotBlank()) Part(text = fullTextAccumulator) else null,
-                         Part(
-                            functionCall = FunctionCall(
-                                name = toolCallRes.toolName,
-                                args = mapToJsonObject(toolCallRes.parameters)
-                            ),
-                            thoughtSignature = fullThoughtSignatureAccumulator.ifBlank { toolCallRes.thoughtSignature }
-                         )
-                     ),
-                     thought = fullThoughtAccumulator.ifBlank { null }
-                 )
-                 
-                 _uiState.update { state ->
-                     val newMessages = if (isFirstChunk) {
-                         state.chatMessages + toolCallContent
-                     } else {
-                         state.chatMessages.dropLast(1) + toolCallContent
+                 if (receivedToolCall != null) {
+                     val toolCallRes = receivedToolCall!!
+                     println("[AI EXECUTING TOOL] ${toolCallRes.toolName} with args: ${toolCallRes.parameters}")
+                     
+                     val toolCallMsg = ChatMessage(
+                         role = ChatRole.ASSISTANT, 
+                         content = fullTextAccumulator,
+                         thoughtSignature = fullThoughtSignatureAccumulator.ifBlank { toolCallRes.thoughtSignature },
+                         toolCall = de.pantastix.project.ai.ToolCallData(name = toolCallRes.toolName, args = toolCallRes.parameters)
+                     )
+                     currentHistory = currentHistory + toolCallMsg
+                     
+                     val toolCallContent = Content(
+                         role = "model",
+                         parts = listOfNotNull(
+                             if (fullTextAccumulator.isNotBlank()) Part(text = fullTextAccumulator) else null,
+                             Part(
+                                functionCall = FunctionCall(
+                                    name = toolCallRes.toolName,
+                                    args = mapToJsonObject(toolCallRes.parameters)
+                                ),
+                                thoughtSignature = fullThoughtSignatureAccumulator.ifBlank { toolCallRes.thoughtSignature }
+                             )
+                         ),
+                         thought = fullThoughtAccumulator.ifBlank { null }
+                     )
+                     
+                     _uiState.update { state ->
+                         val newMessages = if (isFirstChunk) {
+                             state.chatMessages + toolCallContent
+                         } else {
+                             state.chatMessages.dropLast(1) + toolCallContent
+                         }
+                         state.copy(chatMessages = newMessages)
                      }
-                     state.copy(chatMessages = newMessages)
+                     
+                     val tool = tools.find { it.name == toolCallRes.toolName }
+                     if (tool != null) {
+                         val toolResult = tool.execute(toolCallRes.parameters)
+                         println("[AI TOOL RESULT] $toolResult")
+                         val toolJson = try { Json.decodeFromString<JsonObject>(toolResult) } catch(e: Exception) { null }
+
+                         if (toolResult.contains("\"status\": \"proposed\"") || toolResult.contains("\"status\":\"proposed\"")) {
+                             stopAfterThisResponse = true
+                         }
+
+                         currentHistory = currentHistory + ChatMessage(
+                             role = ChatRole.TOOL, 
+                             content = toolResult, 
+                             thoughtSignature = toolCallMsg.thoughtSignature,
+                             toolResponse = ToolResponseData(name = toolCallRes.toolName, result = toolResult)
+                         )
+                         
+                         val toolResponseContent = Content(
+                             role = "function",
+                             parts = listOf(Part(
+                                 functionResponse = FunctionResponse(
+                                     name = toolCallRes.toolName,
+                                     response = toolJson ?: buildJsonObject { put("result", toolResult) }
+                                 ),
+                                 thoughtSignature = toolCallMsg.thoughtSignature
+                             ))
+                         )
+                         _uiState.update { it.copy(chatMessages = it.chatMessages + toolResponseContent) }
+                         
+                         loopCount++
+                     } else {
+                         break
+                     }
+                 } else {
+                     if (fullTextAccumulator.isNotBlank()) {
+                         println("[AI FINAL ANSWER] $fullTextAccumulator")
+                     }
+                     break 
                  }
                  
-                 val tool = tools.find { it.name == toolCallRes.toolName }
-                 if (tool != null) {
-                     val toolResult = tool.execute(toolCallRes.parameters)
-                     val toolJson = try { Json.decodeFromString<JsonObject>(toolResult) } catch(e: Exception) { null }
-
-                     // 3. Add tool response to history
-                     currentHistory = currentHistory + ChatMessage(
-                         role = ChatRole.TOOL, 
-                         content = toolResult, 
-                         thoughtSignature = toolCallMsg.thoughtSignature, // CRITICAL: Link response to same ID
-                         toolResponse = ToolResponseData(name = toolCallRes.toolName, result = toolResult)
-                     )
-                     
-                     // 4. Add tool response to UI state
-                     val toolResponseContent = Content(
-                         role = "function",
-                         parts = listOf(Part(
-                             functionResponse = FunctionResponse(
-                                 name = toolCallRes.toolName,
-                                 response = toolJson ?: buildJsonObject { put("result", toolResult) }
-                             ),
-                             thoughtSignature = toolCallMsg.thoughtSignature
-                         ))
-                     )
-                     _uiState.update { it.copy(chatMessages = it.chatMessages + toolResponseContent) }
-                     
-                     loopCount++
-                 } else {
-                     _uiState.update { it.copy(isChatLoading = false, error = "Tool not found: ${toolCallRes.toolName}") }
+                 if (loopCount >= maxLoops) {
                      break
                  }
-             } else {
-                 if (fullTextAccumulator.isNotBlank()) {
-                     println("[AI FINAL ANSWER] $fullTextAccumulator")
-                 }
-                 _uiState.update { it.copy(isChatLoading = false, currentThought = null) }
-                 break 
-             }
-             
-             if (loopCount >= maxLoops) {
-                 println("[AI LOOP LIMIT] Max iterations ($maxLoops) reached. Stopping.")
-                 _uiState.update { it.copy(isChatLoading = false, error = "Limit für automatische Korrekturen erreicht.") }
-             }
+            }
+        } finally {
+            _uiState.update { it.copy(isChatLoading = false, currentThought = null) }
         }
     }
 
@@ -991,13 +1086,15 @@ class CardListViewModel(
     fun confirmAndSaveCard(
         cardDetails: TcgDexCardResponse, languageCode: String, abbreviation: String?, price: Double?,
         cardMarketLink: String, ownedCopies: Int, notes: String?, selectedPriceSource: String?,
-        gradedCopies: List<de.pantastix.project.model.GradedCopy> = emptyList()
+        gradedCopies: List<de.pantastix.project.model.GradedCopy> = emptyList(),
+        providedEnglishDetails: TcgDexCardResponse? = null
     ) {
         viewModelScope.launch {
             setLoading(true)
-            val englishCardDetails = uiState.value.englishApiCardDetails
+            val englishCardDetails = providedEnglishDetails ?: uiState.value.englishApiCardDetails
 
             if (englishCardDetails == null && languageCode != CardLanguage.ENGLISH.code) {
+                println("ERROR: English card details missing for ${cardDetails.name} (${cardDetails.id})")
                 _uiState.update { it.copy(error = "Konnte englische Kartendetails nicht abrufen.") }
                 setLoading(false)
                 return@launch
@@ -1337,7 +1434,7 @@ class CardListViewModel(
         setsCollectionJob?.cancel()
         setsCollectionJob = activeCardRepository.getAllSets()
             .onEach { setsFromDb ->
-                _uiState.update { it.copy(sets = setsFromDb.sortedBy { it.id }) }
+                _uiState.update { it.copy(sets = setsFromDb.sortedByDescending { it.releaseDate }) }
             }
             .launchIn(viewModelScope)
     }

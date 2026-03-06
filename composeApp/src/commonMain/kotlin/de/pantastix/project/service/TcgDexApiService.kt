@@ -82,13 +82,13 @@ class TcgDexApiService(
                 SetInfo(
                     id = index,
                     setId = enSet.id!!,
-                    abbreviation = null,
+                    abbreviation = enSet.abbreviation?.official,
                     nameLocal = normalizedLocalName,
                     nameEn = normalizedEnName,
                     logoUrl = localSet?.logo ?: localSet?.symbol ?: enSet.logo ?: enSet.symbol,
                     cardCountOfficial = localSet?.cardCount?.official ?: enSet.cardCount?.official ?: 0,
                     cardCountTotal = localSet?.cardCount?.total ?: enSet.cardCount?.total ?: 0,
-                    releaseDate = null
+                    releaseDate = enSet.releaseDate
                 )
             }
         } catch (e: Exception) {
@@ -131,13 +131,13 @@ class TcgDexApiService(
             SetInfo(
                 id = index,
                 setId = set.id!!,
-                abbreviation = null,
+                abbreviation = set.abbreviation?.official,
                 nameLocal = name,
                 nameEn = name,
                 logoUrl = set.logo ?: set.symbol,
                 cardCountOfficial = set.cardCount?.official ?: 0,
                 cardCountTotal = set.cardCount?.total ?: 0,
-                releaseDate = null
+                releaseDate = set.releaseDate
             )
         }
     }
@@ -191,6 +191,23 @@ class TcgDexApiService(
         } catch (e: Exception) {
             println("Fehler bei getSetDetails für $language/$setId: ${e.message}")
             null
+        }
+    }
+
+    override suspend fun searchCardsByName(name: String, language: String, setId: String?): List<TcgDexCardSearchResult> {
+        return try {
+            val results = client.get("$baseUrl/$language/cards") {
+                parameter("name", name)
+            }.body<List<TcgDexCardSearchResult>>()
+            
+            if (setId != null) {
+                results.filter { it.id.startsWith("$setId-") }
+            } else {
+                results
+            }
+        } catch (e: Exception) {
+            println("Fehler bei searchCardsByName für $name (Set: $setId): ${e.message}")
+            emptyList()
         }
     }
 
