@@ -144,6 +144,9 @@ SELECT * FROM PortfolioSnapshotItem WHERE date = ?;
 deleteSnapshot:
 DELETE FROM PortfolioSnapshot WHERE date = ?;
 
+deleteSnapshotItemsByDate:
+DELETE FROM PortfolioSnapshotItem WHERE date = ?;
+
 
 selectAllCardInfos:
 SELECT

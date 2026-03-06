@@ -1150,6 +1150,7 @@ class CardListViewModel(
                 setLoading(true)
                 activeCardRepository.deleteCardById(cardId)
                 loadCardInfos()
+                createDailySnapshot()
                 clearSelectedCard()
                 setLoading(false)
             }

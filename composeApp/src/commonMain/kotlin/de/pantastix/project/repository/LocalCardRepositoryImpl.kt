@@ -42,7 +42,10 @@ class LocalCardRepositoryImpl(
         withContext(ioDispatcher) {
             queries.transaction {
                 sets.forEach { setInfo ->
-                    val existingAbbr = queries.selectSetById(setInfo.setId).executeAsOneOrNull()?.abbreviation
+                    val existingSet = queries.selectSetById(setInfo.setId).executeAsOneOrNull()
+                    val existingAbbr = existingSet?.abbreviation
+                    val existingReleaseDate = existingSet?.releaseDate
+                    
                     queries.insertOrReplaceSet(
                         id = setInfo.id.toLong(),
                         setId = setInfo.setId,
@@ -52,7 +55,7 @@ class LocalCardRepositoryImpl(
                         logoUrl = setInfo.logoUrl,
                         cardCountOfficial = setInfo.cardCountOfficial.toLong(),
                         cardCountTotal = setInfo.cardCountTotal.toLong(),
-                        releaseDate = setInfo.releaseDate
+                        releaseDate = existingReleaseDate ?: setInfo.releaseDate
                     )
                 }
             }
@@ -396,6 +399,7 @@ class LocalCardRepositoryImpl(
     ) {
         withContext(ioDispatcher) {
             queries.transaction {
+                queries.deleteSnapshotItemsByDate(snapshot.date)
                 queries.insertSnapshot(
                     date = snapshot.date,
                     totalValue = snapshot.totalValue,
