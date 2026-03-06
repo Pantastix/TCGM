@@ -11,10 +11,10 @@ actual fun getAppVersion(): String {
         @Suppress("DEPRECATION")
         val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
 
-        val versionName = packageInfo.versionName ?: "1.0.0"
+        val versionName = packageInfo.versionName ?: "1.1.0"
 
         versionName
     } catch (e: Exception) {
-        "Unknown (Android)"
+        "Unknown (Android) 1.1.0"
     }
 }

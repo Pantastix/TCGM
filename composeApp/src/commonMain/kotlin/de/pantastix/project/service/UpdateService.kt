@@ -62,7 +62,7 @@ object UpdateChecker {
         }
     }
 
-    // Simple Funktion zum Vergleichen von Versionen (z.B. "1.1.0" > "1.0.0")
+    // Simple Funktion zum Vergleichen von Versionen (z.B. "1.2.0" > "1.1.0")
     private fun isNewerVersion(latest: String, current: String): Boolean {
         val latestParts = latest.split('.').map { it.toInt() }
         val currentParts = current.split('.').map { it.toInt() }

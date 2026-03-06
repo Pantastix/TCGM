@@ -8,13 +8,15 @@ Whether you're managing your collection locally or syncing it to your own privat
 
 ## Key Features
 - **Effortless Card Management:** Easily add, edit, and manage cards in your digital inventory.
+- **AI-Powered Poké-Agent:** Chat with your collection! Ask questions like "How much is my Charizard collection worth?" or "Which rare cards am I missing from the Base Set?".
+- **Advanced Analytics:** Detailed visualization of price trends and collection growth through interactive charts and portfolio snapshots.
 - **Always Up-to-Date:** Card and set information is kept current thanks to the live TCGdex API.
 - **Flexible Data Storage:**
-  - Store your collection locally on your device.
+  - Store your collection locally on your device (SQLDelight).
   - Connect to your own free Supabase instance for cloud synchronization across multiple devices.
 - **Direct Cardmarket Integration:** Automatically generates Cardmarket links for quick access to product pages.
-- **Multi-Language Support:** Full support for English and German (with more languages in progress).
-- **Auto-Updater (Desktop):** The desktop application automatically checks for new versions on startup and offers a seamless update process.
+- **Multi-Language Support:** Full support for English and German.
+- **Auto-Updater (Desktop):** The desktop application automatically checks for new versions on startup and offers a seamless update process via a dedicated background updater.
 
 ## Supported Platforms
 You can download and use TCGM on the following platforms:
@@ -27,22 +29,13 @@ Find the latest installers on our [GitHub Releases Page](https://github.com/Pant
 
 ## Roadmap
 Here are some of the features planned for future releases:
-- 📊 Valuation Tool: A dedicated screen to calculate and visualize the total value of your collection.
-- 📄 Export Functionality: Export your collection data to CSV and PDF formats for easy sharing and archiving.
+- 🔍 **Global Card Search:** Search for any card in the Pokémon TCG universe, even those not yet in your collection.
+- 📱 **Enhanced Mobile Experience:** Further optimization for the Android version.
 
-## Building From Source (For Developers)
-Getting the project up and running locally is straightforward.
+## Disclaimer
+**This project is not affiliated with, sponsored by, or endorsed by The Pokémon Company, Nintendo, Creatures Inc., or Game Freak.** Pokémon and Pokémon character names are trademarks of Nintendo. 
 
-### Prerequisites
-- JDK 21: Ensure you have the Java Development Kit version 21 installed.
-### Setup
-1. Clone the repository:
-```
-git clone https://github.com/Pantastix/TCGM.git
-```
-2. Open the project in IntelliJ IDEA.
-3. Let Gradle sync the dependencies.
-4. Run the `desktopRun` Gradle task to start the desktop application.
+Data is provided by the excellent [TCGdex API](https://www.tcgdex.net/), an open-source project dedicated to the Pokémon TCG.
 
 ## License
 This project is currently proprietary. Please check back later for updates on licensing.

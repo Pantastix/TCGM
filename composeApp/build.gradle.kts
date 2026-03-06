@@ -24,26 +24,7 @@ kotlin {
         }
     }
 
-    // Desktop-Ziel
     jvm("desktop")
-
-    // Deaktivierte Ziele (können später wieder aktiviert werden)
-    /*
-    listOf(
-        iosX64(),
-        iosArm64(),
-        iosSimulatorArm64()
-    ).forEach { iosTarget ->
-        iosTarget.binaries.framework {
-            baseName = "ComposeApp"
-            isStatic = true
-        }
-    }
-    wasmJs {
-        moduleName = "composeApp"
-        browser()
-    }
-    */
 
     sourceSets {
         val desktopMain by getting
