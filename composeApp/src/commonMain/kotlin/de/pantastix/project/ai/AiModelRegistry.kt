@@ -29,6 +29,10 @@ object AiModelRegistry {
 
     fun resolveStrategy(modelId: String, provider: AiProviderType): AiWorkflowStrategy? {
         if (provider == AiProviderType.GEMINI_CLOUD) {
+             // Gemma 4 Specific Strategy (Supports Native Tools + Special Thinking Channel)
+             if (Regex("""^(models/)?gemma-4.*""", RegexOption.IGNORE_CASE).matches(modelId)) {
+                 return Gemma4NativeStrategy()
+             }
              // Gemma 3 Specific Strategy
              if (Regex("""^(models/)?gemma-3.*""", RegexOption.IGNORE_CASE).matches(modelId)) {
                  return Gemma3ReasoningStrategy()
@@ -40,6 +44,9 @@ object AiModelRegistry {
         }
         
         if (provider == AiProviderType.OLLAMA_LOCAL) {
+            if (Regex("""gemma-4.*""", RegexOption.IGNORE_CASE).matches(modelId)) {
+                return Gemma4OllamaStrategy()
+            }
             if (Regex("""^gpt-oss.*""", RegexOption.IGNORE_CASE).matches(modelId)) {
                 return GptOssStrategy()
             }
@@ -75,6 +82,13 @@ object AiModelRegistry {
     val families = listOf(
         // GEMINI CLOUD
         ModelFamilyDefinition(
+            id = "gemma-4-cloud",
+            displayName = "Gemma 4 (Cloud)",
+            category = ModelCategory.GEMINI_CLOUD,
+            modelIdPattern = Regex("""^(models/)?gemma-4.*""", RegexOption.IGNORE_CASE),
+            modelComparator = gemmaParamComparator
+        ),
+        ModelFamilyDefinition(
             id = "gemini-3-flash",
             displayName = "Gemini 3 Flash",
             category = ModelCategory.GEMINI_CLOUD,
@@ -108,6 +122,13 @@ object AiModelRegistry {
         ),
 
         // OLLAMA LOCAL
+        ModelFamilyDefinition(
+            id = "gemma-4-local",
+            displayName = "Gemma 4 (Local)",
+            category = ModelCategory.OLLAMA_LOCAL,
+            modelIdPattern = Regex("""gemma-4.*""", RegexOption.IGNORE_CASE),
+            modelComparator = gemmaParamComparator
+        ),
         ModelFamilyDefinition(
             id = "gemma-3-local",
             displayName = "Gemma 3 (Local)",

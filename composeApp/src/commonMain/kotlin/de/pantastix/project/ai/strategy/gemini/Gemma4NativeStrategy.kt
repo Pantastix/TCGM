@@ -9,25 +9,31 @@ import de.pantastix.project.model.gemini.AiModel as ApiModel
 import kotlinx.serialization.json.*
 
 /**
- * Strategy for Native Gemini models (Flash, Pro).
- * FIXED: 
- * - Returns Deltas in stream to prevent doubling.
- * - Handles thoughts correctly in history without triggering 400 Bad Request.
+ * Strategy for Gemma 4 Cloud models.
+ * Supports:
+ * - Native Function Calling (Gemini API compatible)
+ * - Native Thinking Field ("thought": true in JSON parts)
+ * - Thinking Activation: <|think|> in system prompt
  */
-class GeminiNativeStrategy : AiWorkflowStrategy {
+class Gemma4NativeStrategy : AiWorkflowStrategy {
     override val providerType = AiProviderType.GEMINI_CLOUD
-    override val modelIdRegex = Regex("""^(models/)?gemini-(3|1\.5|2\.0).*""", RegexOption.IGNORE_CASE)
+    override val modelIdRegex = Regex("""^(models/)?gemma-4.*""", RegexOption.IGNORE_CASE)
 
     private val json = Json { 
         ignoreUnknownKeys = true 
-        encodeDefaults = false // CRITICAL: Do not send null fields like thought_signature
+        encodeDefaults = false
     }
 
     override fun createUiModel(apiModelData: Any): de.pantastix.project.ai.AiModel {
         val apiModel = apiModelData as ApiModel
+        val name = apiModel.name
+        val sizeRegex = Regex("""(\d+b)""", RegexOption.IGNORE_CASE)
+        val match = sizeRegex.find(name)
+        val size = match?.value?.lowercase() ?: "Unknown"
+
         return de.pantastix.project.ai.AiModel(
-            id = apiModel.name,
-            displayName = apiModel.displayName,
+            id = name,
+            displayName = "Gemma 4 ($size)",
             provider = AiProviderType.GEMINI_CLOUD,
             capabilities = setOf(AiCapability.NATIVE_TOOL_CALLING, AiCapability.TEXT_GENERATION)
         )
@@ -39,38 +45,29 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
         config: AiConfig,
         availableTools: List<AgentTool>
     ): StrategyRequest {
-        val modelId = config.selectedModelId ?: ""
-        val isReasoningModel = modelId.contains("gemini-3", ignoreCase = true) || 
-                              modelId.contains("thinking", ignoreCase = true)
-        
         val contents = mutableListOf<Content>()
         
         contents.addAll(chatHistory.map { msg ->
             val role = when (msg.role) {
                 ChatRole.USER -> "user"
-                ChatRole.TOOL -> {
-                    // Gemini 3 / v1alpha often rejects 'function' role.
-                    // 'user' is the safest fallback for external tool results.
-                    if (isReasoningModel) "user" else "function"
-                }
+                ChatRole.TOOL -> "function"
                 else -> "model"
             }
 
             val parts = mutableListOf<Part>()
 
-            // 1. Add Thought (as separate part for Gemini 2.0+ if it's not a signature for a tool)
-            if (!msg.thoughtSignature.isNullOrBlank() && msg.toolCall == null) {
-                parts.add(Part(text = msg.thoughtSignature, thought = true))
+            // Add Thought if present in history
+            if (!msg.thought.isNullOrBlank()) {
+                parts.add(Part(text = msg.thought, thought = true))
             }
 
-            // 2. Add content/tool data
             if (msg.toolCall != null) {
                 parts.add(Part(
                     functionCall = FunctionCall(
                         name = msg.toolCall.name, 
                         args = mapToJsonObject(msg.toolCall.args)
                     ),
-                    thoughtSignature = msg.thoughtSignature // CRITICAL: Link to functionCall part
+                    thoughtSignature = msg.thoughtSignature
                 ))
             } else if (msg.toolResponse != null) {
                 val jsonResponse = try {
@@ -103,17 +100,21 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
             }
         }
 
-        val generationConfig = if (isReasoningModel) {
-            GenerationConfig(thinkingConfig = ThinkingConfig(includeThoughts = true))
-        } else null
+        // Activate thinking with <|think|> and recommended sampling
+        val baseSystemInstruction = config.systemInstruction ?: "You are a helpful assistant."
+        val systemInstructionWithThink = "<|think|>\n$baseSystemInstruction"
         
-        val systemContent = config.systemInstruction?.let { 
-            Content(role = "system", parts = listOf(Part(text = it)))
-        }
+        val systemContent = Content(role = "system", parts = listOf(Part(text = systemInstructionWithThink)))
+
+        val generationConfig = GenerationConfig(
+            temperature = 1.0,
+            topP = 0.95,
+            topK = 64
+        )
 
         return StrategyRequest(
             body = GenerateContentRequest(contents, tools, toolConfig, systemContent, generationConfig),
-            apiVersion = if (isReasoningModel) "v1alpha" else "v1beta" 
+            apiVersion = "v1beta"
         )
     }
 
@@ -129,7 +130,7 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
                 .joinToString("\n") { it.text ?: "" }
                 .trim()
                 
-            val combinedThought = when {
+            var combinedThought = when {
                 !nativeThought.isNullOrBlank() -> nativeThought
                 partsMarkedAsThought.isNotBlank() -> partsMarkedAsThought
                 else -> null
@@ -152,19 +153,32 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
 
                 val finalThought = if (combinedThought == null && otherText.isNotBlank()) otherText else combinedThought
                 
-                return AiResponse.ToolCall(toolPart.functionCall.name, args, finalThought, signature)
+                // Final Check: Extra stripping for Gemma specific tokens if they still leaked in
+                val (taggedThought, cleanThought) = extractGemma4Thought(finalThought ?: "")
+                return AiResponse.ToolCall(toolPart.functionCall.name, args, taggedThought ?: cleanThought.takeIf { it.isNotBlank() }, signature)
             }
             
             // 3. Regular Text Response
-            val mainText = candidate.content.parts
+            val fullText = candidate.content.parts
                 .filter { it.text != null && !it.thought }
                 .joinToString("\n") { it.text!! }
                 .trim()
 
-            return AiResponse.Text(mainText, combinedThought, signature)
+            val (taggedThought, cleanText) = extractGemma4Thought(fullText)
+            val finalThought = if (combinedThought.isNullOrBlank()) taggedThought else combinedThought
+
+            return AiResponse.Text(cleanText, finalThought, signature)
         } catch (e: Exception) {
             return AiResponse.Error("Parse Error: ${e.message}")
         }
+    }
+
+    private fun extractGemma4Thought(text: String): Pair<String?, String> {
+        val thoughtRegex = Regex("""<\|channel>thought\n?(.*?)<channel\|>""", RegexOption.DOT_MATCHES_ALL)
+        val match = thoughtRegex.find(text)
+        val thought = match?.groupValues?.get(1)?.trim()
+        val content = text.replace(thoughtRegex, "").trim()
+        return thought to content
     }
 
     override fun parseStreamChunk(chunk: String, buffer: StringBuilder): List<AiResponse> {
@@ -180,19 +194,18 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
             
             val events = mutableListOf<AiResponse>()
 
-            // Handle native thinking field if it exists in this chunk
+            // A. Handle native thinking field
             val nativeThought = contentObj?.get("thought")?.jsonPrimitive?.content
             if (!nativeThought.isNullOrBlank()) {
                 events.add(AiResponse.Text(content = "", thought = nativeThought))
             }
 
+            // B. Handle parts
             val partsArray = contentObj?.get("parts")?.jsonArray
             partsArray?.forEach { partElement ->
                 val partObj = partElement.jsonObject
-                val manualSignature = partObj["thoughtSignature"]?.jsonPrimitive?.content 
-                    ?: partObj["thought_signature"]?.jsonPrimitive?.content
-
-                // Check for function call
+                
+                // 1. Tool Call
                 val functionCall = partObj["functionCall"]?.jsonObject
                 if (functionCall != null) {
                     val name = functionCall["name"]?.jsonPrimitive?.content ?: ""
@@ -200,33 +213,39 @@ class GeminiNativeStrategy : AiWorkflowStrategy {
                         if (it.value is JsonPrimitive) it.value.jsonPrimitive.content else it.value.toString()
                     } ?: emptyMap()
                     
-                    events.add(AiResponse.ToolCall(
-                        toolName = name,
-                        parameters = args,
-                        thought = null,
-                        thoughtSignature = manualSignature
-                    ))
+                    // Heuristic: pending text in buffer is thought
+                    if (buffer.isNotBlank()) {
+                        events.add(AiResponse.Text(content = "", thought = buffer.toString().trim()))
+                        buffer.setLength(0)
+                    }
+                    
+                    events.add(AiResponse.ToolCall(name, args))
+                    return@forEach
                 }
 
-                // Check for text
-                val text = partObj["text"]?.jsonPrimitive?.content
-                if (text != null) {
-                    if (text.contains("Calling tool:") || text.contains("default_api")) return@forEach
-
-                    val isThought = partObj["thought"]?.jsonPrimitive?.booleanOrNull ?: false
-                    if (isThought) {
-                        events.add(AiResponse.Text(content = "", thought = text, thoughtSignature = manualSignature))
+                // 2. Text / Thought
+                val text = partObj["text"]?.jsonPrimitive?.content ?: return@forEach
+                val isThought = partObj["thought"]?.jsonPrimitive?.booleanOrNull ?: false
+                
+                if (isThought) {
+                    events.add(AiResponse.Text(content = "", thought = text))
+                } else {
+                    // Manual Token Check (Gemma 4 fallbacks)
+                    if (text.contains("<|channel>thought")) {
+                        // This logic is simplified for streaming; complex token splitting 
+                        // could be added if tokens actually appear in native parts.
+                        // For now, we trust "thought": true as seen in the logs.
+                        events.add(AiResponse.Text(content = "", thought = text.replace("<|channel>thought", "").replace("<channel|>", "").trim()))
                     } else {
-                        events.add(AiResponse.Text(content = text, thought = null, thoughtSignature = manualSignature))
+                        events.add(AiResponse.Text(content = text))
                     }
                 }
             }
-            
             return events
-        } catch (e: Exception) { }
+        } catch (e: Exception) {}
         return emptyList()
     }
-    
+
     private fun mapToJsonObject(map: Map<String, Any?>): JsonObject {
         return buildJsonObject {
             map.forEach { (k, v) ->

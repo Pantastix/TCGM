@@ -135,6 +135,7 @@ class GeminiCloudService(private val client: HttpClient) : AiService {
                         if (line.isNotBlank()) {
                             if (line.startsWith("data: ")) {
                                 val jsonPart = line.substring(6)
+                                println("\n[RAW CHUNK] $jsonPart\n")
                                 
                                 // Try to extract text for readable debug log
                                 try {
